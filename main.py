@@ -18,3 +18,12 @@ backtest_initial_cash回测初始资金
 backtest_commission_ratio回测佣金比例
 backtest_slippage_ratio回测滑点比例
 """
+
+if __name__ == "__main__":
+    run(
+        strategy_id=os.environ.get("strategy_id", None),
+        filename="main.py",
+        mode=MODE_LIVE,
+        token=os.environ.get("token", None),
+    )
+
