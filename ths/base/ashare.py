@@ -34,7 +34,7 @@ def get_history_n_sina(symbol, frequency="1d", count=10):
     # df_sina.index.rename(name="datetime", inplace=True)  # 索引改名
     # df_sina.index.name = ""  # 索引改名
     df_sina = df_sina.applymap(func=float)
-    df_sina = df_sina.reindex(labels=["open", "close", "high", "low", "volume"], axis=1)
+    df_sina = df_sina.reindex(labels=["open", "close", "high", "low", "volume"], axis=1)  # 重新排序所有列
     df_sina["volume"] = df_sina["volume"].apply(func=lambda x: round(x, -2)//100)
     return df_sina
 
@@ -47,6 +47,8 @@ def get_history_n_tx(symbol, frequency="1d", count=10):
     :param frequency: default "1d",options["1d", "1w", "1M"]
     :return:
     """
+    if frequency not in ["1d", "1w", "1M"]:
+        frequency = "1d"
     frq_map = {"1d": "day",
                "1w": "week",
                "1M": "month",
@@ -77,6 +79,8 @@ def get_history_n_min_tx(symbol, frequency="5m", count=10):  # 分钟线获取
     :param frequency: default "5m",options["1m", "5m", "15m","30m", "60m"]
     :return:
     """
+    if frequency not in ["1m", "5m", "15m", "30m", "60m"]:
+        frequency = "5m"
     frq_map = {"1m": "m1",
                "5m": "m5",
                "15m": "m15",
