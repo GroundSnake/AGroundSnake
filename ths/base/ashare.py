@@ -1,6 +1,9 @@
 # -*- coding:utf-8 -*-
+from __future__ import annotations
+import re
 import random
 import requests
+import datetime
 import pandas as pd
 
 
@@ -121,10 +124,97 @@ def history_n(symbol, frequency="1d", count=10):
         return None
 
 
+def realtime_quotations(stock_codes: str | list):
+    """
+    http://qt.gtimg.cn/q=sh600519,sz002621
+    :return:
+    """
+    grep_stock_code = re.compile(r"(?<=_)\w+")
+    if not isinstance(stock_codes, list):
+        stock_codes = [stock_codes]
+    str_stocks = ",".join(stock_codes)
+    url = "http://qt.gtimg.cn/q="
+    url = url + str_stocks
+    rs = requests.get(url)
+    rep_data = rs.text
+    stocks_detail = "".join(rep_data)
+    stock_details = stocks_detail.split(";")
+    stock_dict = dict()
+    for stock_detail in stock_details:
+        stock = stock_detail.split("~")
+        if len(stock) <= 49:
+            continue
+        stock_code = grep_stock_code.search(stock[0]).group()
+        stock_dict[stock_code] = {
+            "name": stock[1],
+            "code": stock_code,
+            "close": float(stock[3]),
+            "pre_close": float(stock[4]),
+            "open": float(stock[5]),
+            "volume": float(stock[6]) * 100,
+            "bid_volume": int(stock[7]) * 100,
+            "ask_volume": float(stock[8]) * 100,
+            "bid1": float(stock[9]),
+            "bid1_volume": int(stock[10]) * 100,
+            "bid2": float(stock[11]),
+            "bid2_volume": int(stock[12]) * 100,
+            "bid3": float(stock[13]),
+            "bid3_volume": int(stock[14]) * 100,
+            "bid4": float(stock[15]),
+            "bid4_volume": int(stock[16]) * 100,
+            "bid5": float(stock[17]),
+            "bid5_volume": int(stock[18]) * 100,
+            "ask1": float(stock[19]),
+            "ask1_volume": int(stock[20]) * 100,
+            "ask2": float(stock[21]),
+            "ask2_volume": int(stock[22]) * 100,
+            "ask3": float(stock[23]),
+            "ask3_volume": int(stock[24]) * 100,
+            "ask4": float(stock[25]),
+            "ask4_volume": int(stock[26]) * 100,
+            "ask5": float(stock[27]),
+            "ask5_volume": int(stock[28]) * 100,
+            "tick": stock[29],
+            "datetime": datetime.datetime.strptime(stock[30], "%Y%m%d%H%M%S"),
+            "change": float(stock[31]),
+            "pct_chg": float(stock[32]),
+            "high": float(stock[33]),
+            "low": float(stock[34]),
+            "price/volume/amount": stock[35],
+            "volume": int(stock[36]) * 100,
+            "amount": float(stock[37]) * 10000,
+            "turnover": float(stock[38]),
+            "pe_ttm": float(stock[39]),
+            "unknown": stock[40],
+            "high_2": float(stock[41]),  # 意义不明
+            "low_2": float(stock[42]),  # 意义不明
+            "amplitude": float(stock[43]),
+            "circ_mv": float(stock[44]),
+            "total_mv": float(stock[45]),
+            "PB": float(stock[46]),
+            "up_limit": float(stock[47]),
+            "down_limit": float(stock[48]),
+            "volume_ratio": float(stock[49]),
+            "weicha": float(stock[50]),
+            "ma": float(stock[51]),
+            "unknown": float(stock[52]),
+            "pe": float(stock[53]),
+        }
+    return stock_dict
+
+
 if __name__ == "__main__":
+    list_stock = ["sh600519", "sz002621"]
+    # list_stock = "sh600519"
+    a = realtime_quotations(stock_codes=list_stock)
+    a = pd.DataFrame(a).T
+    print(a)
+
+    """
     import sys
     from loguru import logger
     logger.remove()
     logger.add(sink=sys.stderr, level="TRACE")  # "TRACE","DEBUG","INFO"
-    test = history_n(symbol="sz002621", frequency="5m")
+    test = history_n(symbol="sz002621", frequency="1m")
     logger.trace(f"002621\n{test}")
+    """
