@@ -7,6 +7,12 @@ import datetime
 import pandas as pd
 
 
+headers = {
+        "Accept-Encoding": "gzip, deflate, sdch",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36",
+    }
+
+
 def get_history_n_sina(symbol, frequency="1d", count=10):
     """
     http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600519&scale=5&ma=5&datalen=1
@@ -58,7 +64,7 @@ def get_history_n_tx(symbol, frequency="1d", count=10):
                }
     frequency = frq_map.get(frequency, "day")
     url_qq = f"http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={symbol},{frequency},,,{count},qfq"
-    rs = requests.get(url_qq)
+    rs = requests.get(url=url_qq, headers=headers)
     data = rs.json()
     data = data["data"][symbol]
     adjust = "qfq" + frequency
@@ -92,7 +98,7 @@ def get_history_n_min_tx(symbol, frequency="5m", count=10):  # 分钟线获取
                }
     frequency = frq_map.get(frequency, "5m")
     url_qq = f"http://ifzq.gtimg.cn/appstock/app/kline/mkline?param={symbol},{frequency},,{count}"
-    rs = requests.get(url_qq)
+    rs = requests.get(url=url_qq, headers=headers)
     data = rs.json()
     data = data["data"][symbol][frequency]
     df_qq = pd.DataFrame(data)  # , columns=["time", "open", "close", "high", "low", "volume", "n1", "n2"]
@@ -135,7 +141,7 @@ def realtime_quotations(stock_codes: str | list):
     str_stocks = ",".join(stock_codes)
     url = "http://qt.gtimg.cn/q="
     url = url + str_stocks
-    rs = requests.get(url)
+    rs = requests.get(url=url, headers=headers)
     rep_data = rs.text
     stocks_detail = "".join(rep_data)
     stock_details = stocks_detail.split(";")
@@ -204,17 +210,22 @@ def realtime_quotations(stock_codes: str | list):
 
 
 if __name__ == "__main__":
-    list_stock = ["sh600519", "sz002621"]
-    # list_stock = "sh600519"
-    a = realtime_quotations(stock_codes=list_stock)
-    a = pd.DataFrame(a).T
-    print(a)
-
-    """
     import sys
     from loguru import logger
     logger.remove()
     logger.add(sink=sys.stderr, level="TRACE")  # "TRACE","DEBUG","INFO"
-    test = history_n(symbol="sz002621", frequency="1m")
-    logger.trace(f"002621\n{test}")
-    """
+    list_stock = ["sh600519", "sz002621"]
+    str_stock = "sh600519"
+    test = realtime_quotations(stock_codes=list_stock)
+    test = pd.DataFrame(test).T
+    logger.trace(f"realtime_quotations\n{test}")
+    test = history_n(symbol=str_stock, frequency="1m")
+    logger.trace(f"history_n\n{test}")
+    test = get_history_n_tx(symbol=str_stock, frequency="1d", count=10)
+    logger.trace(f"get_history_n_tx\n{test}")
+    test = get_history_n_sina(symbol=str_stock, frequency="1d", count=10)
+    logger.trace(f"get_history_n_sina\n{test}")
+    test = get_history_n_min_tx(symbol=str_stock, frequency="5m", count=10)
+    logger.trace(f"get_history_n_min_tx\n{test}")
+
+
