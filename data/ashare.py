@@ -181,7 +181,7 @@ def realtime_quotations(stock_codes: str | list):
             "high": float(stock[33]),
             "low": float(stock[34]),
             "price/volume/amount": stock[35],
-            "volume": int(stock[36]) * 100,
+            "volume_2": int(stock[36]) * 100,
             "amount": float(stock[37]) * 10000,
             "turnover": float(stock[38]),
             "pe_ttm": float(stock[39]),
@@ -197,7 +197,7 @@ def realtime_quotations(stock_codes: str | list):
             "volume_ratio": float(stock[49]),
             "weicha": float(stock[50]),
             "ma": float(stock[51]),
-            "unknown": float(stock[52]),
+            "unknown_2": float(stock[52]),
             "pe": float(stock[53]),
         }
     return stock_dict
