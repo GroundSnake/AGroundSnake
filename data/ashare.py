@@ -76,7 +76,7 @@ def get_history_n_sina(symbol, frequency="1d", count=10):
     df_sina = df_sina.reindex(
         labels=["open", "close", "high", "low", "volume"], axis=1
     )  # 重新排序所有列
-    df_sina["volume"] = df_sina["volume"].apply(func=lambda x: round(x, -2) // 100)n
+    df_sina["volume"] = df_sina["volume"].apply(func=lambda x: round(x, -2) // 100)
     return df_sina
 
 
