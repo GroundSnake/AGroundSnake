@@ -5,6 +5,7 @@ import random
 import requests
 import datetime
 import pandas as pd
+from loguru import logger
 
 
 headers = {
@@ -13,7 +14,7 @@ headers = {
 }
 
 
-def get_stock_type(stock_code):
+def get_stock_type(stock_code: str):
     """判断股票ID对应的证券市场
     匹配规则
     ['50', '51', '60', '90', '110'] 为 sh
@@ -43,7 +44,7 @@ def get_stock_type(stock_code):
         return "sh" if stock_code.startswith(sh_head) else "sz"
 
 
-def get_history_n_sina(symbol, frequency="1d", count=10):
+def get_history_n_sina(symbol: str, frequency: str = "1d", count: int = 10):
     """
     http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600519&scale=5&ma=5&datalen=1
     :param symbol: eg."sh600519"
@@ -80,7 +81,7 @@ def get_history_n_sina(symbol, frequency="1d", count=10):
     return df_sina
 
 
-def get_history_n_tx(symbol, frequency="1d", count=10):
+def get_history_n_tx(symbol: str, frequency: str = "1d", count: int = 10):
     """
     https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh600519,day,2022-09-01,2022-10-10,10,qfq
     :param symbol:
@@ -124,7 +125,7 @@ def get_history_n_tx(symbol, frequency="1d", count=10):
     return df_qq
 
 
-def get_history_n_min_tx(symbol, frequency="5m", count=10):  # 分钟线获取
+def get_history_n_min_tx(symbol: str, frequency: str = "5m", count: int = 10):  # 分钟线获取
     """
     :param symbol:
     :param count:
@@ -390,8 +391,9 @@ def stock_zh_a_spot_qq(stock_codes: str | list) -> pd.DataFrame:
     return df_temp
 
 
-def history_n(symbol, frequency="1d", count=10):
+def history_n(symbol: str, frequency: str = "1d", count: int = 10) -> pd.DataFrame | None:
     source = random.choice(["sina", "tencent"])  # 随机选择数据源，防ban
+    logger.trace(f"choice source {source}")
     if frequency in ["1d", "1w", "1M"]:  # 1d日线  1w周线  1M月线
         if source == "sina":
             return get_history_n_sina(symbol=symbol, frequency=frequency, count=count)
@@ -411,36 +413,33 @@ def history_n(symbol, frequency="1d", count=10):
 
 
 def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
+    pattern_stock = re.compile(r"\d+")
+    if not isinstance(stock_codes, list):
+        stock_codes = [stock_codes]
+    count = len(stock_codes)
+    i = 0
+    while i < count:
+        symbol = pattern_stock.search(stock_codes[i]).group()
+        if len(symbol) == 6:
+            stock_codes[i] = get_stock_type(symbol) + symbol
+            i += 1
+        else:
+            logger.error(f"remove {stock_codes[i]}")
+            stock_codes.remove(stock_codes[i])
+            count -= 1
+    stock_codes = list(set(stock_codes))
     source = random.choice(("em", "qq"))  # 随机选择数据源，防ban
+    logger.trace(f"choice source {source}")
     if source == "em":
         return stock_zh_a_spot_em(stock_codes=stock_codes)
     elif source == "qq":
         return stock_zh_a_spot_qq(stock_codes=stock_codes)
     else:
+        logger.error(f"realtime_quotations return None")
         return None
 
 
 """
 if __name__ == "__main__":
-    import sys
-    from loguru import logger
-    logger.remove()
-    logger.add(sink=sys.stderr, level="TRACE")  # "TRACE","DEBUG","INFO"
-    list_stock = ["sh600519", "sz002621"]
-    str_stock = "sh600519"
-    df = stock_zh_a_spot_em(stock_codes=list_stock)
-    print(df)
-
-
-    test = realtime_quotations(stock_codes=list_stock)
-    test = pd.DataFrame(test).T
-    logger.trace(f"realtime_quotations\n{test}")
-    test = history_n(symbol=str_stock, frequency="1m")
-    logger.trace(f"history_n\n{test}")
-    test = get_history_n_tx(symbol=str_stock, frequency="1d", count=10)
-    logger.trace(f"get_history_n_tx\n{test}")
-    test = get_history_n_sina(symbol=str_stock, frequency="1d", count=10)
-    logger.trace(f"get_history_n_sina\n{test}")
-    test = get_history_n_min_tx(symbol=str_stock, frequency="5m", count=10)
-    logger.trace(f"get_history_n_min_tx\n{test}")
+    pass
 """
