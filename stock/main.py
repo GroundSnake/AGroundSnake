@@ -19,17 +19,17 @@ dt_am_start = datetime.datetime.combine(dt_date, time_am_start)
 dt_am_end = datetime.datetime.combine(dt_date, time_am_end)
 dt_pm_start = datetime.datetime.combine(dt_date, time_pm_start)
 dt_pm_end = datetime.datetime.combine(dt_date, time_pm_end)
-scan_interval = 60  # 标准设置为30(秒)，扫描间隔时间
-BeepChange = 1.0  # 快速变动1.0%提醒
+scan_interval = 5  # 标准设置为5(秒)，扫描间隔时间
+BeepChange = 0.5  # 快速变动0.5%提醒
 frq = 0
 increase = 5.0
 decrease = -5.0
-str_stock_path = "stock.xlsx"  # 标准设置为"stock.xlsx"
+file_name_stock = "stock.xlsx"  # 标准设置为"stock.xlsx"
 file_name_log = "program_log.log"
 file_name_change_log = "StockChangeLog.txt"
 file_name_suggest_log = "StockSuggest.txt"
-# str_out_stock_path = "writer.xlsx" # 调试程序使用的输出文件
-str_out_stock_path = str_stock_path
+# file_name_out_stock = "writer.xlsx" # 调试程序使用的输出文件
+file_name_out_stock = file_name_stock
 list_stock_code_col = [
     "name",
     "last_price",
@@ -57,8 +57,8 @@ global dfExcel_change, dfExcel_rp, df_temp
 # 设定全局参数-----end--------------------------
 
 logger.remove()  # 移除import创建的所有handle
-logger.add(sink=sys.stderr, level="ERROR")  # 创建一个Console输出handle,eg："INFO"，"ERROR","DEBUG"
-logger.add(sink=file_name_log, level="DEBUG")
+logger.add(sink=sys.stderr, level="ERROR")  # 创建一个Console输出handle,eg："TRACE","DEBUG","INFO"，"ERROR"
+logger.add(sink=file_name_log, level="TRACE")
 
 
 def sleep_interval(scan_time):
@@ -87,10 +87,10 @@ def warn_suggest():
     # 局部变量初始化-------end-----------------
     # [dfExcel_change],[dfExcel_rp] 初始化-------start-----------------
     dfExcel_change = pd.read_excel(
-        io=str_stock_path, sheet_name="stock_code", index_col="ID"
+        io=file_name_stock, sheet_name="stock_code", index_col="ID"
     )
     dfExcel_rp = pd.read_excel(
-        io=str_stock_path, sheet_name="right_price", index_col="ID"
+        io=file_name_stock, sheet_name="right_price", index_col="ID"
     )
     if str_key not in dfExcel_change.columns:
         logger.info("[code] key not found")
@@ -400,12 +400,12 @@ def warn_suggest():
         )
         # winsound.Beep(frequency=1800, duration=600)  # 调用主板声音
     # [dfExcel_change]print------End-------------------
-    writer = pd.ExcelWriter(path=str_out_stock_path, mode="w")
+    writer = pd.ExcelWriter(path=file_name_out_stock, mode="w")
     dfExcel_rp.to_excel(excel_writer=writer, sheet_name="right_price")
     dfExcel_change.to_excel(excel_writer=writer, sheet_name="stock_code")
     df_temp.to_excel(excel_writer=writer, sheet_name="df_temp")
     writer.close()
-    logger.info(f"[{str_stock_path}] save! ---[OK]---<Save>")
+    logger.info(f"[{file_name_stock}] save! ---[OK]---<Save>")
     logger.info(f"[Warn and Suggest]Update End......")
     return True
 # warn_suggest()------end-------------------
