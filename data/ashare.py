@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+# modified date 2022-11-02
 from __future__ import annotations
 import re
 import random
@@ -284,6 +285,10 @@ def stock_zh_a_spot_em(stock_codes: str | list) -> pd.DataFrame:
     for stock in stock_codes:
         df_em.loc[stock] = temp_df.loc[stock]
     df_em.index.rename(name="code", inplace=True)
+    df_em.fillna(value=0.0, inplace=True)
+    for index, data in df_em.iterrows():
+        if data['close'] == 0.0:
+            df_em.at[index, 'close'] = data['pre_close']
     return df_em
 
 
@@ -438,8 +443,10 @@ def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
         logger.error(f"realtime_quotations return None")
         return None
 
-
 """
 if __name__ == "__main__":
-    pass
+    a = stock_zh_a_spot_em(stock_codes="sz000815")
+    print(type(a))
+    print(a)
+    print(a.at["sz000815", "close"])
 """
