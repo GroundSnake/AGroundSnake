@@ -443,6 +443,7 @@ def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
         logger.error(f"realtime_quotations return None")
         return None
 
+
 """
 if __name__ == "__main__":
     a = stock_zh_a_spot_em(stock_codes="sz000815")
