@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# modified date 2022-11-02
+# modified date 2022-12-07
 from __future__ import annotations
 import re
 import random
@@ -15,6 +15,43 @@ headers = {
 }
 
 
+def stock_list_all() -> list | None:
+    """
+    :return: list of all A share code
+    """
+    url = 'http://27.push2.eastmoney.com/api/qt/clist/get'
+    list_out = list()
+    params_data = {
+        'fields': 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152',
+        'pz': 10000,  # 每页条数
+        'pn': 1,  # 页码
+        'fs': 'm:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048'
+    }
+    response = requests.get(url=url, params=params_data, headers=headers)
+    response_json = response.json()
+    dict_data = response_json['data']['diff']
+    if not bool(dict_data):
+        return
+    for j, k in dict_data.items():
+        code = k['f12']  # 代码
+        list_out.append(code)
+    return list_out
+
+
+def latest_trading_day() -> datetime.date:
+    """获取最近一个交易日的时间.eg:2022-12-07
+    :return:
+    """
+    url = "http://qt.gtimg.cn/q=sh600519"
+    rs = requests.get(url=url, headers=headers)
+    str_data = rs.text
+    str_data = "".join(str_data)
+    list_data = str_data.split(";")
+    list_data = list_data[0].split("~")
+    dt = datetime.datetime.strptime(list_data[30], "%Y%m%d%H%M%S")
+    return dt.date()
+
+
 def get_stock_type(stock_code: str):
     """判断股票ID对应的证券市场
     匹配规则
@@ -22,7 +59,8 @@ def get_stock_type(stock_code: str):
     ['00', '13', '18', '15', '16', '18', '20', '30', '39', '115'] 为 sz
     ['5', '6', '9'] 开头的为 sh， 其余为 sz
     :param stock_code:股票ID, 若以 'sz', 'sh' 开头直接返回对应类型，否则使用内置规则判断
-    :return 'sh' or 'sz'"""
+    :return 'sh' or 'sz'
+    """
     assert type(stock_code) is str, "stock code need str type"
     sh_head = (
         "50",
@@ -45,13 +83,13 @@ def get_stock_type(stock_code: str):
         return "sh" if stock_code.startswith(sh_head) else "sz"
 
 
-def get_history_n_sina(symbol: str, frequency: str = "1d", count: int = 10):
+def get_history_n_sina(symbol: str, frequency: str = "1d", count: int = 10) -> pd.DataFrame:
     """
     http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600519&scale=5&ma=5&datalen=1
     :param symbol: eg."sh600519"
     :param count: default "1d",options["5m", "15m", "30m", "60m", "1d", "1w", "1M"]
     :param frequency: default 10
-    :return:
+    :return: DataFrame
     """
     if frequency not in ["5m", "15m", "30m", "60m", "1d", "1w", "1M"]:
         frequency = "1d"
@@ -82,13 +120,13 @@ def get_history_n_sina(symbol: str, frequency: str = "1d", count: int = 10):
     return df_sina
 
 
-def get_history_n_tx(symbol: str, frequency: str = "1d", count: int = 10):
+def get_history_n_tx(symbol: str, frequency: str = "1d", count: int = 10) -> pd.DataFrame:
     """
     https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh600519,day,2022-09-01,2022-10-10,10,qfq
-    :param symbol:
-    :param count:
+    :param symbol: symbol: eg."sh600519"
+    :param count: default 10
     :param frequency: default "1d",options["1d", "1w", "1M"]
-    :return:
+    :return: DataFrame
     """
     if frequency not in ["1d", "1w", "1M"]:
         frequency = "1d"
@@ -126,12 +164,13 @@ def get_history_n_tx(symbol: str, frequency: str = "1d", count: int = 10):
     return df_qq
 
 
-def get_history_n_min_tx(symbol: str, frequency: str = "5m", count: int = 10):  # 分钟线获取
+def get_history_n_min_tx(symbol: str, frequency: str = "5m", count: int = 10) -> pd.DataFrame:  # 分钟线获取
     """
+    http://ifzq.gtimg.cn/appstock/app/kline/mkline?param=sh600519,m1,,10
     :param symbol:
     :param count:
     :param frequency: default "5m",options["1m", "5m", "15m","30m", "60m"]
-    :return:
+    :return: DataFrame
     """
     if frequency not in ["1m", "5m", "15m", "30m", "60m"]:
         frequency = "5m"
@@ -162,13 +201,15 @@ def get_history_n_min_tx(symbol: str, frequency: str = "5m", count: int = 10):  
         },
         inplace=True,
     )
+    if df_qq.empty:
+        return pd.DataFrame()  # return null DataFrame without data
     df_qq["datetime"] = pd.to_datetime(df_qq["datetime"])
     df_qq.set_index(["datetime"], inplace=True)
     df_qq = df_qq.applymap(func=float)
     return df_qq
 
 
-def stock_zh_a_spot_em(stock_codes: str | list) -> pd.DataFrame:
+def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
     """
     东方财富网-沪深京 A 股-实时行情
     http://82.push2.eastmoney.com/api/qt/clist/get
@@ -279,16 +320,18 @@ def stock_zh_a_spot_em(stock_codes: str | list) -> pd.DataFrame:
         func=lambda x: round(x / 100000000, 2)
     )
     temp_df.set_index(keys="code", inplace=True)
+    temp_df.fillna(value=0.0, inplace=True)
+    for tup_data in temp_df.itertuples():
+        if tup_data.close == 0.0:
+            temp_df.at[tup_data.Index, 'close'] = tup_data.pre_close
+    if stock_codes is None:
+        return temp_df
     if not isinstance(stock_codes, list):
         stock_codes = [stock_codes]
     df_em = pd.DataFrame(columns=temp_df.columns)
     for stock in stock_codes:
         df_em.loc[stock] = temp_df.loc[stock]
     df_em.index.rename(name="code", inplace=True)
-    df_em.fillna(value=0.0, inplace=True)
-    for index, data in df_em.iterrows():
-        if data['close'] == 0.0:
-            df_em.at[index, 'close'] = data['pre_close']
     return df_em
 
 
@@ -446,8 +489,9 @@ def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
 
 """
 if __name__ == "__main__":
-    a = stock_zh_a_spot_em(stock_codes="sz000815")
-    print(type(a))
+    a = stock_zh_a_spot_em()
     print(a)
-    print(a.at["sz000815", "close"])
+    # a.to_csv(path_or_buf="wr.csv")
+    a = stock_zh_a_spot_em(stock_codes="sz000815")
+    print(a)
 """
