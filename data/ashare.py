@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# modified date 2022-12-07
+# modified date 2023/02/20 20:55
 from __future__ import annotations
 import re
 import random
@@ -13,43 +13,6 @@ headers = {
     "Accept-Encoding": "gzip, deflate, sdch",
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36",
 }
-
-
-def stock_list_all() -> list | None:
-    """
-    :return: list of all A share code
-    """
-    url = 'http://27.push2.eastmoney.com/api/qt/clist/get'
-    list_out = list()
-    params_data = {
-        'fields': 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152',
-        'pz': 10000,  # 每页条数
-        'pn': 1,  # 页码
-        'fs': 'm:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048'
-    }
-    response = requests.get(url=url, params=params_data, headers=headers)
-    response_json = response.json()
-    dict_data = response_json['data']['diff']
-    if not bool(dict_data):
-        return
-    for j, k in dict_data.items():
-        code = k['f12']  # 代码
-        list_out.append(code)
-    return list_out
-
-
-def latest_trading_day() -> datetime.date:
-    """获取最近一个交易日的时间.eg:2022-12-07
-    :return:
-    """
-    url = "http://qt.gtimg.cn/q=sh600519"
-    rs = requests.get(url=url, headers=headers)
-    str_data = rs.text
-    str_data = "".join(str_data)
-    list_data = str_data.split(";")
-    list_data = list_data[0].split("~")
-    dt = datetime.datetime.strptime(list_data[30], "%Y%m%d%H%M%S")
-    return dt.date()
 
 
 def get_stock_type(stock_code: str):
