@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# modified date 2022-12-07
+# modified date 2023/02/17 09:38
 from __future__ import annotations
 import re
 import random
@@ -15,44 +15,7 @@ headers = {
 }
 
 
-def stock_list_all() -> list | None:
-    """
-    :return: list of all A share code
-    """
-    url = 'http://27.push2.eastmoney.com/api/qt/clist/get'
-    list_out = list()
-    params_data = {
-        'fields': 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f128,f136,f115,f152',
-        'pz': 10000,  # 每页条数
-        'pn': 1,  # 页码
-        'fs': 'm:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23,m:0 t:81 s:2048'
-    }
-    response = requests.get(url=url, params=params_data, headers=headers)
-    response_json = response.json()
-    dict_data = response_json['data']['diff']
-    if not bool(dict_data):
-        return
-    for j, k in dict_data.items():
-        code = k['f12']  # 代码
-        list_out.append(code)
-    return list_out
-
-
-def latest_trading_day() -> datetime.date:
-    """获取最近一个交易日的时间.eg:2022-12-07
-    :return:
-    """
-    url = "http://qt.gtimg.cn/q=sh600519"
-    rs = requests.get(url=url, headers=headers)
-    str_data = rs.text
-    str_data = "".join(str_data)
-    list_data = str_data.split(";")
-    list_data = list_data[0].split("~")
-    dt = datetime.datetime.strptime(list_data[30], "%Y%m%d%H%M%S")
-    return dt.date()
-
-
-def get_stock_type(stock_code: str):
+def _get_stock_type(stock_code: str):
     """判断股票ID对应的证券市场
     匹配规则
     ['50', '51', '60', '90', '110'] 为 sh
@@ -209,7 +172,7 @@ def get_history_n_min_tx(symbol: str, frequency: str = "5m", count: int = 10) ->
     return df_qq
 
 
-def stock_zh_a_spot_em(stock_codes: str | list) -> pd.DataFrame:
+def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
     """
     东方财富网-沪深京 A 股-实时行情
     http://82.push2.eastmoney.com/api/qt/clist/get
@@ -294,7 +257,7 @@ def stock_zh_a_spot_em(stock_codes: str | list) -> pd.DataFrame:
         ]
     ]
     temp_df["code"] = temp_df["code"].apply(func=str)
-    temp_df["code"] = temp_df["code"].apply(func=lambda x: get_stock_type(x) + x)
+    temp_df["code"] = temp_df["code"].apply(func=lambda x: _get_stock_type(x) + x)
 
     temp_df["close"] = pd.to_numeric(temp_df["close"], errors="coerce")
     temp_df["pct_chg"] = pd.to_numeric(temp_df["pct_chg"], errors="coerce")
@@ -320,16 +283,18 @@ def stock_zh_a_spot_em(stock_codes: str | list) -> pd.DataFrame:
         func=lambda x: round(x / 100000000, 2)
     )
     temp_df.set_index(keys="code", inplace=True)
+    temp_df.fillna(value=0.0, inplace=True)
+    for tup_data in temp_df.itertuples():
+        if tup_data.close == 0.0:
+            temp_df.at[tup_data.Index, 'close'] = tup_data.pre_close
+    if stock_codes is None:
+        return temp_df
     if not isinstance(stock_codes, list):
         stock_codes = [stock_codes]
     df_em = pd.DataFrame(columns=temp_df.columns)
     for stock in stock_codes:
         df_em.loc[stock] = temp_df.loc[stock]
     df_em.index.rename(name="code", inplace=True)
-    df_em.fillna(value=0.0, inplace=True)
-    for index, data in df_em.iterrows():
-        if data['close'] == 0.0:
-            df_em.at[index, 'close'] = data['pre_close']
     return df_em
 
 
@@ -459,20 +424,27 @@ def history_n(symbol: str, frequency: str = "1d", count: int = 10) -> pd.DataFra
 
 
 def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
-    pattern_stock = re.compile(r"\d+")
+    """
+    :param stock_codes: 'sh600519'
+    :return:
+    """
+
     if not isinstance(stock_codes, list):
         stock_codes = [stock_codes]
+    """
+    pattern_stock = re.compile(r"\d+")
     count = len(stock_codes)
     i = 0
     while i < count:
         symbol = pattern_stock.search(stock_codes[i]).group()
         if len(symbol) == 6:
-            stock_codes[i] = get_stock_type(symbol) + symbol
+            stock_codes[i] = _get_stock_type(symbol) + symbol
             i += 1
         else:
             logger.error(f"remove {stock_codes[i]}")
             stock_codes.remove(stock_codes[i])
             count -= 1
+    """
     stock_codes = list(set(stock_codes))
     source = random.choice(("em", "qq"))  # 随机选择数据源，防ban
     logger.trace(f"choice source {source}")
@@ -487,8 +459,9 @@ def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
 
 """
 if __name__ == "__main__":
-    a = stock_zh_a_spot_em(stock_codes="sz000815")
-    print(type(a))
+    a = stock_zh_a_spot_em()
     print(a)
-    print(a.at["sz000815", "close"])
+    # a.to_csv(path_or_buf="wr.csv")
+    a = stock_zh_a_spot_em(stock_codes="sz000815")
+    print(a)
 """
