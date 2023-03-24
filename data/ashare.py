@@ -1,5 +1,9 @@
 # -*- coding:utf-8 -*-
+<<<<<<< HEAD
 # modified date 2023/02/17 09:38
+=======
+# modified date 2023/02/20 20:55
+>>>>>>> 7c065a67d3d4ecf0679b21ea4653b6af9d30b946
 from __future__ import annotations
 import re
 import random
