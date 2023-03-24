@@ -1,5 +1,9 @@
 # -*- coding:utf-8 -*-
+<<<<<<< HEAD
+# modified date 2023/02/17 09:38
+=======
 # modified date 2023/02/20 20:55
+>>>>>>> 7c065a67d3d4ecf0679b21ea4653b6af9d30b946
 from __future__ import annotations
 import re
 import random
@@ -15,7 +19,7 @@ headers = {
 }
 
 
-def get_stock_type(stock_code: str):
+def _get_stock_type(stock_code: str):
     """判断股票ID对应的证券市场
     匹配规则
     ['50', '51', '60', '90', '110'] 为 sh
@@ -257,7 +261,7 @@ def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
         ]
     ]
     temp_df["code"] = temp_df["code"].apply(func=str)
-    temp_df["code"] = temp_df["code"].apply(func=lambda x: get_stock_type(x) + x)
+    temp_df["code"] = temp_df["code"].apply(func=lambda x: _get_stock_type(x) + x)
 
     temp_df["close"] = pd.to_numeric(temp_df["close"], errors="coerce")
     temp_df["pct_chg"] = pd.to_numeric(temp_df["pct_chg"], errors="coerce")
@@ -424,20 +428,27 @@ def history_n(symbol: str, frequency: str = "1d", count: int = 10) -> pd.DataFra
 
 
 def realtime_quotations(stock_codes: str | list) -> pd.DataFrame | None:
-    pattern_stock = re.compile(r"\d+")
+    """
+    :param stock_codes: 'sh600519'
+    :return:
+    """
+
     if not isinstance(stock_codes, list):
         stock_codes = [stock_codes]
+    """
+    pattern_stock = re.compile(r"\d+")
     count = len(stock_codes)
     i = 0
     while i < count:
         symbol = pattern_stock.search(stock_codes[i]).group()
         if len(symbol) == 6:
-            stock_codes[i] = get_stock_type(symbol) + symbol
+            stock_codes[i] = _get_stock_type(symbol) + symbol
             i += 1
         else:
             logger.error(f"remove {stock_codes[i]}")
             stock_codes.remove(stock_codes[i])
             count -= 1
+    """
     stock_codes = list(set(stock_codes))
     source = random.choice(("em", "qq"))  # 随机选择数据源，防ban
     logger.trace(f"choice source {source}")

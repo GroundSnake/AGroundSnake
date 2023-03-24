@@ -12,8 +12,8 @@ import tushare as ts
 import analysis.base
 
 
-def ths_industry(list_symbol: list | str = None) -> pd.DataFrame | None:
-    name: str = f"df_golden"
+def ths_industry(list_symbol: list | str = None) -> pd.DataFrame | bool:
+    name: str = f"df_industry"
     start_loop_time = time.perf_counter_ns()
     dt_date_trading = analysis.base.latest_trading_day()
     str_date_trading = dt_date_trading.strftime("%Y%m%d")
@@ -38,19 +38,17 @@ def ths_industry(list_symbol: list | str = None) -> pd.DataFrame | None:
         list_symbol = analysis.base.all_chs_code()
     if isinstance(list_symbol, str):
         list_symbol = [list_symbol]
-    file_name_industry_class = os.path.join(
-        path_data, f"industry_class_fixed.ftr"
-    )  # 本文件必须存在，股票行业分类表
     file_name_industry_temp = os.path.join(
         path_data, f"industry_temp_{str_date_path}.ftr"
     )
-    file_name_industry = os.path.join(path_data, f"industry.ftr")
+    # file_name_industry = os.path.join(path_data, f"industry.ftr")
     file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_industry_csv = os.path.join(path_check, f"industry_{str_date_path}.csv")
     file_name_industry_pct = os.path.join(path_data, f"industry_pct.ftr")
     file_name_industry_pct_temp = os.path.join(path_data, f"industry_pct_temp_{str_date_path}.ftr")
     file_name_industry_pct_csv = os.path.join(path_check, f"industry_pct_{str_date_path}.csv")
     list_exist = list()
+    df_config = pd.DataFrame()
     if os.path.exists(file_name_chip_h5):
         try:
             df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
@@ -66,7 +64,7 @@ def ths_industry(list_symbol: list | str = None) -> pd.DataFrame | None:
                         or df_config.at[name, "date"] == dt_pm_end
                 ):
                     logger.trace(f"{name}-[{file_name_chip_h5}] is latest")
-                    df_industry = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_industry")
+                    df_industry = pd.read_hdf(path_or_buf=file_name_chip_h5, key=name)
                     logger.trace(f"ths_industry,Break and End")
                     return df_industry
             except KeyError as e:
@@ -74,11 +72,18 @@ def ths_industry(list_symbol: list | str = None) -> pd.DataFrame | None:
                 df_config.at[name, "date"] = dt_now
         else:
             logger.trace(f"df_config is empty")
-
-    if os.path.exists(file_name_industry_class):
-        df_industry_class = feather.read_dataframe(source=file_name_industry_class)
+    if os.path.exists(file_name_chip_h5):
+        try:
+            df_industry_class = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_industry_class")
+        except KeyError as e:
+            logger.error(f"df_industry_class not exist,KeyError [{e}]")
+            sys.exit()
+        else:
+            if df_industry_class.empty:
+                logger.error(f"df_industry_class is empty")
+                return False
     else:
-        return
+        return False
     if os.path.exists(file_name_industry_temp):
         df_industry = feather.read_dataframe(source=file_name_industry_temp)
         if df_industry.empty:
@@ -199,7 +204,7 @@ def ths_industry(list_symbol: list | str = None) -> pd.DataFrame | None:
     # print(df_all_industry_pct)
     if i >= len_list_symbol:
         print("\n", end="")  # 格式处理
-        feather.write_dataframe(df=df_industry, dest=file_name_industry)
+        df_industry.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
         df_industry.to_csv(path_or_buf=file_name_industry_csv)
         df_all_industry_pct = df_all_industry_pct.applymap(func=lambda x: x + 100)
         len_df_all_industry_pct = len(df_all_industry_pct)

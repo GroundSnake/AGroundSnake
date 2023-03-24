@@ -67,6 +67,7 @@ if __name__ == "__main__":
     file_name_industry_class = os.path.join(
         path_data, f"industry_class_fixed.ftr"
     )
+
     logger.add(sink=file_name_log, level="TRACE")
     logger.trace(f"initialization Begin")
     #  设定交易时间 Begin
@@ -126,12 +127,22 @@ if __name__ == "__main__":
     # 加载df_data End
     # 加载df_chip Begin
     logger.trace("Create df_chip Begin")
+    df_industry_class = pd.DataFrame()
     if os.path.exists(file_name_chip_h5):
         try:
             df_chip = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_chip")
         except KeyError as e:
-            print(f"df_chip not exist,KeyError [{e}]")
+            logger.error(f"df_chip not exist,KeyError [{e}]")
             df_chip = analysis.chip.chip()
+        try:
+            df_industry_class = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_industry_class")
+        except KeyError as e:
+            logger.error(f"df_industry_class not exist,KeyError [{e}]")
+            sys.exit()
+        else:
+            if df_industry_class.empty:
+                logger.error(f"df_industry_class is empty")
+                sys.exit()
     else:
         df_chip = pd.DataFrame()
     if df_chip.empty:
@@ -142,13 +153,6 @@ if __name__ == "__main__":
         str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
         str_chip_msg = fg.red(str_chip_msg)
         print(str_chip_msg)
-    if os.path.exists(file_name_industry_class):
-        df_industry_class = feather.read_dataframe(source=file_name_industry_class)
-    else:
-        df_industry_class = pd.DataFrame()
-    if df_industry_class.empty:
-        print(f"{file_name_industry_class} not exist,program error")
-        sys.exit()
     logger.trace("Create df_chip End")
     # 加载df_chip End
     # 用df_chip初始化df_data----Begin

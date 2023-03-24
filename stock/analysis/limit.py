@@ -369,7 +369,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
             inplace=True,
         )
         df_limit.index.rename(name="symbol", inplace=True)
-        df_limit.to_hdf(path_or_buf=file_name_chip_h5, key="df_limit", format='table')
+        df_limit.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
         df_limit.to_csv(path_or_buf=file_name_limit_csv)
         logger.trace(f"[{file_name_limit_csv}] save")
         if os.path.exists(file_name_chip_h5):

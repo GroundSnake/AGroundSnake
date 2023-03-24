@@ -50,9 +50,6 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    file_name_config = os.path.join(path_data, f"config.pkl")
-    file_name_config_txt = os.path.join(path_check, f"config.txt")
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_golden_csv = os.path.join(path_check, f"golden_price_{str_date_path}.csv")
     # file_name_golden_feather_finish = os.path.join(path_data, f"golden_price.ftr")
     file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
@@ -90,7 +87,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
                         or df_config.at[name, "date"] == dt_pm_end
                 ):
                     logger.trace(f"df_golden-[{file_name_chip_h5}] is latest")
-                    df_golden = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_golden")
+                    df_golden = pd.read_hdf(path_or_buf=file_name_chip_h5, key=name)
                     # df_golden.to_hdf(path_or_buf=file_name_chip_h5, key="df_golden", format='table')
                     logger.trace("Golden Price Analysis Break End")
                     return df_golden  # df_golden is object
@@ -175,8 +172,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
         df_golden.index.rename(name="symbol", inplace=True)
         df_golden.sort_values(by=["now_price_ratio"], ascending=False, inplace=True)
         # feather.write_dataframe(df=df_golden, dest=file_name_golden_feather_finish)
-        print(df_golden)
-        df_golden.to_hdf(path_or_buf=file_name_chip_h5, key="df_golden", format='table')
+        df_golden.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
         logger.trace(f"[{file_name_chip_h5}] save")
         df_golden.to_csv(path_or_buf=file_name_golden_csv)
         logger.trace(f"[{file_name_golden_csv}] save")

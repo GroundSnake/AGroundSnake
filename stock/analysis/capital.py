@@ -161,6 +161,7 @@ def capital() -> object | DataFrame:
     list_stocks = analysis.base.all_chs_code()
     list_cap_exist = list()
     df_cap = pd.DataFrame()
+    df_config = pd.DataFrame()
     if os.path.exists(file_name_chip_h5):
         try:
             df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
@@ -175,7 +176,7 @@ def capital() -> object | DataFrame:
                 days = dt_delta.days
                 if days < 3:
                     try:
-                        df_cap = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_cap")
+                        df_cap = pd.read_hdf(path_or_buf=file_name_chip_h5, key=name)
                         logger.trace(f"capital Break End")
                         return df_cap
                     except KeyError as e:
@@ -229,7 +230,7 @@ def capital() -> object | DataFrame:
     if i >= count:
         print("\n", end="")  # 格式处理
         # feather.write_dataframe(df=df_cap, dest=file_name_cap_feather)
-        df_cap.to_hdf(path_or_buf=file_name_chip_h5, key="df_cap", format='table')
+        df_cap.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
         df_cap.to_csv(path_or_buf=file_name_cap_csv)
         if os.path.exists(file_name_chip_h5):
             df_config.at[name, "date"] = dt_pm_end
