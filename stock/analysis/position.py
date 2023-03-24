@@ -1,4 +1,4 @@
-# modified at 2023/3/15 14:52
+# modified at 2023/3/24 15:00
 import datetime
 import os
 import numpy as np
@@ -16,7 +16,7 @@ def position(index: str = "sh000001") -> str:
         name = "df_pos_ctl_csi1000"
     else:
         name = "df_pos_ctl_other"
-    logger.trace(f"position_control-{name} Begin")
+    logger.trace(f"position_control-[{name}] Begin")
     dt_now = datetime.datetime.now()
     dt_date_trading = analysis.base.latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
@@ -116,7 +116,6 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl["volume_rank"] = df_pos_ctl["volume"].rank(
         axis=0, method="min", ascending=False
     )
-
     df_pos_ctl["rank"] = df_pos_ctl["weight_volume"].rank(
         axis=0, method="min", ascending=False
     )
@@ -139,5 +138,5 @@ def position(index: str = "sh000001") -> str:
         dt_sh_index_latest = datetime.datetime.combine(dt_date, time_pm_end)
         df_config.at[name, "date"] = dt_sh_index_latest
         df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
-    logger.trace(f"position_control-{name} End")
+    logger.trace(f"position_control-[{name}] End")
     return str_pos_ctl
