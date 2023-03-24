@@ -1,4 +1,4 @@
-# modified at 2023/3/17 10:08
+# modified at 2023/3/24 15:00
 from __future__ import annotations
 import os
 import random
@@ -402,6 +402,16 @@ if __name__ == "__main__":
                 print(str_msg, end="")
                 if i >= count:
                     print("\n", end="")  # 调整输出console格式
+                try:
+                    if not pd.notnull(df_data.at[code, "industry_code"]):
+                        df_data.at[code, "industry_code"] = df_industry_class.at[code, "industry_code"]
+                        logger.trace(f"{code} update industry_code")
+                    if not pd.notnull(df_data.at[code, "industry_name"]):
+                        df_data.at[code, "industry_name"] = df_industry_class.at[code, "industry_name"]
+                        logger.trace(f"{code} update industry_name")
+                except KeyError as e:
+                    logger.trace(f"df_industry_class KeyError [{e}]")
+                    time.sleep(5)
                 if code not in df_realtime.index:
                     logger.trace("code not in df_realtime")
                     continue
