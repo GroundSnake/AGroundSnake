@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 import os
 import sys
 import time
@@ -156,7 +156,6 @@ def capital() -> bool:
         os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_cap_feather_temp = os.path.join(
         path_data, f"capital_temp_{str_date_path}.ftr"
     )
@@ -164,7 +163,6 @@ def capital() -> bool:
     list_cap_exist = list()
     df_cap = pd.DataFrame()
     if analysis.base.is_latest_version(key=name):
-        # df_cap = analysis.base.read_df_from_db(key="df_cap")
         logger.trace(f"capital Break End")
         return True
     if os.path.exists(file_name_cap_feather_temp):

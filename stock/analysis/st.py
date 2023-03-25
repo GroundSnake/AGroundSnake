@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 from __future__ import annotations
 import os
 import datetime
@@ -56,7 +56,6 @@ def st_income(list_symbol: str | list = None) -> bool:
     str_date_path_income = dt_period_income.strftime("%Y_%m_%d")
     str_dt_period_forecast = dt_period_forecast.strftime("%Y%m%d")
     str_dt_period_income_next = dt_period_income_next.strftime("%Y%m%d")
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_df_income = os.path.join(path_data, f"income_{str_date_path_income}.ftr")
     file_name_df_income_next = os.path.join(
         path_data, f"income_temp_{str_date_path}.ftr"
@@ -66,9 +65,8 @@ def st_income(list_symbol: str | list = None) -> bool:
     )
     file_name_df_st_temp = os.path.join(path_data, f"st_temp_{str_date_path}.ftr")
     if analysis.base.is_latest_version(key=name):
-        # df_st = analysis.base.read_df_from_db(key="df_st")
         logger.trace(f"ST Break End")
-        return True  # df_st is object
+        return True
     if os.path.exists(file_name_df_income):
         df_income = feather.read_dataframe(source=file_name_df_income)
     else:

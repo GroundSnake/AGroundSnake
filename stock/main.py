@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 from __future__ import annotations
 import os
 import random
@@ -61,8 +61,6 @@ if __name__ == "__main__":
     file_name_data_pickle = os.path.join(path_data, f"data.pkl")
     file_name_signal = os.path.join(path_check, f"signal_{str_date_path}.xlsx")
     file_name_data_csv = os.path.join(path_check, f"position_{str_date_path}.csv")
-    # file_name_chip_feather = os.path.join(path_data, f"chip.ftr")
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_industry_class = os.path.join(
         path_data, f"industry_class_fixed.ftr"
     )

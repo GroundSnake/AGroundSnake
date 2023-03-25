@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 from __future__ import annotations
 import os
 import sys
@@ -8,7 +8,6 @@ import random
 import feather
 import pandas as pd
 import numpy as np
-from pandas import DataFrame
 from scipy.constants import golden
 from loguru import logger
 import ashare
@@ -46,7 +45,6 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_golden_feather_temp = os.path.join(
         path_data, f"golden_price_temp_{str_date_path}.ftr"
     )
@@ -57,7 +55,6 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         logger.trace("Update the Kline")
         analysis.update_data.update_stock_data()
     if analysis.base.is_latest_version(key=name):
-        # df_golden = analysis.base.read_df_from_db(key="df_golden")
         logger.trace("Golden Price Analysis Break End")
         return True  # df_golden is object
     list_golden_exist = list()
