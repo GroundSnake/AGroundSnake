@@ -125,8 +125,8 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
     }
     temp_df["index"] = temp_df["index"].map(code_name_map)
     temp_df = temp_df[pd.notna(temp_df["index"])]
-    list_columns = temp_df['index'].to_list()
-    list_data = temp_df['data'].to_list()
+    list_columns = temp_df["index"].to_list()
+    list_data = temp_df["data"].to_list()
     df_return = pd.DataFrame(columns=list_columns)
     count = len(list_data)
     for i in range(count):
@@ -135,12 +135,14 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
     df_return.loc[0] = list_data
     if df_return.at[0, "list_date"] is not None:
         str_list_date = str(df_return.at[0, "list_date"])
-        df_return.at[0, "list_date"] = datetime.datetime.strptime(str_list_date, "%Y%m%d")
+        df_return.at[0, "list_date"] = datetime.datetime.strptime(
+            str_list_date, "%Y%m%d"
+        )
     df_return.set_index(keys="code", inplace=True)
     return df_return
 
 
-def capital() -> object | DataFrame:
+def capital() -> bool:
     name: str = "df_cap"
     start_loop_time = time.perf_counter_ns()
     dt_date_trading = analysis.base.latest_trading_day()
@@ -154,40 +156,19 @@ def capital() -> object | DataFrame:
         os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_cap_csv = os.path.join(path_check, f"capital{str_date_path}.csv")
-    file_name_cap_feather_temp = os.path.join(path_data, f"capital_temp.ftr")
+    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    file_name_cap_feather_temp = os.path.join(
+        path_data, f"capital_temp_{str_date_path}.ftr"
+    )
     list_stocks = analysis.base.all_chs_code()
     list_cap_exist = list()
     df_cap = pd.DataFrame()
-    df_config = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
-        except KeyError as e:
-            logger.trace(f"df_config not exist KeyError [{e}]")
-        if not df_config.empty:
-            try:
-                logger.trace(
-                    f"the latest {name} at {df_config.at[name, 'date']},The new at {dt_pm_end}"
-                )
-                dt_delta = dt_pm_end - df_config.at[name, 'date']
-                days = dt_delta.days
-                if days < 3:
-                    try:
-                        df_cap = pd.read_hdf(path_or_buf=file_name_chip_h5, key=name)
-                        logger.trace(f"capital Break End")
-                        return df_cap
-                    except KeyError as e:
-                        logger.trace(f"df_cap not exist KeyError [{e}]")
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-                dt_now = datetime.datetime.now()
-                df_config.at[name, "date"] = dt_now
-        else:
-            logger.trace(f"empty")
+    if analysis.base.is_latest_version(key=name):
+        # df_cap = analysis.base.read_df_from_db(key="df_cap")
+        logger.trace(f"capital Break End")
+        return True
     if os.path.exists(file_name_cap_feather_temp):
-        logger.trace(f'{file_name_cap_feather_temp}')
+        logger.trace(f"{file_name_cap_feather_temp} exists")
         df_cap = feather.read_dataframe(source=file_name_cap_feather_temp)
         if df_cap.empty:
             logger.trace("df_cap cache is empty")
@@ -228,12 +209,10 @@ def capital() -> object | DataFrame:
         feather.write_dataframe(df=df_cap, dest=file_name_cap_feather_temp)
     if i >= count:
         print("\n", end="")  # 格式处理
-        # feather.write_dataframe(df=df_cap, dest=file_name_cap_feather)
-        df_cap.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
-        df_cap.to_csv(path_or_buf=file_name_cap_csv)
-        if os.path.exists(file_name_chip_h5):
-            df_config.at[name, "date"] = dt_pm_end
-            df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
+        analysis.base.write_df_to_db(obj=df_cap, key="df_cap")
+        analysis.base.add_chip_excel(df=df_cap, key=name)
+        analysis.base.set_version(key=name, dt=dt_pm_end)
+        logger.trace(f"Update df_config-[{name}]")
         if os.path.exists(file_name_cap_feather_temp):  # 删除临时文件
             os.remove(path=file_name_cap_feather_temp)
             logger.trace(f"[{file_name_cap_feather_temp}] remove")
@@ -242,7 +221,7 @@ def capital() -> object | DataFrame:
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
     print(f"capital analysis takes [{str_gm}]")
     logger.trace(f"capital End")
-    return df_cap
+    return True
 
 
 if __name__ == "__main__":

@@ -16,14 +16,12 @@ import analysis.update_data
 import analysis.base
 
 
-def golden_price(list_code: list | str = None, frequency: str = "1m") -> object | DataFrame:
+def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
     """分析挂仓成本
     :param list_code: e.g.sh600519
     :param frequency: choice of {"1m" ,"5m"}
     :return: pd.DataFrame
     """
-    # logger.remove()
-    # logger.add(sink=sys.stderr, level="TRACE")  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
     logger.trace("Golden Price Analysis Begin")
     kline: str = f"update_kline_{frequency}"
     name: str = f"df_golden"
@@ -34,7 +32,6 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
         list_code = analysis.base.all_chs_code()
     if isinstance(list_code, str):
         list_code = [list_code]
-    dt_now = datetime.datetime.now()
     dt_date_trading = analysis.base.latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
@@ -49,51 +46,20 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    file_name_golden_csv = os.path.join(path_check, f"golden_price_{str_date_path}.csv")
-    # file_name_golden_feather_finish = os.path.join(path_data, f"golden_price.ftr")
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_golden_feather_temp = os.path.join(path_data, f"golden_price_temp_{str_date_path}.ftr")
+    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    file_name_golden_feather_temp = os.path.join(
+        path_data, f"golden_price_temp_{str_date_path}.ftr"
+    )
     # 判断Kline是不是最新的
-    df_config = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
-        except KeyError as e:
-            logger.trace(f"df_config not exist KeyError [{e}]")
-        if not df_config.empty:
-            try:
-                logger.trace(
-                    f"the latest {kline} at {df_config.at[kline, 'date']},The new at {dt_pm_end}"
-                )
-                if (
-                        df_config.at[kline, "date"] < dt_now < dt_pm_end
-                        or df_config.at[kline, "date"] == dt_pm_end
-                ):
-                    logger.trace("The Kline is latest")
-                else:
-                    logger.trace("Update the Kline")
-                    analysis.update_data.update_stock_data()
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-                logger.trace("Update the Kline")
-                analysis.update_data.update_stock_data()
-            try:
-                logger.trace(
-                    f"the latest {name} at {df_config.at[name, 'date']},The new at {dt_pm_end}"
-                )
-                if (
-                        df_config.at[name, "date"] < dt_now < dt_pm_end
-                        or df_config.at[name, "date"] == dt_pm_end
-                ):
-                    logger.trace(f"df_golden-[{file_name_chip_h5}] is latest")
-                    df_golden = pd.read_hdf(path_or_buf=file_name_chip_h5, key=name)
-                    # df_golden.to_hdf(path_or_buf=file_name_chip_h5, key="df_golden", format='table')
-                    logger.trace("Golden Price Analysis Break End")
-                    return df_golden  # df_golden is object
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-        else:
-            logger.trace(f"df_config is empty")
+    if analysis.base.is_latest_version(key=kline):
+        pass
+    else:
+        logger.trace("Update the Kline")
+        analysis.update_data.update_stock_data()
+    if analysis.base.is_latest_version(key=name):
+        # df_golden = analysis.base.read_df_from_db(key="df_golden")
+        logger.trace("Golden Price Analysis Break End")
+        return True  # df_golden is object
     list_golden_exist = list()
     if os.path.exists(file_name_golden_feather_temp):
         logger.trace(f"{file_name_golden_feather_temp} load feather")
@@ -170,14 +136,11 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
         print("\n", end="")  # 格式处理
         df_golden.index.rename(name="symbol", inplace=True)
         df_golden.sort_values(by=["now_price_ratio"], ascending=False, inplace=True)
-        # feather.write_dataframe(df=df_golden, dest=file_name_golden_feather_finish)
-        df_golden.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
-        logger.trace(f"[{file_name_chip_h5}] save")
-        df_golden.to_csv(path_or_buf=file_name_golden_csv)
-        logger.trace(f"[{file_name_golden_csv}] save")
-        if os.path.exists(file_name_chip_h5):
-            df_config.at[name, "date"] = dt_pm_end
-            df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
+        df_golden["dt"] = df_golden["dt"].to_string()
+        analysis.base.write_df_to_db(obj=df_golden, key="df_golden")
+        logger.trace(f"df_golden save at [pydb_chip]")
+        analysis.base.add_chip_excel(df=df_golden, key=name)
+        analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_golden_feather_temp):  # 删除临时文件
             os.remove(path=file_name_golden_feather_temp)
             logger.trace(f"[{file_name_golden_feather_temp}] remove")
@@ -186,10 +149,12 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> object 
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
     print(f"Golden Price Analysis takes [{str_gm}]")
     logger.trace(f"Golden Price Analysis End--[all_record={all_record}]")
-    return df_golden
+    return True
 
 
 if __name__ == "__main__":
     logger.remove()
-    logger.add(sink=sys.stderr, level="INFO")  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    logger.add(
+        sink=sys.stderr, level="INFO"
+    )  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
     golden_price(list_code=["sh600519", "sz002621", "sz000422"])

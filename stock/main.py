@@ -5,7 +5,6 @@ import random
 import sys
 import datetime
 import time
-import feather
 import pandas as pd
 from ashare import realtime_quotations
 from loguru import logger
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     file_name_signal = os.path.join(path_check, f"signal_{str_date_path}.xlsx")
     file_name_data_csv = os.path.join(path_check, f"position_{str_date_path}.csv")
     # file_name_chip_feather = os.path.join(path_data, f"chip.ftr")
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_industry_class = os.path.join(
         path_data, f"industry_class_fixed.ftr"
     )
@@ -127,24 +126,11 @@ if __name__ == "__main__":
     # 加载df_data End
     # 加载df_chip Begin
     logger.trace("Create df_chip Begin")
-    df_industry_class = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_chip = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_chip")
-        except KeyError as e:
-            logger.error(f"df_chip not exist,KeyError [{e}]")
-            df_chip = analysis.chip.chip()
-        try:
-            df_industry_class = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_industry_class")
-        except KeyError as e:
-            logger.error(f"df_industry_class not exist,KeyError [{e}]")
-            sys.exit()
-        else:
-            if df_industry_class.empty:
-                logger.error(f"df_industry_class is empty")
-                sys.exit()
-    else:
-        df_chip = pd.DataFrame()
+    df_industry_class = analysis.base.read_df_from_db(key="df_industry_class")
+    if df_industry_class.empty:
+        logger.error(f"df_industry_class is empty")
+        sys.exit()
+    df_chip = analysis.base.read_df_from_db(key="df_chip")
     if df_chip.empty:
         dt_chip_max = None
         print(f"No df_chip")

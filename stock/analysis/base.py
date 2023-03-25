@@ -1,16 +1,22 @@
 # modified at 2023/3/24 15:00
 from __future__ import annotations
+import os
 import datetime
-
+import shelve
 import pandas as pd
 import tushare as ts
+from loguru import logger
 
 
 pro = ts.pro_api()
 
 
 def all_ts_code() -> list | None:
-    df_basic = pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
+    df_basic = pro.stock_basic(
+        exchange="",
+        list_status="L",
+        fields="ts_code,symbol,name,area,industry,list_date",
+    )
     if len(df_basic) == 0:
         return
     else:
@@ -53,7 +59,7 @@ def get_stock_type_in(code_in: str):
 def latest_trading_day() -> datetime.date:
     dt_now = datetime.datetime.now()
     str_date_now = dt_now.strftime("%Y%m%d")
-    df_trade = pro.trade_cal(exchange='', start_date='20230101', end_date=str_date_now)
+    df_trade = pro.trade_cal(exchange="", start_date="20230101", end_date=str_date_now)
     df_trade.set_index(keys=["cal_date"], inplace=True)
     if df_trade.at[str_date_now, "is_open"] == 1:
         str_dt_out = str_date_now
@@ -83,3 +89,77 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
     return pd_series_out
 
 
+def write_df_to_db(obj: object, key: str):
+    path_main = os.getcwd()
+    path_data = os.path.join(path_main, "data")
+    if not os.path.exists(path_data):
+        os.mkdir(path_data)
+    file_name_chip_shelve = os.path.join(path_data, f"chip")
+    with shelve.open(filename=file_name_chip_shelve) as pydbm_chip:
+        pydbm_chip[key] = obj
+        logger.trace(f"{key} save as pydb_chip-{{file_name_chip_shelve}}")
+    return True
+
+
+def read_df_from_db(key: str) -> object:
+    path_main = os.getcwd()
+    path_data = os.path.join(path_main, "data")
+    if not os.path.exists(path_data):
+        os.mkdir(path_data)
+    file_name_chip_shelve = os.path.join(path_data, f"chip")
+    with shelve.open(filename=file_name_chip_shelve) as pydbm_chip:
+        return pydbm_chip[key]
+
+
+def is_latest_version(key: str) -> bool:
+    dt_now = datetime.datetime.now()
+    dt_date_trading = latest_trading_day()
+    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
+    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
+    path_main = os.getcwd()
+    path_data = os.path.join(path_main, "data")
+    if not os.path.exists(path_data):
+        os.mkdir(path_data)
+    df_config = read_df_from_db(key="df_config")
+    logger.trace(
+        f"the latest {key} at {df_config.at[key, 'date']},The new at {dt_pm_end}"
+    )
+    if (
+        df_config.at[key, "date"] < dt_now < dt_pm_end
+        or df_config.at[key, "date"] == dt_pm_end
+    ):
+        logger.trace(f"{key}-[df_config.at[name, 'date']] is latest")
+        return True
+    else:
+        return False
+
+
+def set_version(key: str, dt: datetime.datetime) -> bool:
+    path_main = os.getcwd()
+    path_data = os.path.join(path_main, "data")
+    if not os.path.exists(path_data):
+        os.mkdir(path_data)
+    df_config = read_df_from_db(key="df_config")
+    df_config.at[key, "date"] = dt
+    write_df_to_db(obj=df_config, key="df_config")
+    logger.trace(f"{key} update - [{df_config.at[key, 'date']}]")
+    return True
+
+
+def add_chip_excel(df: pd.DataFrame, key: str):
+    dt_date_trading = latest_trading_day()
+    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
+    path_main = os.getcwd()
+    path_check = os.path.join(path_main, "check")
+    file_name_chip_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
+    try:
+        with pd.ExcelWriter(
+            path=file_name_chip_excel, mode="a", if_sheet_exists="replace"
+        ) as writer:
+            df.to_excel(excel_writer=writer, sheet_name=key)
+    except FileNotFoundError as e:
+        logger.error(repr(e))
+        with pd.ExcelWriter(path=file_name_chip_excel, mode="w") as writer:
+            df.to_excel(excel_writer=writer, sheet_name=key)
+    logger.trace(f"save {key} at Excel-[{file_name_chip_excel}]")
+    pass
