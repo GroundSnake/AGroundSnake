@@ -2,7 +2,6 @@
 import datetime
 import os
 import time
-import pickle
 import sys
 import pandas as pd
 import feather
@@ -12,7 +11,7 @@ import akshare as ak
 import analysis.base
 
 
-def update_stock_data(frequency: str = "1m") -> datetime.datetime:
+def update_stock_data(frequency: str = "1m") -> None:
     """
     :param frequency: frequency choice of ["1m", "5m", "15m", "30m", "60m"]
     :return:
@@ -20,13 +19,10 @@ def update_stock_data(frequency: str = "1m") -> datetime.datetime:
     name: str = f"update_kline_{frequency}"
     logger.trace(f"[{frequency}] A Share Data Update Begin")
     start_loop_time = time.perf_counter_ns()
-    dt_now = datetime.datetime.now()
-    dt_date_trading = analysis.base.latest_trading_day()
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     dt_init = datetime.datetime(year=1989, month=1, day=1)
     dt_no_data = datetime.datetime(year=1990, month=1, day=1)
+    dt_date_trading = analysis.base.latest_trading_day()
+    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     path_main = os.getcwd()
     path_data = os.path.join(path_main, "data")
     path_check = os.path.join(path_main, "check")
@@ -37,42 +33,22 @@ def update_stock_data(frequency: str = "1m") -> datetime.datetime:
         os.mkdir(path_check)
     if not os.path.exists(path_kline):
         os.mkdir(path_kline)
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_catalogue_feather = os.path.join(path_kline, f"catalogue.ftr")
-    file_name_catalogue_csv = os.path.join(path_check, f"catalogue_{str_date_path}.csv")
+    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    file_name_catalogue_temp = os.path.join(
+        path_data, f"catalogue_temp_{str_date_path}.h5"
+    )
     time_pm = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_date = analysis.base.latest_trading_day()
     dt_pm = datetime.datetime.combine(dt_date, time_pm)
     quantity = 80000
     list_stock = analysis.base.all_chs_code()
-    df_config = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
-        except KeyError as e:
-            logger.trace(f"df_config not exist KeyError [{e}]")
-        if not df_config.empty:
-            try:
-                logger.trace(
-                    f"the latest {name} at {df_config.at[name, 'date']},The new at {dt_pm_end}"
-                )
-                if (
-                    df_config.at[name, "date"] < dt_now < dt_pm_end
-                    or df_config.at[name, "date"] == dt_pm_end
-                ):
-                    logger.trace(f"[{frequency}] A Share Data is latest,Break and End")
-                    logger.trace(f"update stock Kline Break")
-                    return df_config.at[name, "date"]
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-                df_config.at[name, "date"] = dt_now
-        else:
-            logger.trace(f"df_config is empty")
-
-    if os.path.exists(file_name_catalogue_feather):
+    if analysis.base.is_latest_version(key=name):
+        logger.trace(f"update stock Kline Break")
+        return
+    if os.path.exists(file_name_catalogue_temp):
         # 读取腌制数据 catalogue
-        df_catalogue = feather.read_dataframe(source=file_name_catalogue_feather)
-        logger.trace(f"Load Catalogue Pickles from [{file_name_catalogue_feather}]")
+        df_catalogue = feather.read_dataframe(source=file_name_catalogue_temp)
+        logger.trace(f"Load Catalogue from [{file_name_catalogue_temp}]")
     else:
         df_catalogue = pd.DataFrame(columns=["start", "end", "count"])
         logger.trace(f"Create and Pickle Catalogue")
@@ -162,9 +138,7 @@ def update_stock_data(frequency: str = "1m") -> datetime.datetime:
             df_catalogue.loc[symbol, "start"] = df_data.index.min()
             df_catalogue.loc[symbol, "count"] = len(df_data)
             str_msg = str_msg + f"-------------update"
-        feather.write_dataframe(
-            df=df_catalogue, dest=file_name_catalogue_feather
-        )  # 写入腌制数据 catalogue
+        feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         print(str_msg, end="")
     if i >= count:
         print("\n", end="")
@@ -172,69 +146,48 @@ def update_stock_data(frequency: str = "1m") -> datetime.datetime:
         df_catalogue["end"] = df_catalogue["end"].apply(
             func=lambda x: dt_init if x == dt_no_data else x
         )
-        feather.write_dataframe(
-            df=df_catalogue, dest=file_name_catalogue_feather
-        )  # 处理初始化数据
+
+        analysis.base.write_df_to_db(obj=df_catalogue, key="df_catalogue")
+        logger.trace(f"Catalogue pickle at [pydb_chip]")
+        df_catalogue.sort_values(by=["end"], ascending=False, inplace=True)
+        analysis.base.add_chip_excel(df=df_catalogue, key="df_catalogue")
+        analysis.base.set_version(key=name, dt=df_catalogue["end"].max())
+        if os.path.exists(file_name_catalogue_temp):
+            os.remove(path=file_name_catalogue_temp)
     logger.trace(f"for loop End")
-    df_catalogue.sort_values(by=["end"], ascending=False, inplace=True)
-    df_catalogue.to_csv(path_or_buf=file_name_catalogue_csv)
-    if os.path.exists(file_name_chip_h5):
-        df_config.at[name, "date"] = df_catalogue["end"].max()
-        df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
-    logger.trace(f"Catalogue csv Save at [{file_name_catalogue_csv}]")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
     print(f"[{frequency}] A Share Data Update takes {str_gm}")
     logger.trace(f"[{frequency}] A Share Data Update End")
-    return dt_pm_end
+    return
 
 
 def update_index_data(
     symbol: str = "sh000001", period: str = "1", adjust: str = ""
 ) -> pd.DataFrame:
     if symbol == "sh000001":
-        config = "index_1kline_sh"
+        name = "index_1kline_sh"
     elif symbol == "sh000852":
-        config = "index_1kline_csi1000"
+        name = "index_1kline_csi1000"
     else:
-        config = "index_1kline_other"
-    dt_now = datetime.datetime.now()
+        name = "index_1kline_other"
+    logger.trace(f"[{symbol}] update_index_data Begin")
     dt_date_trading = analysis.base.latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
     path_main = os.getcwd()
     path_data = os.path.join(path_main, "data")
-    # path_check = os.path.join(path_main, "check")
     path_index = os.path.join(path_main, "data", f"index")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    """
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
-    """
     if not os.path.exists(path_index):
         os.mkdir(path_index)
-    file_name_config = os.path.join(path_data, f"config.pkl")
     file_name_index_feather = os.path.join(path_index, f"{symbol}.ftr")
-    if os.path.exists(file_name_config):
-        with open(file=file_name_config, mode="rb") as f:
-            logger.trace(f"load dict_config from [{file_name_config}]")
-            dict_config = pickle.load(file=f)
-        if config in dict_config:
-            logger.trace(
-                f"the latest Kline at {dict_config[config]},The new at {dt_pm_end}"
-            )
-            if (
-                dict_config[config] < dt_now < dt_pm_end
-                or dt_pm_end == dict_config[config]
-            ):
-                logger.trace(
-                    f"[{symbol}] index minute Kline Data is latest,Break and End"
-                )
-                if os.path.exists(file_name_index_feather):
-                    df_index = feather.read_dataframe(source=file_name_index_feather)
-                    return df_index
+    if analysis.base.is_latest_version(key=name):
+        df_index = feather.read_dataframe(source=file_name_index_feather)
+        logger.trace(f"[{symbol}] update_index_data Break and End")
+        return df_index
     if os.path.exists(file_name_index_feather):
         # 读取腌制数据 catalogue
         df_index = feather.read_dataframe(source=file_name_index_feather)
@@ -256,12 +209,8 @@ def update_index_data(
     df_index.sort_index(inplace=True)
     if not df_index.empty:
         feather.write_dataframe(df=df_index, dest=file_name_index_feather)
-    if os.path.exists(file_name_config):
-        with open(file=file_name_config, mode="rb") as f:
-            dict_config = pickle.load(file=f)
-        dict_config[config] = dt_pm_end
-        with open(file=file_name_config, mode="wb") as f:
-            pickle.dump(obj=dict_config, file=f)
+    analysis.base.set_version(key=name, dt=dt_pm_end)
+    logger.trace(f"[{symbol}] update_index_data End")
     return df_index
 
 

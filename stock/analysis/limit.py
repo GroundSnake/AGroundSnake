@@ -14,7 +14,7 @@ import analysis.base
 
 
 def limit_count(list_symbol: list | str = None) -> bool:
-    name:str = "df_limit"
+    name: str = "df_limit"
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"Limit Count Begin")
     path_main = os.getcwd()
@@ -34,40 +34,16 @@ def limit_count(list_symbol: list | str = None) -> bool:
     str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
     str_delta = dt_delta.strftime("%Y%m%d")
-    dt_now = datetime.datetime.now()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_limit_feather_temp = os.path.join(
         path_data, f"Limit_count_temp_{str_date_path}.ftr"
     )
-    file_name_limit_csv = os.path.join(path_check, f"Limit_count_{str_date_path}.csv")
     list_exist = list()
-    df_config = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
-        except KeyError as e:
-            logger.trace(f"df_config not exist KeyError [{e}]")
-        if not df_config.empty:
-            try:
-                logger.trace(
-                    f"the latest {name} at {df_config.at[name, 'date']},The new at {dt_pm_end}"
-                )
-                if (df_config.at[name, "date"] < dt_now < dt_pm_end
-                    or df_config.at[name, "date"] == dt_pm_end
-                ):
-                    logger.trace(f"{name}-[{file_name_chip_h5}] is latest")
-                    # df_limit = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_limit")
-                    logger.trace(f"Limit Count Break")
-                    return True
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-                df_config.at[name, "date"] = dt_now
-        else:
-            # df_config.at[name, "date"] = dt_pm_end
-            # df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
-            logger.trace(f"empty")
+    if analysis.base.is_latest_version(key=name):
+        logger.trace("Limit Break End")
+        return True
     # 读取腌制数据 df_data
     if os.path.exists(file_name_limit_feather_temp):
         logger.trace(f"{file_name_limit_feather_temp} load feather")
@@ -369,13 +345,9 @@ def limit_count(list_symbol: list | str = None) -> bool:
             inplace=True,
         )
         df_limit.index.rename(name="symbol", inplace=True)
-        df_limit.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
-        df_limit.to_csv(path_or_buf=file_name_limit_csv)
-        logger.trace(f"[{file_name_limit_csv}] save")
-        if os.path.exists(file_name_chip_h5):
-            df_config.at[name, "date"] = dt_pm_end
-            df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
-        logger.trace(f"df_config update - [{df_config.at[name, 'date']}]")
+        analysis.base.write_df_to_db(obj=df_limit, key="df_limit")
+        analysis.base.add_chip_excel(df=df_limit, key=name)
+        analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_limit_feather_temp):
             os.remove(path=file_name_limit_feather_temp)
             logger.trace(f"[{file_name_limit_feather_temp}] remove")

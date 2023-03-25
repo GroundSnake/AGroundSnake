@@ -18,11 +18,8 @@ import analysis.industry
 
 
 def chip() -> object | DataFrame:
-    # logger.remove()
-    # logger.add(sink=sys.stderr, level="TRACE")  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-    logger.trace("chip Begin")
-    name:str = "df_chip"
-    dt_now = datetime.datetime.now()
+    name: str = "df_chip"
+    logger.trace(f"{name} Begin")
     dt_date_trading = analysis.base.latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
@@ -34,53 +31,51 @@ def chip() -> object | DataFrame:
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_chip_csv = os.path.join(path_check, f"chip_{str_date_path}.csv")
     file_name_industry_pct = os.path.join(path_data, f"industry_pct.ftr")
     file_name_game_over_csv = os.path.join(path_check, f"Game_Over_{str_date_path}.csv")
     file_name_industry_rank_csv = os.path.join(
         path_check, f"industry_rank_{str_date_path}.csv"
     )
-    df_config = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
-        except KeyError as e:
-            logger.trace(f"df_config not exist KeyError [{e}]")
-        if not df_config.empty:
-            try:
-                logger.trace(
-                    f"the latest {name} at {df_config.at[name, 'date']},The new at {dt_pm_end}"
-                )
-                if (
-                        df_config.at[name, "date"] < dt_now < dt_pm_end
-                        or df_config.at[name, "date"] == dt_pm_end
-                ):
-                    logger.trace(f"df_chip-[{file_name_chip_h5}] is latest")
-                    df_chip = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_chip")
-                    logger.trace("chip Break End")
-                    return df_chip
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-                df_config.at[name, "date"] = dt_now
-        else:
-            logger.trace(f"df_config is empty")
-    logger.trace("Update df_chip")
+    if analysis.base.is_latest_version(key=name):
+        df_chip = analysis.base.read_df_from_db(key="df_chip")
+        logger.trace("chip Break End")
+        return df_chip
+    logger.trace(f"Update {name}")
     analysis.update_data.update_stock_data()
     analysis.update_data.update_index_data(symbol="sh000001")
     analysis.update_data.update_index_data(symbol="sh000852")
-    df_golden = analysis.golden.golden_price()
+    if analysis.golden.golden_price():
+        df_golden = analysis.base.read_df_from_db(key="df_golden")
+        logger.trace("load df_golden success")
+    else:
+        df_golden = pd.DataFrame()
+        logger.trace("load df_golden fail")
     if analysis.limit.limit_count():
-        df_limit = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_limit")
+        df_limit = analysis.base.read_df_from_db(key="df_limit")
         logger.trace("load df_limit success")
     else:
         df_limit = pd.DataFrame()
         logger.trace("load df_limit fail")
-    df_cap = analysis.capital.capital()
-    df_st_fina = analysis.st.st_income()
-    df_industry = analysis.industry.ths_industry()
+    if analysis.capital.capital():
+        df_cap = analysis.base.read_df_from_db(key="df_cap")
+        logger.trace("load df_cap success")
+    else:
+        df_cap = pd.DataFrame()
+        logger.trace("load df_cap fail")
+    if analysis.st.st_income():
+        df_st = analysis.base.read_df_from_db(key="df_st")
+        logger.trace("load df_st success")
+    else:
+        df_st = pd.DataFrame()
+        logger.trace("load df_st fail")
+    if analysis.industry.ths_industry():
+        df_industry = analysis.base.read_df_from_db(key="df_industry")
+        logger.trace("load df_industry success")
+    else:
+        df_industry = pd.DataFrame()
+        logger.trace("load df_industry fail")
     df_chip = pd.concat(
-        objs=[df_cap, df_industry, df_golden, df_limit, df_st_fina],
+        objs=[df_cap, df_industry, df_golden, df_limit, df_st],
         axis=1,
         join="outer",
     )
@@ -94,10 +89,9 @@ def chip() -> object | DataFrame:
     df_chip.sort_values(
         by=["up_M_down", "now_price_ratio"], ascending=False, inplace=True
     )
-    df_chip.to_hdf(path_or_buf=file_name_chip_h5, key="df_chip", format='table')
-    logger.trace(f"{name} save as [{file_name_chip_h5}]")
-    df_chip.to_csv(path_or_buf=file_name_chip_csv)
-    logger.trace(f"save df_chip at csv-[{file_name_chip_csv}]")
+    analysis.base.write_df_to_db(obj=df_chip, key="df_chip")
+    logger.trace(f"{name} save as [db_chip]")
+    analysis.base.add_chip_excel(df=df_chip, key=name)
     df_g_price_1 = df_chip[
         (df_chip["now_price_ratio"] <= 71.8) & (df_chip["now_price_ratio"] >= 51.8)
     ]
@@ -227,16 +221,36 @@ def chip() -> object | DataFrame:
         df_industry_rank["T40"] = df_40_industry_pct.sum(axis=0).round(2)
         df_industry_rank["T60"] = df_60_industry_pct.sum(axis=0).round(2)
         df_industry_rank["T80"] = df_80_industry_pct.sum(axis=0).round(2)
-        df_industry_rank["T5_Zeroing_sort"] = analysis.base.zeroing_sort(pd_series=df_industry_rank["T5"])
-        df_industry_rank["T5_rank"] = df_industry_rank["T5"].rank(axis=0, method="min", ascending=False)
-        df_industry_rank["T20_Zeroing_sort"] = analysis.base.zeroing_sort(pd_series=df_industry_rank["T20"])
-        df_industry_rank["T20_rank"] = df_industry_rank["T20"].rank(axis=0, method="min", ascending=False)
-        df_industry_rank["T40_Zeroing_sort"] = analysis.base.zeroing_sort(pd_series=df_industry_rank["T40"])
-        df_industry_rank["T40_rank"] = df_industry_rank["T40"].rank(axis=0, method="min", ascending=False)
-        df_industry_rank["T60_Zeroing_sort"] = analysis.base.zeroing_sort(pd_series=df_industry_rank["T60"])
-        df_industry_rank["T60_rank"] = df_industry_rank["T60"].rank(axis=0, method="min", ascending=False)
-        df_industry_rank["T80_Zeroing_sort"] = analysis.base.zeroing_sort(pd_series=df_industry_rank["T80"])
-        df_industry_rank["T80_rank"] = df_industry_rank["T80"].rank(axis=0, method="min", ascending=False)
+        df_industry_rank["T5_Zeroing_sort"] = analysis.base.zeroing_sort(
+            pd_series=df_industry_rank["T5"]
+        )
+        df_industry_rank["T5_rank"] = df_industry_rank["T5"].rank(
+            axis=0, method="min", ascending=False
+        )
+        df_industry_rank["T20_Zeroing_sort"] = analysis.base.zeroing_sort(
+            pd_series=df_industry_rank["T20"]
+        )
+        df_industry_rank["T20_rank"] = df_industry_rank["T20"].rank(
+            axis=0, method="min", ascending=False
+        )
+        df_industry_rank["T40_Zeroing_sort"] = analysis.base.zeroing_sort(
+            pd_series=df_industry_rank["T40"]
+        )
+        df_industry_rank["T40_rank"] = df_industry_rank["T40"].rank(
+            axis=0, method="min", ascending=False
+        )
+        df_industry_rank["T60_Zeroing_sort"] = analysis.base.zeroing_sort(
+            pd_series=df_industry_rank["T60"]
+        )
+        df_industry_rank["T60_rank"] = df_industry_rank["T60"].rank(
+            axis=0, method="min", ascending=False
+        )
+        df_industry_rank["T80_Zeroing_sort"] = analysis.base.zeroing_sort(
+            pd_series=df_industry_rank["T80"]
+        )
+        df_industry_rank["T80_rank"] = df_industry_rank["T80"].rank(
+            axis=0, method="min", ascending=False
+        )
         df_industry_rank["rank"] = (
             df_industry_rank["T5_rank"]
             + df_industry_rank["T20_rank"]
@@ -265,7 +279,9 @@ def chip() -> object | DataFrame:
                     df_industry_rank.at[ths_index_code, "T60_rank"],
                     df_industry_rank.at[ths_index_code, "T80_rank"],
                 )
-        df_industry_rank.sort_values(by=["max_min"], axis=0, ascending=False, inplace=True)
+        df_industry_rank.sort_values(
+            by=["max_min"], axis=0, ascending=False, inplace=True
+        )
         df_industry_rank = df_industry_rank[
             (df_industry_rank["T5_rank"] >= 66)
             | (df_industry_rank["T20_rank"] >= 66)
@@ -279,12 +295,12 @@ def chip() -> object | DataFrame:
             | (df_industry_rank["T40_rank"] <= 10)
             | (df_industry_rank["T60_rank"] <= 10)
             | (df_industry_rank["T80_rank"] <= 10)
-            ]
-        df_industry_rank.sort_values(by=["T5_rank"], axis=0, ascending=False, inplace=True)
+        ]
+        df_industry_rank.sort_values(
+            by=["T5_rank"], axis=0, ascending=False, inplace=True
+        )
         df_industry_rank.to_csv(path_or_buf=file_name_industry_rank_csv)
-    if os.path.exists(file_name_chip_h5):
-        df_config.at[name, "date"] = dt_pm_end
-        df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
+    analysis.base.set_version(key=name, dt=dt_pm_end)
     logger.trace("chip End")
     return df_chip
 

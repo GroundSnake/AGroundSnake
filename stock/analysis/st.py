@@ -11,7 +11,7 @@ from loguru import logger
 import analysis.base
 
 
-def st_income(list_symbol: str | list = None) -> pd.DataFrame | None:
+def st_income(list_symbol: str | list = None) -> bool:
     name: str = "df_st"
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"ST income Begin")
@@ -29,14 +29,15 @@ def st_income(list_symbol: str | list = None) -> pd.DataFrame | None:
         list_symbol = [list_symbol]
     pro = ts.pro_api()
     dt_date_trading = analysis.base.latest_trading_day()
-    dt_now = datetime.datetime.now()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
     dt_date_trading_year = dt_date_trading.year
     dt_date_trading_month = dt_date_trading.month
     if dt_date_trading_month in [1, 2, 3, 4]:  # 预估上年的年报
         dt_period_income = datetime.date(year=dt_date_trading_year - 1, month=9, day=30)
-        dt_period_forecast = datetime.date(year=dt_date_trading_year - 1, month=12, day=31)
+        dt_period_forecast = datetime.date(
+            year=dt_date_trading_year - 1, month=12, day=31
+        )
     elif dt_date_trading_month in [5, 6, 7, 8]:  # 预估本年的半年报
         dt_period_income = datetime.date(year=dt_date_trading_year, month=3, day=31)
         dt_period_forecast = datetime.date(year=dt_date_trading_year, month=6, day=30)
@@ -48,44 +49,26 @@ def st_income(list_symbol: str | list = None) -> pd.DataFrame | None:
         dt_period_forecast = datetime.date(year=dt_date_trading_year, month=12, day=31)
     else:
         logger.trace(f"dt_now_month Error.")
-        return None
+        return False
     dt_period_income_next = dt_period_forecast
     str_dt_period_income = dt_period_income.strftime("%Y%m%d")
     str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     str_date_path_income = dt_period_income.strftime("%Y_%m_%d")
     str_dt_period_forecast = dt_period_forecast.strftime("%Y%m%d")
     str_dt_period_income_next = dt_period_income_next.strftime("%Y%m%d")
-    file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_df_income = os.path.join(path_data, f"income_{str_date_path_income}.ftr")
-    file_name_df_income_next = os.path.join(path_data, f"income_temp_{str_date_path}.ftr")
-    file_name_df_forecast = os.path.join(path_data, f"forecast_temp_{str_date_path}.ftr")
+    file_name_df_income_next = os.path.join(
+        path_data, f"income_temp_{str_date_path}.ftr"
+    )
+    file_name_df_forecast = os.path.join(
+        path_data, f"forecast_temp_{str_date_path}.ftr"
+    )
     file_name_df_st_temp = os.path.join(path_data, f"st_temp_{str_date_path}.ftr")
-    # file_name_df_st = os.path.join(path_data, f"st.ftr")
-    file_name_st_csv = os.path.join(path_check, f"ST_{str_date_path}.csv")
-    df_config = pd.DataFrame()
-    if os.path.exists(file_name_chip_h5):
-        try:
-            df_config = pd.read_hdf(path_or_buf=file_name_chip_h5, key="df_config")
-        except KeyError as e:
-            logger.trace(f"df_config not exist KeyError [{e}]")
-        if not df_config.empty:
-            try:
-                logger.trace(f"the latest {name} at {df_config.at[name, 'date']},The new at {dt_pm_end}")
-                if (
-                    df_config.at[name, "date"] < dt_now < dt_pm_end
-                    or df_config.at[name, "date"] == dt_pm_end
-                ):
-
-                    logger.trace(f"df_st-[{file_name_chip_h5}] is latest")
-                    df_st = pd.read_hdf(path_or_buf=file_name_chip_h5, key=name)
-                    logger.trace(f"ST Break End")
-                    return df_st
-            except KeyError as e:
-                logger.trace(f"df_config not exist KeyError [{e}]")
-                df_config.at[name, "date"] = dt_now
-        else:
-            logger.trace(f"df_config is empty")
-
+    if analysis.base.is_latest_version(key=name):
+        # df_st = analysis.base.read_df_from_db(key="df_st")
+        logger.trace(f"ST Break End")
+        return True  # df_st is object
     if os.path.exists(file_name_df_income):
         df_income = feather.read_dataframe(source=file_name_df_income)
     else:
@@ -241,12 +224,10 @@ def st_income(list_symbol: str | list = None) -> pd.DataFrame | None:
     if i >= all_record:
         print("\n", end="")  # 格式处理
         logger.trace(f"For loop End")
-        df_st.to_hdf(path_or_buf=file_name_chip_h5, key=name, format='table')
+        analysis.base.write_df_to_db(obj=df_st, key="df_st")
         df_st.sort_values(by=["ST"], ascending=False, inplace=True)
-        df_st.to_csv(path_or_buf=file_name_st_csv)
-        if os.path.exists(file_name_chip_h5):
-            df_config.at[name, "date"] = dt_pm_end
-            df_config.to_hdf(path_or_buf=file_name_chip_h5, key="df_config", format='table')
+        analysis.base.add_chip_excel(df=df_st, key=name)
+        analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_df_st_temp):
             os.remove(path=file_name_df_st_temp)
             logger.trace(f"[{file_name_df_st_temp}] remove")
@@ -261,4 +242,4 @@ def st_income(list_symbol: str | list = None) -> pd.DataFrame | None:
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
     print(f"ST analysis takes {str_gm}")
     logger.trace(f"ST End")
-    return df_st
+    return True
