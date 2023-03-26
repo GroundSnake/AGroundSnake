@@ -56,19 +56,19 @@ def st_income(list_symbol: str | list = None) -> bool:
     str_date_path_income = dt_period_income.strftime("%Y_%m_%d")
     str_dt_period_forecast = dt_period_forecast.strftime("%Y%m%d")
     str_dt_period_income_next = dt_period_income_next.strftime("%Y%m%d")
-    file_name_df_income = os.path.join(path_data, f"income_{str_date_path_income}.ftr")
-    file_name_df_income_next = os.path.join(
-        path_data, f"income_temp_{str_date_path}.ftr"
+    filename_df_income = os.path.join(path_data, f"df_income_{str_date_path_income}.ftr")
+    filename_df_income_next_temp = os.path.join(
+        path_data, f"df_income_next_temp_{str_date_path}.ftr"
     )
-    file_name_df_forecast = os.path.join(
-        path_data, f"forecast_temp_{str_date_path}.ftr"
+    filename_df_forecast_temp = os.path.join(
+        path_data, f"df_forecast_temp_{str_date_path}.ftr"
     )
-    file_name_df_st_temp = os.path.join(path_data, f"st_temp_{str_date_path}.ftr")
+    filename_df_st_temp = os.path.join(path_data, f"df_st_temp_{str_date_path}.ftr")
     if analysis.base.is_latest_version(key=name):
         logger.trace(f"ST Break End")
         return True
-    if os.path.exists(file_name_df_income):
-        df_income = feather.read_dataframe(source=file_name_df_income)
+    if os.path.exists(filename_df_income):
+        df_income = feather.read_dataframe(source=filename_df_income)
     else:
         df_income = pro.income_vip(period=str_dt_period_income)
         df_income["symbol"] = df_income["ts_code"].apply(
@@ -81,9 +81,9 @@ def st_income(list_symbol: str | list = None) -> bool:
         df_income["end_type"].fillna(method="ffill", inplace=True)
         df_income["update_flag"].fillna(method="ffill", inplace=True)
         df_income.fillna(value=0, inplace=True)
-        feather.write_dataframe(df=df_income, dest=file_name_df_income)
-    if os.path.exists(file_name_df_income_next):
-        df_income_next = feather.read_dataframe(source=file_name_df_income_next)
+        feather.write_dataframe(df=df_income, dest=filename_df_income)
+    if os.path.exists(filename_df_income_next_temp):
+        df_income_next = feather.read_dataframe(source=filename_df_income_next_temp)
     else:
         df_income_next = pro.income_vip(period=str_dt_period_income_next)
         df_income_next["symbol"] = df_income_next["ts_code"].apply(
@@ -96,13 +96,13 @@ def st_income(list_symbol: str | list = None) -> bool:
         df_income_next["end_type"].fillna(method="ffill", inplace=True)
         df_income_next["update_flag"].fillna(method="ffill", inplace=True)
         df_income_next.fillna(value=0, inplace=True)
-        feather.write_dataframe(df=df_income_next, dest=file_name_df_income_next)
-    if os.path.exists(file_name_df_st_temp):
-        df_st = feather.read_dataframe(source=file_name_df_st_temp)
+        feather.write_dataframe(df=df_income_next, dest=filename_df_income_next_temp)
+    if os.path.exists(filename_df_st_temp):
+        df_st = feather.read_dataframe(source=filename_df_st_temp)
     else:
         df_st = pd.DataFrame()
-    if os.path.exists(file_name_df_forecast):
-        df_forecast = feather.read_dataframe(source=file_name_df_forecast)
+    if os.path.exists(filename_df_forecast_temp):
+        df_forecast = feather.read_dataframe(source=filename_df_forecast_temp)
     else:
         df_forecast = pro.forecast_vip(period=str_dt_period_forecast)
         df_forecast["ts_code"] = df_forecast["ts_code"].apply(
@@ -119,7 +119,7 @@ def st_income(list_symbol: str | list = None) -> bool:
         df_forecast["summary"].fillna(value="No statement", inplace=True)
         df_forecast["change_reason"].fillna(value="No statement", inplace=True)
         df_forecast.fillna(value=0, inplace=True)
-        feather.write_dataframe(df=df_forecast, dest=file_name_df_forecast)
+        feather.write_dataframe(df=df_forecast, dest=filename_df_forecast_temp)
     list_df_income = df_income.index.tolist()
     list_df_income_next = df_income_next.index.tolist()
     list_df_forecast = df_forecast.index.tolist()
@@ -218,23 +218,23 @@ def st_income(list_symbol: str | list = None) -> bool:
         df_st.at[symbol, "net_profit_max"] = net_profit_max
         df_st.at[symbol, "ST"] = grade
         if random.randint(0, 2) == 1:
-            feather.write_dataframe(df=df_st, dest=file_name_df_st_temp)
+            feather.write_dataframe(df=df_st, dest=filename_df_st_temp)
     if i >= all_record:
         print("\n", end="")  # 格式处理
         logger.trace(f"For loop End")
-        analysis.base.write_df_to_db(obj=df_st, key="df_st")
+        analysis.base.write_obj_to_db(obj=df_st, key="df_st")
         df_st.sort_values(by=["ST"], ascending=False, inplace=True)
         analysis.base.add_chip_excel(df=df_st, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
-        if os.path.exists(file_name_df_st_temp):
-            os.remove(path=file_name_df_st_temp)
-            logger.trace(f"[{file_name_df_st_temp}] remove")
-        if os.path.exists(file_name_df_forecast):
-            os.remove(path=file_name_df_forecast)
-            logger.trace(f"[{file_name_df_forecast}] remove")
-        if os.path.exists(file_name_df_income_next):
-            os.remove(path=file_name_df_income_next)
-            logger.trace(f"[{file_name_df_income_next}] remove")
+        if os.path.exists(filename_df_st_temp):
+            os.remove(path=filename_df_st_temp)
+            logger.trace(f"[{filename_df_st_temp}] remove")
+        if os.path.exists(filename_df_forecast_temp):
+            os.remove(path=filename_df_forecast_temp)
+            logger.trace(f"[{filename_df_forecast_temp}] remove")
+        if os.path.exists(filename_df_income_next_temp):
+            os.remove(path=filename_df_income_next_temp)
+            logger.trace(f"[{filename_df_income_next_temp}] remove")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

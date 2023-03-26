@@ -14,7 +14,7 @@ import analysis.chip
 import analysis.base
 
 
-__version__ = "2.2.4"
+__version__ = "3.0.0"
 
 logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
@@ -38,6 +38,14 @@ if __name__ == "__main__":
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    if analysis.base.is_trading_day():
+        logger.trace("Betting day")
+        print("Betting day")
+    else:
+        logger.trace("Non betting day")
+        print("Non betting day")
+        logger.trace("Program OFF")
+        sys.exit()
     """init Begin"""
     fall = -5
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
@@ -61,10 +69,6 @@ if __name__ == "__main__":
     file_name_data_pickle = os.path.join(path_data, f"data.pkl")
     file_name_signal = os.path.join(path_check, f"signal_{str_date_path}.xlsx")
     file_name_data_csv = os.path.join(path_check, f"position_{str_date_path}.csv")
-    file_name_industry_class = os.path.join(
-        path_data, f"industry_class_fixed.ftr"
-    )
-
     logger.add(sink=file_name_log, level="TRACE")
     logger.trace(f"initialization Begin")
     #  设定交易时间 Begin
@@ -124,11 +128,11 @@ if __name__ == "__main__":
     # 加载df_data End
     # 加载df_chip Begin
     logger.trace("Create df_chip Begin")
-    df_industry_class = analysis.base.read_df_from_db(key="df_industry_class")
+    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty")
         sys.exit()
-    df_chip = analysis.base.read_df_from_db(key="df_chip")
+    df_chip = analysis.base.read_obj_from_db(key="df_chip")
     if df_chip.empty:
         dt_chip_max = None
         print(f"No df_chip")

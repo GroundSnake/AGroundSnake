@@ -6,7 +6,6 @@ import datetime
 import feather
 import requests
 import pandas as pd
-from pandas import DataFrame
 from loguru import logger
 import analysis.base
 
@@ -207,7 +206,7 @@ def capital() -> bool:
         feather.write_dataframe(df=df_cap, dest=file_name_cap_feather_temp)
     if i >= count:
         print("\n", end="")  # 格式处理
-        analysis.base.write_df_to_db(obj=df_cap, key="df_cap")
+        analysis.base.write_obj_to_db(obj=df_cap, key="df_cap")
         analysis.base.add_chip_excel(df=df_cap, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         logger.trace(f"Update df_config-[{name}]")

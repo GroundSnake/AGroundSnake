@@ -45,8 +45,8 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    file_name_golden_feather_temp = os.path.join(
-        path_data, f"golden_price_temp_{str_date_path}.ftr"
+    file_name_df_golden_temp = os.path.join(
+        path_data, f"df_golden_temp_{str_date_path}.ftr"
     )
     # 判断Kline是不是最新的
     if analysis.base.is_latest_version(key=kline):
@@ -58,16 +58,16 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         logger.trace("Golden Price Analysis Break End")
         return True  # df_golden is object
     list_golden_exist = list()
-    if os.path.exists(file_name_golden_feather_temp):
-        logger.trace(f"{file_name_golden_feather_temp} load feather")
-        df_golden = feather.read_dataframe(source=file_name_golden_feather_temp)
+    if os.path.exists(file_name_df_golden_temp):
+        logger.trace(f"{file_name_df_golden_temp} load feather")
+        df_golden = feather.read_dataframe(source=file_name_df_golden_temp)
         if df_golden.empty:
             logger.trace("df_golden cache is empty")
         else:
             logger.trace("df_golden cache is not empty")
             list_golden_exist = df_golden.index.to_list()
     else:
-        logger.trace(f"{file_name_golden_feather_temp} not exists")
+        logger.trace(f"{file_name_df_golden_temp} not exists")
         list_columns = [
             "dt",
             "total_volume",
@@ -128,19 +128,20 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
             if not signal_price and not signal_volume:
                 break
         if random.randint(0, 5) == 3:
-            feather.write_dataframe(df=df_golden, dest=file_name_golden_feather_temp)
+            feather.write_dataframe(df=df_golden, dest=file_name_df_golden_temp)
     if i >= all_record:
         print("\n", end="")  # 格式处理
         df_golden.index.rename(name="symbol", inplace=True)
         df_golden.sort_values(by=["now_price_ratio"], ascending=False, inplace=True)
-        df_golden["dt"] = df_golden["dt"].to_string()
-        analysis.base.write_df_to_db(obj=df_golden, key="df_golden")
+        analysis.base.write_obj_to_db(obj=df_golden, key="df_golden")
+        print(df_golden.info())
+        print(df_golden)
         logger.trace(f"df_golden save at [pydb_chip]")
         analysis.base.add_chip_excel(df=df_golden, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
-        if os.path.exists(file_name_golden_feather_temp):  # 删除临时文件
-            os.remove(path=file_name_golden_feather_temp)
-            logger.trace(f"[{file_name_golden_feather_temp}] remove")
+        if os.path.exists(file_name_df_golden_temp):  # 删除临时文件
+            os.remove(path=file_name_df_golden_temp)
+            logger.trace(f"[{file_name_df_golden_temp}] remove")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

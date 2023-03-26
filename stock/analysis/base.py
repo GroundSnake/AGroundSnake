@@ -59,7 +59,7 @@ def get_stock_type_in(code_in: str):
 def latest_trading_day() -> datetime.date:
     dt_now = datetime.datetime.now()
     str_date_now = dt_now.strftime("%Y%m%d")
-    df_trade = pro.trade_cal(exchange="", start_date="20230101", end_date=str_date_now)
+    df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
     df_trade.set_index(keys=["cal_date"], inplace=True)
     if df_trade.at[str_date_now, "is_open"] == 1:
         str_dt_out = str_date_now
@@ -67,6 +67,17 @@ def latest_trading_day() -> datetime.date:
         str_dt_out = df_trade.at[str_date_now, "pretrade_date"]
     dt_out = datetime.datetime.strptime(str_dt_out, "%Y%m%d").date()
     return dt_out
+
+
+def is_trading_day() -> bool:
+    dt_now = datetime.datetime.now()
+    str_date_now = dt_now.strftime("%Y%m%d")
+    df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
+    df_trade.set_index(keys=["cal_date"], inplace=True)
+    if df_trade.at[str_date_now, "is_open"] == 1:
+        return True
+    else:
+        return False
 
 
 def transaction_unit(price: float, amount: float = 1000) -> int:
@@ -89,25 +100,25 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
     return pd_series_out
 
 
-def write_df_to_db(obj: object, key: str):
+def write_obj_to_db(obj: object, key: str):
     path_main = os.getcwd()
     path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
     file_name_chip_shelve = os.path.join(path_data, f"chip")
-    with shelve.open(filename=file_name_chip_shelve) as pydbm_chip:
+    with shelve.open(filename=file_name_chip_shelve, flag='c') as pydbm_chip:
         pydbm_chip[key] = obj
         logger.trace(f"{key} save as pydb_chip-{{file_name_chip_shelve}}")
     return True
 
 
-def read_df_from_db(key: str) -> object:
+def read_obj_from_db(key: str) -> object:
     path_main = os.getcwd()
     path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
     file_name_chip_shelve = os.path.join(path_data, f"chip")
-    with shelve.open(filename=file_name_chip_shelve) as pydbm_chip:
+    with shelve.open(filename=file_name_chip_shelve, flag='r') as pydbm_chip:
         return pydbm_chip[key]
 
 
@@ -120,7 +131,7 @@ def is_latest_version(key: str) -> bool:
     path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    df_config = read_df_from_db(key="df_config")
+    df_config = read_obj_from_db(key="df_config")
     logger.trace(
         f"the latest {key} at {df_config.at[key, 'date']},The new at {dt_pm_end}"
     )
@@ -139,9 +150,9 @@ def set_version(key: str, dt: datetime.datetime) -> bool:
     path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    df_config = read_df_from_db(key="df_config")
+    df_config = read_obj_from_db(key="df_config")
     df_config.at[key, "date"] = dt
-    write_df_to_db(obj=df_config, key="df_config")
+    write_obj_to_db(obj=df_config, key="df_config")
     logger.trace(f"{key} update - [{df_config.at[key, 'date']}]")
     return True
 

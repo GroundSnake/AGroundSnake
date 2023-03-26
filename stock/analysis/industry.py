@@ -41,7 +41,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     file_name_industry_temp = os.path.join(
         path_data, f"industry_temp_{str_date_path}.ftr"
     )
-    file_name_industry_pct = os.path.join(path_data, f"industry_pct.ftr")
+    # file_name_industry_pct = os.path.join(path_data, f"industry_pct.ftr")
     file_name_industry_pct_temp = os.path.join(
         path_data, f"industry_pct_temp_{str_date_path}.ftr"
     )
@@ -52,7 +52,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     if analysis.base.is_latest_version(key=name):
         logger.trace(f"ths_industry,Break and End")
         return True
-    df_industry_class = analysis.base.read_df_from_db(key="df_industry_class")
+    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty,return None DataFrame")
         return False
@@ -179,7 +179,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         feather.write_dataframe(df=df_industry, dest=file_name_industry_temp)
     if i >= len_list_symbol:
         print("\n", end="")  # 格式处理
-        analysis.base.write_df_to_db(obj=df_industry, key="df_industry")
+        analysis.base.write_obj_to_db(obj=df_industry, key="df_industry")
         analysis.base.add_chip_excel(df=df_industry, key=name)
         df_all_industry_pct = df_all_industry_pct.applymap(func=lambda x: x + 100)
         len_df_all_industry_pct = len(df_all_industry_pct)
@@ -192,7 +192,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             i += 1
         if i >= len_df_all_industry_pct:
             df_all_industry_pct.to_csv(path_or_buf=file_name_industry_pct_csv)
-            feather.write_dataframe(df=df_all_industry_pct, dest=file_name_industry_pct)
+            # feather.write_dataframe(df=df_all_industry_pct, dest=file_name_industry_pct)
+            analysis.base.write_obj_to_db(obj=df_all_industry_pct, key="df_all_industry_pct")
+            analysis.base.set_version(key="df_all_industry_pct", dt=dt_pm_end)
             logger.trace(f"feather df_all_industry_pct success")
         if os.path.exists(file_name_industry_pct_temp):  # 删除临时文件
             os.remove(path=file_name_industry_pct_temp)
