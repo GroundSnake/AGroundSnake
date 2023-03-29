@@ -1,4 +1,4 @@
-# modified at 2023/3/25 16：59
+# modified at 2023/3/29 15:47
 import datetime
 import os
 import time
@@ -121,6 +121,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     # logger.trace(f"[{symbol}] get_history_n_min_tx success")
                     break
                 except ConnectionError as e:
+                    logger.error(repr(e))
                     print("--", repr(e))
                     time.sleep(3)
                 if i_times >= 2:

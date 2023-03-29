@@ -1,4 +1,4 @@
-# modified at 2023/3/25 16：59
+# modified at 2023/3/29 15:47
 from __future__ import annotations
 import os
 import sys
@@ -88,6 +88,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                     )
                 except requests.exceptions.ConnectionError as e:
                     print("--", repr(e))
+                    logger.error(repr(e))
                     time.sleep(2)
                 else:
                     break
