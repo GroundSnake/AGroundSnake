@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 import datetime
 import os
 import time
@@ -11,7 +11,7 @@ import akshare as ak
 import analysis.base
 
 
-def update_stock_data(frequency: str = "1m") -> None:
+def update_stock_data(frequency: str = "1m") -> bool:
     """
     :param frequency: frequency choice of ["1m", "5m", "15m", "30m", "60m"]
     :return:
@@ -35,7 +35,7 @@ def update_stock_data(frequency: str = "1m") -> None:
         os.mkdir(path_kline)
     # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_catalogue_temp = os.path.join(
-        path_data, f"catalogue_temp_{str_date_path}.h5"
+        path_data, f"catalogue_temp_{str_date_path}.ftr"
     )
     time_pm = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_date = analysis.base.latest_trading_day()
@@ -44,7 +44,7 @@ def update_stock_data(frequency: str = "1m") -> None:
     list_stock = analysis.base.all_chs_code()
     if analysis.base.is_latest_version(key=name):
         logger.trace(f"update stock Kline Break")
-        return
+        return True
     if os.path.exists(file_name_catalogue_temp):
         # 读取腌制数据 catalogue
         df_catalogue = feather.read_dataframe(source=file_name_catalogue_temp)
@@ -147,7 +147,7 @@ def update_stock_data(frequency: str = "1m") -> None:
             func=lambda x: dt_init if x == dt_no_data else x
         )
 
-        analysis.base.write_df_to_db(obj=df_catalogue, key="df_catalogue")
+        analysis.base.write_obj_to_db(obj=df_catalogue, key="df_catalogue")
         logger.trace(f"Catalogue pickle at [pydb_chip]")
         df_catalogue.sort_values(by=["end"], ascending=False, inplace=True)
         analysis.base.add_chip_excel(df=df_catalogue, key="df_catalogue")
@@ -160,7 +160,7 @@ def update_stock_data(frequency: str = "1m") -> None:
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
     print(f"[{frequency}] A Share Data Update takes {str_gm}")
     logger.trace(f"[{frequency}] A Share Data Update End")
-    return
+    return True
 
 
 def update_index_data(

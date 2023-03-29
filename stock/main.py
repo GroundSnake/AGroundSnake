@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/27 09:16
 from __future__ import annotations
 import os
 import random
@@ -13,9 +13,7 @@ import analysis.position
 import analysis.chip
 import analysis.base
 
-
-__version__ = "2.2.4"
-
+__version__ = "3.0.0"
 logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
 
@@ -38,6 +36,14 @@ if __name__ == "__main__":
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    if analysis.base.is_trading_day():
+        logger.trace("Betting day")
+        print("Betting day")
+    else:
+        logger.trace("Non betting day")
+        print("Non betting day")
+        logger.trace("Program OFF")
+        sys.exit()
     """init Begin"""
     fall = -5
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
@@ -55,18 +61,11 @@ if __name__ == "__main__":
         os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
+    file_name_log = os.path.join(path_data, "program_log.log")
     file_name_input = os.path.join(path_main, f"input.xlsx")
     file_name_trader = os.path.join(path_main, f"trader.xlsx")
-    file_name_log = os.path.join(path_data, "program_log.log")
-    file_name_data_pickle = os.path.join(path_data, f"data.pkl")
     file_name_signal = os.path.join(path_check, f"signal_{str_date_path}.xlsx")
     file_name_data_csv = os.path.join(path_check, f"position_{str_date_path}.csv")
-    # file_name_chip_feather = os.path.join(path_data, f"chip.ftr")
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_industry_class = os.path.join(
-        path_data, f"industry_class_fixed.ftr"
-    )
-
     logger.add(sink=file_name_log, level="TRACE")
     logger.trace(f"initialization Begin")
     #  设定交易时间 Begin
@@ -88,12 +87,11 @@ if __name__ == "__main__":
     dt_program_end = datetime.datetime.combine(dt_date, time_program_end)
     #  设定交易时间 End
     # 加载df_data Begin
-    logger.trace("Create df_data Begin")
-    if os.path.exists(file_name_data_pickle):
-        logger.trace(f"loading df_data from [{file_name_data_pickle}]")
-        df_data = pd.read_pickle(filepath_or_buffer=file_name_data_pickle)
-    else:
-        logger.trace(f"Create a new df_data")
+    logger.trace("Create df_trader Begin")
+    df_trader = analysis.base.read_obj_from_db(key="df_trader")
+    if df_trader.empty:
+        logger.trace(f"Create a new df_trader")
+        time.sleep(20)
         list_data_columns = [
             "name",
             "recent_price",
@@ -113,24 +111,24 @@ if __name__ == "__main__":
             "remark",
         ]
         list_symbol = ["sh600519", "sz300750"]
-        df_data = pd.DataFrame(index=list_symbol, columns=list_data_columns)
-        df_data.index.rename(name="code", inplace=True)
-    df_data["recent_price"].fillna(0, inplace=True)
-    df_data["position"].fillna(0, inplace=True)
-    df_data["now_price"].fillna(0, inplace=True)
-    df_data["pct_chg"].fillna(0, inplace=True)
-    df_data["rise"].fillna(rise, inplace=True)
-    df_data["fall"].fillna(fall, inplace=True)
-    df_data["recent_trading"].fillna(dt_now, inplace=True)
-    logger.trace("Create df_data End")
+        df_trader = pd.DataFrame(index=list_symbol, columns=list_data_columns)
+        df_trader.index.rename(name="code", inplace=True)
+    df_trader["recent_price"].fillna(0, inplace=True)
+    df_trader["position"].fillna(0, inplace=True)
+    df_trader["now_price"].fillna(0, inplace=True)
+    df_trader["pct_chg"].fillna(0, inplace=True)
+    df_trader["rise"].fillna(rise, inplace=True)
+    df_trader["fall"].fillna(fall, inplace=True)
+    df_trader["recent_trading"].fillna(dt_now, inplace=True)
+    logger.trace("Create df_trader End")
     # 加载df_data End
     # 加载df_chip Begin
     logger.trace("Create df_chip Begin")
-    df_industry_class = analysis.base.read_df_from_db(key="df_industry_class")
+    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty")
         sys.exit()
-    df_chip = analysis.base.read_df_from_db(key="df_chip")
+    df_chip = analysis.base.read_obj_from_db(key="df_chip")
     if df_chip.empty:
         dt_chip_max = None
         print(f"No df_chip")
@@ -143,13 +141,13 @@ if __name__ == "__main__":
     # 加载df_chip End
     # 用df_chip初始化df_data----Begin
     logger.trace("initialization df_index")
-    list_data = df_data.index.to_list()
+    list_data = df_trader.index.to_list()
     for code in list_data:
         if code in df_industry_class.index:
-            df_data.at[code, "industry_code"] = df_industry_class.at[code, "industry_code"]
-            df_data.at[code, "industry_name"] = df_industry_class.at[code, "industry_name"]
+            df_trader.at[code, "industry_code"] = df_industry_class.at[code, "industry_code"]
+            df_trader.at[code, "industry_name"] = df_industry_class.at[code, "industry_name"]
         if code in df_chip.index:
-            now_price = df_data.at[code, "now_price"]
+            now_price = df_trader.at[code, "now_price"]
             now_price_ratio = round(df_chip.at[code, "now_price_ratio"], 1)
             G_price = df_chip.at[code, "G_price"]
             t5_amplitude = df_chip.at[code, "T5_amplitude"]
@@ -159,13 +157,13 @@ if __name__ == "__main__":
             up_A_down_5pct = int(df_chip.at[code, "up_A_down_5pct"])
             up_A_down_3pct = int(df_chip.at[code, "up_A_down_3pct"])
             turnover = round(df_chip.at[code, "turnover"], 1)
-            df_data.at[code, "trx_unit_share"] = analysis.base.transaction_unit(
+            df_trader.at[code, "trx_unit_share"] = analysis.base.transaction_unit(
                 price=df_chip.at[code, "G_price"]
             )
-            df_data.at[code, "position_unit"] = (
-                df_data.at[code, "position"] / df_data.at[code, "trx_unit_share"]
+            df_trader.at[code, "position_unit"] = (
+                df_trader.at[code, "position"] / df_trader.at[code, "trx_unit_share"]
             ).round(2)
-            df_data.at[code, "stock_index"] = (
+            df_trader.at[code, "stock_index"] = (
                 f"({up_times:2.0f}U /"
                 f"{turnover:2.0f}T /"
                 f"{now_price_ratio:6.2f}% -"
@@ -226,12 +224,12 @@ if __name__ == "__main__":
                 + "-"
                 + grade_G
             )
-            df_data.at[code, "grade"] = grade
-            df_data.at[code, "ST"] = df_chip.at[code, "ST"]
+            df_trader.at[code, "grade"] = grade
+            df_trader.at[code, "ST"] = df_chip.at[code, "ST"]
     # 用df_chip初始化df_data-----End
     # 创建df_trader Begin
     logger.trace("Create df_signal")
-    if os.path.exists(file_name_signal):
+    if os.access(path=file_name_signal, mode=os.F_OK):
         logger.trace(f"load df_signal from [{file_name_signal}]")
         df_signal_sell = pd.read_excel(
             io=file_name_signal, sheet_name="sell", index_col="code"
@@ -263,16 +261,22 @@ if __name__ == "__main__":
     list_signal_buy = df_signal_sell.index.to_list()
     list_signal_sell = df_signal_buy.index.to_list()
     # 创建空的交易员模板 file_name_trader End
-    df_modified = pd.DataFrame(columns=df_data.columns)
+    df_modified = pd.DataFrame(columns=df_trader.columns)
     df_modified.index.rename(name="code", inplace=True)
-    df_add = pd.DataFrame(columns=df_data.columns)
+    df_add = pd.DataFrame(columns=df_trader.columns)
     df_add.index.rename(name="code", inplace=True)
-    df_delete = pd.DataFrame(columns=df_data.columns)
+    df_delete = pd.DataFrame(columns=df_trader.columns)
     df_delete.index.rename(name="code", inplace=True)
-    with pd.ExcelWriter(path=file_name_trader, mode="w") as writer:
-        df_modified.to_excel(excel_writer=writer, sheet_name="modified")
-        df_add.to_excel(excel_writer=writer, sheet_name="add")
-        df_delete.to_excel(excel_writer=writer, sheet_name="delete")
+    try:
+        with pd.ExcelWriter(path=file_name_trader, mode="w") as writer:
+            df_modified.to_excel(excel_writer=writer, sheet_name="modified")
+            df_add.to_excel(excel_writer=writer, sheet_name="add")
+            df_delete.to_excel(excel_writer=writer, sheet_name="delete")
+    except PermissionError as e:
+        logger.error(repr(e))
+        print(repr(e))
+        print(f'[{file_name_trader}] is is in use')
+        sys.exit()
     # 创建空的交易员模板 file_name_trader End
     # 取得仓位控制提示
     str_pos_ctl_zh = analysis.position.position(index="sh000001")
@@ -314,7 +318,7 @@ if __name__ == "__main__":
                 df_in_add.index = df_in_add.index.str.lower()
                 df_in_del.index = df_in_del.index.str.lower()
                 # 索引转为小写字母 End
-                list_data = df_data.index.to_list()
+                list_data = df_trader.index.to_list()
                 df_in_modified = df_in_modified[
                     ~df_in_modified.index.duplicated(keep="first")
                 ]  # 去重
@@ -327,24 +331,24 @@ if __name__ == "__main__":
                     df_in_modified["recent_trading"] = dt_now
                     for code in list_in_modified:
                         if code in list_data:
-                            df_data.drop(index=code, inplace=True)
-                    df_data = pd.concat(
-                        objs=[df_data, df_in_modified], axis=0, join="outer"
+                            df_trader.drop(index=code, inplace=True)
+                    df_trader = pd.concat(
+                        objs=[df_trader, df_in_modified], axis=0, join="outer"
                     )
                     str_msg_modified = f"{list_in_modified} modified"
                     logger.trace("modified stock success")
                 if len(list_in_add) > 0:
                     df_in_add["recent_trading"] = dt_now
-                    df_data = pd.concat(objs=[df_data, df_in_add], axis=0, join="outer")
-                    df_data = df_data[~df_data.index.duplicated(keep="first")]
+                    df_trader = pd.concat(objs=[df_trader, df_in_add], axis=0, join="outer")
+                    df_trader = df_trader[~df_trader.index.duplicated(keep="first")]
                     str_msg_add = f"\n{list_in_add} add"
                     logger.trace("add stock success")
                 if len(list_in_del) > 0:
                     df_in_del["recent_trading"] = dt_now
                     for code in list_in_del:
                         if code in list_data:
-                            if df_data.at[code, "position"] <= 0:
-                                df_data.drop(index=code, inplace=True)
+                            if df_trader.at[code, "position"] <= 0:
+                                df_trader.drop(index=code, inplace=True)
                             else:
                                 list_in_del.remove(code)
                     str_msg_del = f"\n{list_in_del} remove"
@@ -360,15 +364,15 @@ if __name__ == "__main__":
                     logger.error(e)
                 else:
                     logger.trace(f"[{file_name_input_rename}] rename file success")
-                df_data["recent_price"].fillna(0, inplace=True)
-                df_data["position"].fillna(0, inplace=True)
-                df_data["rise"].fillna(rise, inplace=True)
-                df_data["fall"].fillna(fall, inplace=True)
+                df_trader["recent_price"].fillna(0, inplace=True)
+                df_trader["position"].fillna(0, inplace=True)
+                df_trader["rise"].fillna(rise, inplace=True)
+                df_trader["fall"].fillna(fall, inplace=True)
             else:
                 logger.trace(f"[{file_name_input}] is not exist")
             # 增加修改删除df_data中的项目 End
             # 调用实时数据接口，更新df_realtime Begin
-            list_data = df_data.index.to_list()
+            list_data = df_trader.index.to_list()
             df_realtime = realtime_quotations(stock_codes=list_data)  # 调用实时数据接口
             if df_realtime.empty:
                 logger.trace(f"[df_realtime] is empty, the program ends")
@@ -389,11 +393,11 @@ if __name__ == "__main__":
                 if i >= count:
                     print("\n", end="")  # 调整输出console格式
                 try:
-                    if not pd.notnull(df_data.at[code, "industry_code"]):
-                        df_data.at[code, "industry_code"] = df_industry_class.at[code, "industry_code"]
+                    if not pd.notnull(df_trader.at[code, "industry_code"]):
+                        df_trader.at[code, "industry_code"] = df_industry_class.at[code, "industry_code"]
                         logger.trace(f"{code} update industry_code")
-                    if not pd.notnull(df_data.at[code, "industry_name"]):
-                        df_data.at[code, "industry_name"] = df_industry_class.at[code, "industry_name"]
+                    if not pd.notnull(df_trader.at[code, "industry_name"]):
+                        df_trader.at[code, "industry_name"] = df_industry_class.at[code, "industry_name"]
                         logger.trace(f"{code} update industry_name")
                 except KeyError as e:
                     logger.trace(f"df_industry_class KeyError [{e}]")
@@ -401,135 +405,136 @@ if __name__ == "__main__":
                 if code not in df_realtime.index:
                     logger.trace("code not in df_realtime")
                     continue
-                df_data.at[code, "name"] = df_realtime.at[code, "name"]
+                df_trader.at[code, "name"] = df_realtime.at[code, "name"]
                 now_price = df_realtime.at[code, "close"]
-                df_data.at[code, "now_price"] = now_price
-                if df_data.at[code, "recent_price"] == 0:
-                    df_data.at[code, "recent_price"] = recent_price = now_price
+                df_trader.at[code, "now_price"] = now_price
+                if df_trader.at[code, "recent_price"] == 0:
+                    df_trader.at[code, "recent_price"] = recent_price = now_price
                 else:
-                    recent_price = df_data.at[code, "recent_price"]
+                    recent_price = df_trader.at[code, "recent_price"]
                 pct_chg = (now_price / recent_price - 1) * 100
                 pct_chg = round(pct_chg, 2)
-                df_data.at[code, "pct_chg"] = pct_chg
-                if not pd.notnull(df_data.at[code, 'position_unit']):
-                    df_data.at[code, "trx_unit_share"] = analysis.base.transaction_unit(
+                df_trader.at[code, "pct_chg"] = pct_chg
+                if not pd.notnull(df_trader.at[code, 'position_unit']):
+                    df_trader.at[code, "trx_unit_share"] = analysis.base.transaction_unit(
                         price=df_chip.at[code, "G_price"]
                     )
-                    df_data.at[code, 'position_unit'] = (
-                                df_data.at[code, "position"] / df_data.at[code, "trx_unit_share"]).round(2)
+                    df_trader.at[code, 'position_unit'] = (
+                                df_trader.at[code, "position"] / df_trader.at[code, "trx_unit_share"]).round(2)
                 # df_trader Begin
                 if (
-                    pct_chg >= df_data.at[code, "rise"]
-                    and df_data.at[code, "position"] > 0
+                    pct_chg >= df_trader.at[code, "rise"]
+                    and df_trader.at[code, "position"] > 0
                 ):
                     if (
                         code in list_signal_buy
                         and df_signal_sell.at[code, "now_price"]
-                        < df_data.at[code, "now_price"]
+                        < df_trader.at[code, "now_price"]
                     ):
-                        df_signal_sell.at[code, "now_price"] = df_data.at[
+                        df_signal_sell.at[code, "now_price"] = df_trader.at[
                             code, "now_price"
                         ]
-                        df_signal_sell.at[code, "pct_chg"] = df_data.at[code, "pct_chg"]
+                        df_signal_sell.at[code, "pct_chg"] = df_trader.at[code, "pct_chg"]
                         df_signal_sell.at[code, "dt"] = dt_now
                     else:  # ["name", "recent_price", "now_price", "position", "pct_chg", "dt"]
-                        df_signal_sell.at[code, "name"] = df_data.at[code, "name"]
-                        df_signal_sell.at[code, "recent_price"] = df_data.at[
+                        df_signal_sell.at[code, "name"] = df_trader.at[code, "name"]
+                        df_signal_sell.at[code, "recent_price"] = df_trader.at[
                             code, "recent_price"
                         ]
-                        df_signal_sell.at[code, "now_price"] = df_data.at[
+                        df_signal_sell.at[code, "now_price"] = df_trader.at[
                             code, "now_price"
                         ]
-                        df_signal_sell.at[code, "pct_chg"] = df_data.at[code, "pct_chg"]
+                        df_signal_sell.at[code, "pct_chg"] = df_trader.at[code, "pct_chg"]
                         df_signal_sell.at[code, "dt"] = dt_now
-                    df_signal_sell.at[code, "position"] = df_data.at[code, "position"]
-                    df_signal_sell.at[code, "stock_index"] = df_data.at[
+                    df_signal_sell.at[code, "position"] = df_trader.at[code, "position"]
+                    df_signal_sell.at[code, "stock_index"] = df_trader.at[
                         code, "stock_index"
                     ]
-                    df_signal_sell.at[code, "grade"] = df_data.at[code, "grade"]
+                    df_signal_sell.at[code, "grade"] = df_trader.at[code, "grade"]
                     str_msg_rise += (
-                        f"\n<Sell>-[{code}_{df_data.at[code, 'name']}]-"
+                        f"\n<Sell>-[{code}_{df_trader.at[code, 'name']}]-"
                         f"<{now_price:5.2f}_↑_{pct_chg:5.2f}%> - "
-                        f"[{df_data.at[code, 'recent_price']:5.2f} * "
-                        f"{int(df_data.at[code, 'position']):4d}:( "
-                        f"{df_data.at[code, 'position_unit']:3.1f}*"
-                        f"{int(df_data.at[code, 'trx_unit_share']):3d})]"
+                        f"[{df_trader.at[code, 'recent_price']:5.2f} * "
+                        f"{int(df_trader.at[code, 'position']):4d}:( "
+                        f"{df_trader.at[code, 'position_unit']:3.1f}*"
+                        f"{int(df_trader.at[code, 'trx_unit_share']):3d})]"
                     )
-                    if pd.notnull(df_data.at[code, "grade"]):
-                        str_msg_rise += f" - [{df_data.at[code, 'grade']}]"
-                    if pd.notnull(df_data.at[code, "ST"]):
-                        str_msg_rise += f" - [{df_data.at[code, 'ST']}]"
-                    if pd.notnull(df_data.at[code, "stock_index"]):
-                        str_msg_rise += f"\n ---- {df_data.at[code, 'stock_index']}"
-                    if pd.notnull(df_data.at[code, "recent_trading"]):
+                    if pd.notnull(df_trader.at[code, "grade"]):
+                        str_msg_rise += f" - [{df_trader.at[code, 'grade']}]"
+                    if pd.notnull(df_trader.at[code, "ST"]):
+                        str_msg_rise += f" - [{df_trader.at[code, 'ST']}]"
+                    if pd.notnull(df_trader.at[code, "stock_index"]):
+                        str_msg_rise += f"\n ---- {df_trader.at[code, 'stock_index']}"
+                    if pd.notnull(df_trader.at[code, "recent_trading"]):
                         if isinstance(
-                            df_data.at[code, "recent_trading"], datetime.datetime
+                            df_trader.at[code, "recent_trading"], datetime.datetime
                         ):
-                            dt_trading = df_data.at[code, "recent_trading"].date()
+                            dt_trading = df_trader.at[code, "recent_trading"].date()
                             str_msg_rise += f" - [{dt_trading}]"
-                    if pd.notnull(df_data.at[code, "remark"]):
-                        str_msg_rise += f" - {df_data.at[code, 'remark']}"
+                    if pd.notnull(df_trader.at[code, "remark"]):
+                        str_msg_rise += f" - {df_trader.at[code, 'remark']}"
                     str_msg_rise += "\n\n"
-                elif pct_chg <= df_data.at[code, "fall"]:
+                elif pct_chg <= df_trader.at[code, "fall"]:
                     if (
                         code in list_signal_sell
                         and df_signal_buy.at[code, "now_price"]
-                        > df_data.at[code, "now_price"]
+                        > df_trader.at[code, "now_price"]
                     ):
-                        df_signal_buy.at[code, "now_price"] = df_data.at[
+                        df_signal_buy.at[code, "now_price"] = df_trader.at[
                             code, "now_price"
                         ]
-                        df_signal_buy.at[code, "pct_chg"] = df_data.at[code, "pct_chg"]
+                        df_signal_buy.at[code, "pct_chg"] = df_trader.at[code, "pct_chg"]
                         df_signal_buy.at[code, "dt"] = dt_now
                         pass
                     else:  # ["name", "recent_price", "now_price", "pct_chg", "dt"]
-                        df_signal_buy.at[code, "name"] = df_data.at[code, "name"]
-                        df_signal_buy.at[code, "recent_price"] = df_data.at[
+                        df_signal_buy.at[code, "name"] = df_trader.at[code, "name"]
+                        df_signal_buy.at[code, "recent_price"] = df_trader.at[
                             code, "recent_price"
                         ]
-                        df_signal_buy.at[code, "now_price"] = df_data.at[
+                        df_signal_buy.at[code, "now_price"] = df_trader.at[
                             code, "now_price"
                         ]
-                        df_signal_buy.at[code, "pct_chg"] = df_data.at[code, "pct_chg"]
+                        df_signal_buy.at[code, "pct_chg"] = df_trader.at[code, "pct_chg"]
                         df_signal_buy.at[code, "dt"] = dt_now
-                    df_signal_buy.at[code, "position"] = df_data.at[code, "position"]
-                    df_signal_buy.at[code, "stock_index"] = df_data.at[
+                    df_signal_buy.at[code, "position"] = df_trader.at[code, "position"]
+                    df_signal_buy.at[code, "stock_index"] = df_trader.at[
                         code, "stock_index"
                     ]
-                    df_signal_buy.at[code, "grade"] = df_data.at[code, "grade"]
+                    df_signal_buy.at[code, "grade"] = df_trader.at[code, "grade"]
                     str_msg_fall += (
-                        f"\n<Buy>-[{code}_{df_data.at[code, 'name']}]-"
+                        f"\n<Buy>-[{code}_{df_trader.at[code, 'name']}]-"
                         f"<{now_price:5.2f}_↓_{pct_chg:5.2f}%> - "
-                        f"[{df_data.at[code, 'recent_price']:5.2f} * "
-                        f"{int(df_data.at[code, 'position']):4d}:( "
-                        f"{df_data.at[code, 'position_unit']:3.1f}*"
-                        f"{int(df_data.at[code, 'trx_unit_share']):3d})]"
+                        f"[{df_trader.at[code, 'recent_price']:5.2f} * "
+                        f"{int(df_trader.at[code, 'position']):4d}:( "
+                        f"{df_trader.at[code, 'position_unit']:3.1f}*"
+                        f"{int(df_trader.at[code, 'trx_unit_share']):3d})]"
                     )
-                    if pd.notnull(df_data.at[code, "grade"]):
-                        str_msg_fall += f" - [{df_data.at[code, 'grade']}]"
-                    if pd.notnull(df_data.at[code, "ST"]):
-                        str_msg_fall += f" - [{df_data.at[code, 'ST']}]"
-                    if pd.notnull(df_data.at[code, "stock_index"]):
-                        str_msg_fall += f"\n ---- {df_data.at[code, 'stock_index']}"
-                    if pd.notnull(df_data.at[code, "recent_trading"]):
+                    if pd.notnull(df_trader.at[code, "grade"]):
+                        str_msg_fall += f" - [{df_trader.at[code, 'grade']}]"
+                    if pd.notnull(df_trader.at[code, "ST"]):
+                        str_msg_fall += f" - [{df_trader.at[code, 'ST']}]"
+                    if pd.notnull(df_trader.at[code, "stock_index"]):
+                        str_msg_fall += f"\n ---- {df_trader.at[code, 'stock_index']}"
+                    if pd.notnull(df_trader.at[code, "recent_trading"]):
                         if isinstance(
-                            df_data.at[code, "recent_trading"], datetime.datetime
+                            df_trader.at[code, "recent_trading"], datetime.datetime
                         ):
-                            dt_trading = df_data.at[code, "recent_trading"].date()
+                            dt_trading = df_trader.at[code, "recent_trading"].date()
                             str_msg_fall += f" - [{dt_trading}]"
-                    if pd.notnull(df_data.at[code, "remark"]):
-                        str_msg_rise += f" - {df_data.at[code, 'remark']}"
+                    if pd.notnull(df_trader.at[code, "remark"]):
+                        str_msg_rise += f" - {df_trader.at[code, 'remark']}"
                     str_msg_fall += "\n\n"
                 else:
                     pass
                 # df_trader End
             # 更新df_data，str_msg_rise，str_msg_fall------End
-            df_data.sort_values(by=["pct_chg"], ascending=False, inplace=True)
-            df_data.to_pickle(path=file_name_data_pickle)
-            logger.trace(f"df_data pickle at [{file_name_data_pickle}]")
+            df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
+            # df_trader.to_pickle(path=file_name_data_pickle)
+            analysis.base.write_obj_to_db(obj=df_trader, key="df_trader")
+            # logger.trace(f"df_trader pickle at [{file_name_data_pickle}]")
             if random.randint(0, 2) == 1:
-                df_data.to_csv(path_or_buf=file_name_data_csv)
-                logger.trace(f"df_data csv at [{file_name_data_csv}]")
+                df_trader.to_csv(path_or_buf=file_name_data_csv)
+                logger.trace(f"df_trader csv at [{file_name_data_csv}]")
             list_signal_buy_temp = df_signal_sell.index.to_list()
             list_signal_sell_temp = df_signal_buy.index.to_list()
             list_signal_chg = list()
@@ -603,6 +608,7 @@ if __name__ == "__main__":
         # 开盘前：1:00 至 9:30
         elif dt_program_start < dt_now < dt_am_start:
             logger.trace(f"The exchange will open ar {dt_am_start}")
+            print(f"The exchange will open ar {dt_am_start}")
             sleep_to_time(dt_am_start)
         # 收盘后：15:00 -- 23:00
         elif dt_pm_end < dt_now < dt_program_end:

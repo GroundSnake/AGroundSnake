@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 import datetime
 import os
 import numpy as np
@@ -17,23 +17,16 @@ def position(index: str = "sh000001") -> str:
     else:
         name = "df_pos_ctl_other"
     logger.trace(f"position_control-[{name}] Begin")
-    dt_date_trading = analysis.base.latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
     path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_pos_ctl_csv = os.path.join(path_check, f"{name}_{str_date_path}.csv")
     # 取得实时上证指数
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
     if analysis.base.is_latest_version(key=name):
-        df_pos_ctl = analysis.base.read_df_from_db(key="df_pos_ctl")
+        df_pos_ctl = analysis.base.read_obj_from_db(key=name)
         stock_close = df_index_realtime.at[index, "最新价"]
         stock_name = df_index_realtime.at[index, "名称"]
         stock_close = int(stock_close) // 10 * 10
@@ -43,19 +36,19 @@ def position(index: str = "sh000001") -> str:
             f"[{stock_name}] - [{stock_close} - {rank:3.0f}/{len_df_pos_ctl:3.0f}] --- "
             f"[{df_pos_ctl.at[stock_close, 'sun_descending']:5.2f}]"
         )
-        logger.trace(f"position_control-{name} Break End")
+        logger.trace(f"position_control-[{name}] Break End")
         return str_pos_ctl
     logger.trace(f"Update df_pos_ctl-[pydb_chip] Begin")
     if index == "sh000001":
         df_sh_index = analysis.update_data.update_index_data(symbol=index)
+        dt_date = df_sh_index.index.max().date()
     else:
         df_sh_index = ak.stock_zh_index_daily(symbol=index)
         df_sh_index["date"] = pd.to_datetime(df_sh_index["date"])
         dt_begin = datetime.datetime(year=2015, month=9, day=1)
         df_sh_index.set_index(keys=["date"], inplace=True)
         df_sh_index = df_sh_index.loc[dt_begin:]
-    dt_date = df_sh_index.index.max().date()
-    # df_sh_index["close"] = df_sh_index["close"].round(0)
+        dt_date = analysis.base.latest_trading_day()
     df_sh_index["close"] = df_sh_index["close"].apply(
         func=lambda x: int(round(x, 0)) // 10 * 10
     )
@@ -94,10 +87,8 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl["rank"] = df_pos_ctl["weight_volume"].rank(
         axis=0, method="min", ascending=False
     )
-    analysis.base.write_df_to_db(obj=df_pos_ctl, key="df_pos_ctl")
-    logger.trace(f"HDF5 df_pos_ctl-[pydb_chip]")
-    df_pos_ctl.to_csv(path_or_buf=file_name_pos_ctl_csv)
-    logger.trace(f"save df_pos_ctl at csv-[{file_name_pos_ctl_csv}]")
+    analysis.base.write_obj_to_db(obj=df_pos_ctl, key=name)
+    analysis.base.add_chip_excel(df=df_pos_ctl, key=name)
     close_sh = df_index_realtime.at[index, "最新价"]
     nane = df_index_realtime.at[index, "名称"]
     close_sh = int(close_sh) // 10 * 10

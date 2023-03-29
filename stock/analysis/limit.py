@@ -37,24 +37,24 @@ def limit_count(list_symbol: list | str = None) -> bool:
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
     # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_limit_feather_temp = os.path.join(
-        path_data, f"Limit_count_temp_{str_date_path}.ftr"
+    file_name_df_limit_temp = os.path.join(
+        path_data, f"df_limit_count_temp_{str_date_path}.ftr"
     )
     list_exist = list()
     if analysis.base.is_latest_version(key=name):
         logger.trace("Limit Break End")
         return True
     # 读取腌制数据 df_data
-    if os.path.exists(file_name_limit_feather_temp):
-        logger.trace(f"{file_name_limit_feather_temp} load feather")
-        df_limit = feather.read_dataframe(source=file_name_limit_feather_temp)
+    if os.path.exists(file_name_df_limit_temp):
+        logger.trace(f"{file_name_df_limit_temp} load feather")
+        df_limit = feather.read_dataframe(source=file_name_df_limit_temp)
         if df_limit.empty:
             logger.trace("df_limit cache is empty")
         else:
             logger.trace("df_limit cache is not empty")
             list_exist = df_limit.index.to_list()
     else:
-        logger.trace(f"{file_name_limit_feather_temp} not exists")
+        logger.trace(f"{file_name_df_limit_temp} not exists")
         list_columns = [
             "times",
             "up_times",
@@ -335,7 +335,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
         df_limit.at[symbol, "T120_mean"] = t120_mean
         # 写入腌制数据 df_limit
         if random.randint(0, 5) == 3:
-            feather.write_dataframe(df=df_limit, dest=file_name_limit_feather_temp)
+            feather.write_dataframe(df=df_limit, dest=file_name_df_limit_temp)
     if i >= count:
         print("\n", end="")  # 格式处理
         logger.trace(f"For loop End")
@@ -345,12 +345,12 @@ def limit_count(list_symbol: list | str = None) -> bool:
             inplace=True,
         )
         df_limit.index.rename(name="symbol", inplace=True)
-        analysis.base.write_df_to_db(obj=df_limit, key="df_limit")
+        analysis.base.write_obj_to_db(obj=df_limit, key="df_limit")
         analysis.base.add_chip_excel(df=df_limit, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
-        if os.path.exists(file_name_limit_feather_temp):
-            os.remove(path=file_name_limit_feather_temp)
-            logger.trace(f"[{file_name_limit_feather_temp}] remove")
+        if os.path.exists(file_name_df_limit_temp):
+            os.remove(path=file_name_df_limit_temp)
+            logger.trace(f"[{file_name_df_limit_temp}] remove")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

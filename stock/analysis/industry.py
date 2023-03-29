@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 from __future__ import annotations
 import os
 import sys
@@ -41,20 +41,14 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     file_name_industry_temp = os.path.join(
         path_data, f"industry_temp_{str_date_path}.ftr"
     )
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
-    file_name_industry_pct = os.path.join(path_data, f"industry_pct.ftr")
     file_name_industry_pct_temp = os.path.join(
         path_data, f"industry_pct_temp_{str_date_path}.ftr"
     )
-    file_name_industry_pct_csv = os.path.join(
-        path_check, f"industry_pct_{str_date_path}.csv"
-    )
     list_exist = list()
     if analysis.base.is_latest_version(key=name):
-        # df_industry = analysis.base.read_df_from_db(key="df_industry")
         logger.trace(f"ths_industry,Break and End")
         return True
-    df_industry_class = analysis.base.read_df_from_db(key="df_industry_class")
+    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty,return None DataFrame")
         return False
@@ -179,10 +173,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             df_industry.at[symbol, "up_keep_days_industry"] = up_keep_days
             df_industry.at[symbol, "down_keep_days_industry"] = down_keep_days
         feather.write_dataframe(df=df_industry, dest=file_name_industry_temp)
-    # print(df_all_industry_pct)
     if i >= len_list_symbol:
         print("\n", end="")  # 格式处理
-        analysis.base.write_df_to_db(obj=df_industry, key="df_industry")
+        analysis.base.write_obj_to_db(obj=df_industry, key="df_industry")
         analysis.base.add_chip_excel(df=df_industry, key=name)
         df_all_industry_pct = df_all_industry_pct.applymap(func=lambda x: x + 100)
         len_df_all_industry_pct = len(df_all_industry_pct)
@@ -194,8 +187,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             )
             i += 1
         if i >= len_df_all_industry_pct:
-            df_all_industry_pct.to_csv(path_or_buf=file_name_industry_pct_csv)
-            feather.write_dataframe(df=df_all_industry_pct, dest=file_name_industry_pct)
+            analysis.base.add_chip_excel(df=df_all_industry_pct, key='df_industry_pct')
+            analysis.base.write_obj_to_db(obj=df_all_industry_pct, key="df_all_industry_pct")
+            analysis.base.set_version(key="df_all_industry_pct", dt=dt_pm_end)
             logger.trace(f"feather df_all_industry_pct success")
         if os.path.exists(file_name_industry_pct_temp):  # 删除临时文件
             os.remove(path=file_name_industry_pct_temp)

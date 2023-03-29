@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/25 16：59
 import os
 import sys
 import time
@@ -6,8 +6,9 @@ import datetime
 import feather
 import requests
 import pandas as pd
-from pandas import DataFrame
 from loguru import logger
+from requests import RequestException
+
 import analysis.base
 
 
@@ -105,7 +106,14 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
         "secid": f"{code_id_dict[code]}.{code}",
         "_": "1640157544804",
     }
-    r = requests.get(url, params=params)
+    while True:
+        try:
+            r = requests.get(url, params=params)
+        except RequestException as e:
+            logger.error(repr(e))
+            time.sleep(2)
+        else:
+            break
     data_json = r.json()
     temp_df = pd.DataFrame(data_json)
     temp_df.reset_index(inplace=True)
@@ -156,7 +164,6 @@ def capital() -> bool:
         os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_cap_feather_temp = os.path.join(
         path_data, f"capital_temp_{str_date_path}.ftr"
     )
@@ -164,7 +171,6 @@ def capital() -> bool:
     list_cap_exist = list()
     df_cap = pd.DataFrame()
     if analysis.base.is_latest_version(key=name):
-        # df_cap = analysis.base.read_df_from_db(key="df_cap")
         logger.trace(f"capital Break End")
         return True
     if os.path.exists(file_name_cap_feather_temp):
@@ -209,7 +215,7 @@ def capital() -> bool:
         feather.write_dataframe(df=df_cap, dest=file_name_cap_feather_temp)
     if i >= count:
         print("\n", end="")  # 格式处理
-        analysis.base.write_df_to_db(obj=df_cap, key="df_cap")
+        analysis.base.write_obj_to_db(obj=df_cap, key="df_cap")
         analysis.base.add_chip_excel(df=df_cap, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         logger.trace(f"Update df_config-[{name}]")
