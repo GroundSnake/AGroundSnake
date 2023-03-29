@@ -1,4 +1,4 @@
-# modified at 2023/3/25 16：59
+# modified at 2023/3/29 15:47
 from __future__ import annotations
 import os
 import sys
@@ -59,7 +59,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         return True  # df_golden is object
     list_golden_exist = list()
     if os.path.exists(file_name_df_golden_temp):
-        logger.trace(f"{file_name_df_golden_temp} load feather")
+        logger.trace(f"[{file_name_df_golden_temp}] load feather")
         df_golden = feather.read_dataframe(source=file_name_df_golden_temp)
         if df_golden.empty:
             logger.trace("df_golden cache is empty")
@@ -67,7 +67,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
             logger.trace("df_golden cache is not empty")
             list_golden_exist = df_golden.index.to_list()
     else:
-        logger.trace(f"{file_name_df_golden_temp} not exists")
+        logger.trace(f"[{file_name_df_golden_temp}] not exists")
         list_columns = [
             "dt",
             "total_volume",
@@ -134,9 +134,6 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         df_golden.index.rename(name="symbol", inplace=True)
         df_golden.sort_values(by=["now_price_ratio"], ascending=False, inplace=True)
         analysis.base.write_obj_to_db(obj=df_golden, key="df_golden")
-        print(df_golden.info())
-        print(df_golden)
-        logger.trace(f"df_golden save at [pydb_chip]")
         analysis.base.add_chip_excel(df=df_golden, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_df_golden_temp):  # 删除临时文件

@@ -1,4 +1,4 @@
-# modified at 2023/3/27 09:16
+# modified at 2023/3/29 15:47
 from __future__ import annotations
 import os
 import datetime
@@ -109,7 +109,7 @@ def write_obj_to_db(obj: object, key: str):
     if not os.path.exists(path_data):
         os.mkdir(path_data)
     file_name_chip_shelve = os.path.join(path_data, f"chip")
-    with shelve.open(filename=file_name_chip_shelve, flag='c') as pydbm_chip:
+    with shelve.open(filename=file_name_chip_shelve, flag="c") as pydbm_chip:
         pydbm_chip[key] = obj
         logger.trace(f"{key} save as pydb_chip-[{file_name_chip_shelve}]")
     return True
@@ -122,15 +122,17 @@ def read_obj_from_db(key: str) -> object:
         os.mkdir(path_data)
     file_name_chip_shelve = os.path.join(path_data, f"chip")
     try:
-        with shelve.open(filename=file_name_chip_shelve, flag='r') as pydbm_chip:
+        with shelve.open(filename=file_name_chip_shelve, flag="r") as pydbm_chip:
             logger.trace(f"loading {key} from [{file_name_chip_shelve}]....")
             try:
                 return pydbm_chip[key]
             except KeyError as e:
+                logger.error(repr(e))
                 print(repr(e))
                 logger.trace(f"[{key}] is not exist")
                 return pd.DataFrame()
     except dbm.error as e:
+        logger.error(repr(e))
         print(repr(e))
         logger.trace(f"[{file_name_chip_shelve}] is not exist")
         return pd.DataFrame()
@@ -146,16 +148,17 @@ def is_latest_version(key: str) -> bool:
     if not os.path.exists(path_data):
         os.mkdir(path_data)
     df_config = read_obj_from_db(key="df_config")
-    logger.trace(
-        f"the latest {key} at {df_config.at[key, 'date']},The new at {dt_pm_end}"
-    )
-    if (
-        df_config.at[key, "date"] < dt_now < dt_pm_end
-        or df_config.at[key, "date"] == dt_pm_end
-    ):
+    if df_config.at[key, "date"] < dt_now < dt_pm_end:
+        logger.trace(f"[{dt_now}] less than [{dt_pm_end}]")
+        logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
+        return True
+    elif df_config.at[key, "date"] == dt_pm_end:
         logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
         return True
     else:
+        logger.trace(
+            f"the latest {key} at [{df_config.at[key, 'date']}],The new {key} at [{dt_pm_end}]"
+        )
         return False
 
 
@@ -173,19 +176,26 @@ def set_version(key: str, dt: datetime.datetime) -> bool:
 
 def is_open(filename) -> bool:
     if not os.access(path=filename, mode=os.F_OK):
-        logger.trace(f'[{filename}] is exist')
+        logger.trace(f"[{filename}] is exist")
         return False
     else:
-        logger.trace(f'[{filename}] is not exist')
+        logger.trace(f"[{filename}] is not exist")
     v_handle = pywintypes.HANDLE()
     try:
-        v_handle = win32file.CreateFile(filename, win32file.GENERIC_READ, 0, None, win32file.OPEN_EXISTING,
-                                        win32file.FILE_ATTRIBUTE_NORMAL, None)
-        logger.trace(f'[{filename}] not in use')
+        v_handle = win32file.CreateFile(
+            filename,
+            win32file.GENERIC_READ,
+            0,
+            None,
+            win32file.OPEN_EXISTING,
+            win32file.FILE_ATTRIBUTE_NORMAL,
+            None,
+        )
+        logger.trace(f"[{filename}] not in use")
         return False  # int(v_handle) == win32file.INVALID_HANDLE_VALUE
     except pywintypes.error as e:
         logger.error(e.args[2])
-        logger.trace(f'[{filename}] in use')
+        logger.trace(f"[{filename}] in use")
         return True
     finally:
         try:
@@ -195,28 +205,32 @@ def is_open(filename) -> bool:
             logger.error(repr(e))
 
 
-def add_chip_excel(df: pd.DataFrame, key: str):
+def add_chip_excel(df: pd.DataFrame, key: str, filename: str = None):
     dt_date_trading = latest_trading_day()
     str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     path_main = os.getcwd()
     path_check = os.path.join(path_main, "check")
-    i= 0
-    file_name_chip_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
+    if not os.path.exists(path_check):
+        os.mkdir(path_check)
+    if not filename:
+        filename = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
+    i = 0
     while True:
-        if is_open(filename=file_name_chip_excel):
-            logger.trace(f'{file_name_chip_excel} is open')
+        if is_open(filename=filename):
+            logger.trace(f"[{filename}] is open")
         else:
-            logger.trace(f'{file_name_chip_excel} is not open')
+            logger.trace(f"[{filename}] is not open")
             break
         i += 1
-        file_name_chip_excel = os.path.join(path_check, f"chip_{str_date_path}_{i}.xlsx")
+        filename = os.path.join(path_check, f"chip_{str_date_path}_{i}.xlsx")
     try:
         with pd.ExcelWriter(
-                path=file_name_chip_excel, mode="a", if_sheet_exists="replace"
+            path=filename, mode="a", if_sheet_exists="replace"
         ) as writer:
             df.to_excel(excel_writer=writer, sheet_name=key)
-            logger.trace(f"save {key} at Excel-[{file_name_chip_excel}]")
     except FileNotFoundError as e:
         logger.error(repr(e))
-        with pd.ExcelWriter(path=file_name_chip_excel, mode="w") as writer:
+        with pd.ExcelWriter(path=filename, mode="w") as writer:
             df.to_excel(excel_writer=writer, sheet_name=key)
+    finally:
+        logger.trace(f"save {key} at Excel-[{filename}]")

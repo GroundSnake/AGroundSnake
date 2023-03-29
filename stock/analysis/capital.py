@@ -1,4 +1,4 @@
-# modified at 2023/3/25 16：59
+# modified at 2023/3/29 15:47
 import os
 import sys
 import time
@@ -8,7 +8,6 @@ import requests
 import pandas as pd
 from loguru import logger
 from requests import RequestException
-
 import analysis.base
 
 
@@ -174,12 +173,12 @@ def capital() -> bool:
         logger.trace(f"capital Break End")
         return True
     if os.path.exists(file_name_cap_feather_temp):
-        logger.trace(f"{file_name_cap_feather_temp} exists")
+        logger.trace(f"[{file_name_cap_feather_temp}] exists")
         df_cap = feather.read_dataframe(source=file_name_cap_feather_temp)
         if df_cap.empty:
-            logger.trace("df_cap cache is empty")
+            logger.trace(f"{name} cache is empty")
         else:
-            logger.trace("df_cap cache is not empty")
+            logger.trace(f"{name} cache is not empty")
             list_cap_exist = df_cap.index.to_list()
     i = 0
     count = len(list_stocks)
@@ -198,9 +197,11 @@ def capital() -> bool:
             try:
                 df_cap_temp = stock_individual_info(code=code)
             except KeyError as e:
+                logger.error(repr(e))
                 print("--", repr(e))
                 break
             except ConnectionError as e:
+                logger.error(repr(e))
                 print("--", repr(e))
             else:
                 break

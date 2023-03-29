@@ -1,4 +1,4 @@
-# modified at 2023/3/24 15:00
+# modified at 2023/3/29 15:47
 from __future__ import annotations
 import os
 import sys
@@ -7,7 +7,7 @@ import time
 import random
 import feather
 import numpy as np
-import pandas as pd
+import pandas as pd# 读取腌制数据 df_limit
 from loguru import logger
 import akshare as ak
 import analysis.base
@@ -36,7 +36,6 @@ def limit_count(list_symbol: list | str = None) -> bool:
     str_delta = dt_delta.strftime("%Y%m%d")
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
     file_name_df_limit_temp = os.path.join(
         path_data, f"df_limit_count_temp_{str_date_path}.ftr"
     )
@@ -44,10 +43,10 @@ def limit_count(list_symbol: list | str = None) -> bool:
     if analysis.base.is_latest_version(key=name):
         logger.trace("Limit Break End")
         return True
-    # 读取腌制数据 df_data
+    logger.trace("Update Limit")
     if os.path.exists(file_name_df_limit_temp):
         logger.trace(f"{file_name_df_limit_temp} load feather")
-        df_limit = feather.read_dataframe(source=file_name_df_limit_temp)
+        df_limit = feather.read_dataframe(source=file_name_df_limit_temp) # 读取腌制数据 df_limit
         if df_limit.empty:
             logger.trace("df_limit cache is empty")
         else:
@@ -126,9 +125,11 @@ def limit_count(list_symbol: list | str = None) -> bool:
                     end_date=str_date_trading,
                 )
             except KeyError as e:
+                logger.error(repr(e))
                 print(repr(e))
                 break
             except OSError as e:
+                logger.error(repr(e))
                 print(repr(e))
                 time.sleep(2)
             else:
