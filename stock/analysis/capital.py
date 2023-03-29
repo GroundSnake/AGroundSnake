@@ -7,6 +7,8 @@ import feather
 import requests
 import pandas as pd
 from loguru import logger
+from requests import RequestException
+
 import analysis.base
 
 
@@ -104,7 +106,14 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
         "secid": f"{code_id_dict[code]}.{code}",
         "_": "1640157544804",
     }
-    r = requests.get(url, params=params)
+    while True:
+        try:
+            r = requests.get(url, params=params)
+        except RequestException as e:
+            logger.error(repr(e))
+            time.sleep(2)
+        else:
+            break
     data_json = r.json()
     temp_df = pd.DataFrame(data_json)
     temp_df.reset_index(inplace=True)

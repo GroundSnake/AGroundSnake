@@ -22,6 +22,7 @@ def chip() -> object | DataFrame:
     dt_date_trading = analysis.base.latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
+    dt_init = datetime.datetime(year=1989, month=1, day=1)
     str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     path_main = os.getcwd()
     path_check = os.path.join(path_main, "check")
@@ -30,14 +31,10 @@ def chip() -> object | DataFrame:
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    # file_name_industry_pct = os.path.join(path_data, f"industry_pct.ftr")
     file_name_game_over_csv = os.path.join(path_check, f"Game_Over_{str_date_path}.csv")
-    file_name_industry_rank_csv = os.path.join(
-        path_check, f"industry_rank_{str_date_path}.csv"
-    )
     if analysis.base.is_latest_version(key=name):
-        df_chip = analysis.base.read_obj_from_db(key="df_chip")
-        logger.trace("chip Break End")
+        df_chip = analysis.base.read_obj_from_db(key=name)
+        logger.trace(f"{name} Break End")
         return df_chip
     logger.trace(f"Update {name}")
     analysis.update_data.update_stock_data()
@@ -88,7 +85,8 @@ def chip() -> object | DataFrame:
     df_chip.sort_values(
         by=["up_M_down", "now_price_ratio"], ascending=False, inplace=True
     )
-    analysis.base.write_obj_to_db(obj=df_chip, key="df_chip")
+    df_chip['dt'].fillna(value=dt_init, inplace=True)
+    analysis.base.write_obj_to_db(obj=df_chip, key=name)
     logger.trace(f"{name} save as [db_chip]")
     analysis.base.add_chip_excel(df=df_chip, key=name)
     df_g_price_1 = df_chip[
@@ -297,7 +295,7 @@ def chip() -> object | DataFrame:
     df_industry_rank.sort_values(
         by=["T5_rank"], axis=0, ascending=False, inplace=True
     )
-    df_industry_rank.to_csv(path_or_buf=file_name_industry_rank_csv)
+    analysis.base.add_chip_excel(df=df_industry_rank, key='df_industry_rank')
     analysis.base.set_version(key=name, dt=dt_pm_end)
     logger.trace("chip End")
     return df_chip
