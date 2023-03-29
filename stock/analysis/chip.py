@@ -26,11 +26,8 @@ def chip() -> object | DataFrame:
     str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     path_main = os.getcwd()
     path_check = os.path.join(path_main, "check")
-    path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
     file_name_game_over_csv = os.path.join(path_check, f"Game_Over_{str_date_path}.csv")
     if analysis.base.is_latest_version(key=name):
         df_chip = analysis.base.read_obj_from_db(key=name)
