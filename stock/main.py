@@ -91,27 +91,27 @@ if __name__ == "__main__":
     df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty")
-        sys.exit()
+        df_industry_class = pd.read_excel(io='df_industry_class.xlsx',sheet_name='df_industry_class')
     # 加载df_industry_class End
-    # 加载df_industry_rank Begin
-    logger.trace("load df_industry_rank...")
-    df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank")
-    if df_industry_rank.empty:
-        logger.error(f"df_industry_rank is empty")
-        sys.exit()
-    # 加载df_industry_rank End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
     df_chip = analysis.base.read_obj_from_db(key="df_chip")
     if df_chip.empty:
-        logger.error(f"df_chip is empty")
-        sys.exit()
+        logger.error(f"df_chip is empty and update")
+        df_chip = analysis.chip.chip()
     else:
         dt_chip_max = df_chip["dt"].max()
         str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
         str_chip_msg = fg.red(str_chip_msg)
         print(str_chip_msg)
     # 加载df_chip End
+        # 加载df_industry_rank Begin
+        logger.trace("load df_industry_rank...")
+        df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank")
+        if df_industry_rank.empty:
+            logger.error(f"df_industry_rank is empty")
+            sys.exit()
+        # 加载df_industry_rank End
     # 加载df_traderBegin
     logger.trace("Create df_trader Begin")
     df_trader = analysis.base.read_obj_from_db(key="df_trader")
