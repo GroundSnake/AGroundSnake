@@ -229,7 +229,3 @@ def capital() -> bool:
     print(f"capital analysis takes [{str_gm}]")
     logger.trace(f"capital End")
     return True
-
-
-if __name__ == "__main__":
-    capital()

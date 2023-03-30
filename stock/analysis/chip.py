@@ -38,7 +38,6 @@ def chip() -> object | DataFrame:
         logger.trace(f"{name} Break End")
         return df_chip
     logger.trace(f"Update {name}")
-    analysis.update_data.update_stock_data()
     analysis.update_data.update_index_data(symbol="sh000001")
     analysis.update_data.update_index_data(symbol="sh000852")
     if analysis.golden.golden_price():
@@ -295,15 +294,7 @@ def chip() -> object | DataFrame:
         by=["T5_rank"], axis=0, ascending=False, inplace=True
     )
     analysis.base.write_obj_to_db(obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve)
-    analysis.base.shelve_to_excel(path_shelve=filename_chip_shelve, path_excel=filename_excel)
     analysis.base.set_version(key=name, dt=dt_pm_end)
+    analysis.base.shelve_to_excel(path_shelve=filename_chip_shelve, path_excel=filename_excel)
     logger.trace("chip End")
     return df_chip
-
-
-if __name__ == "__main__":
-    logger.remove()
-    logger.add(
-        sink=sys.stderr, level="INFO"
-    )  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-    chip()

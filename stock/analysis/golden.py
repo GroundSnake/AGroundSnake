@@ -19,7 +19,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
     """分析挂仓成本
     :param list_code: e.g.sh600519
     :param frequency: choice of {"1m" ,"5m"}
-    :return: pd.DataFrame
+    :return: bool
     """
     logger.trace("Golden Price Analysis Begin")
     kline: str = f"update_kline_{frequency}"
@@ -54,7 +54,8 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         pass
     else:
         logger.trace("Update the Kline")
-        analysis.update_data.update_stock_data()
+        if analysis.update_data.update_stock_data():
+            logger.trace("{kline} Update finish")
     if analysis.base.is_latest_version(key=name):
         logger.trace("Golden Price Analysis Break End")
         return True  # df_golden is object
@@ -145,11 +146,3 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
     print(f"Golden Price Analysis takes [{str_gm}]")
     logger.trace(f"Golden Price Analysis End--[all_record={all_record}]")
     return True
-
-
-if __name__ == "__main__":
-    logger.remove()
-    logger.add(
-        sink=sys.stderr, level="INFO"
-    )  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-    golden_price(list_code=["sh600519", "sz002621", "sz000422"])

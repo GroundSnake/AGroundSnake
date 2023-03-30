@@ -359,11 +359,3 @@ def limit_count(list_symbol: list | str = None) -> bool:
     print(f"Limit Count analysis takes [{str_gm}]")
     logger.trace(f"Limit Count End")
     return True
-
-
-if __name__ == "__main__":
-    # 移除import创建的所有handle
-    logger.remove()
-    # 创建一个Console输出handle,eg："TRACE","DEBUG","INFO"，"ERROR"
-    logger.add(sink=sys.stderr, level="INFO")
-    limit_count(list_symbol=["sh600519", "sz002621", "sz000422"])

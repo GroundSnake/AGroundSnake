@@ -43,7 +43,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
     quantity = 80000
     list_stock = analysis.base.all_chs_code()
     if analysis.base.is_latest_version(key=name):
-        logger.trace(f"update stock Kline Break")
+        logger.trace(f"update stock Kline Break and End")
         return True
     if os.path.exists(file_name_catalogue_temp):
         # 读取腌制数据 catalogue
@@ -212,11 +212,3 @@ def update_index_data(
     analysis.base.set_version(key=name, dt=dt_pm_end)
     logger.trace(f"[{symbol}] update_index_data End")
     return df_index
-
-
-if __name__ == "__main__":
-    # 移除import创建的所有handle
-    logger.remove()
-    # 创建一个Console输出handle,eg："TRACE","DEBUG","INFO"，"ERROR"
-    logger.add(sink=sys.stderr, level="INFO")
-    update_stock_data(frequency="1m")
