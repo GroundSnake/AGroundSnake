@@ -33,7 +33,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
         os.mkdir(path_check)
     if not os.path.exists(path_kline):
         os.mkdir(path_kline)
-    # file_name_chip_h5 = os.path.join(path_data, f"chip.h5")
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     file_name_catalogue_temp = os.path.join(
         path_data, f"catalogue_temp_{str_date_path}.ftr"
     )
@@ -43,7 +43,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
     quantity = 80000
     list_stock = analysis.base.all_chs_code()
     if analysis.base.is_latest_version(key=name):
-        logger.trace(f"update stock Kline Break")
+        logger.trace(f"update stock Kline Break and End")
         return True
     if os.path.exists(file_name_catalogue_temp):
         # 读取腌制数据 catalogue
@@ -148,10 +148,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
             func=lambda x: dt_init if x == dt_no_data else x
         )
 
-        analysis.base.write_obj_to_db(obj=df_catalogue, key="df_catalogue")
+        analysis.base.write_obj_to_db(obj=df_catalogue, key="df_catalogue", filename=filename_chip_shelve)
         logger.trace(f"Catalogue pickle at [pydb_chip]")
         df_catalogue.sort_values(by=["end"], ascending=False, inplace=True)
-        analysis.base.add_chip_excel(df=df_catalogue, key="df_catalogue")
         analysis.base.set_version(key=name, dt=df_catalogue["end"].max())
         if os.path.exists(file_name_catalogue_temp):
             os.remove(path=file_name_catalogue_temp)
@@ -213,11 +212,3 @@ def update_index_data(
     analysis.base.set_version(key=name, dt=dt_pm_end)
     logger.trace(f"[{symbol}] update_index_data End")
     return df_index
-
-
-if __name__ == "__main__":
-    # 移除import创建的所有handle
-    logger.remove()
-    # 创建一个Console输出handle,eg："TRACE","DEBUG","INFO"，"ERROR"
-    logger.add(sink=sys.stderr, level="INFO")
-    update_stock_data(frequency="1m")

@@ -15,6 +15,11 @@ import analysis.base
 
 def limit_count(list_symbol: list | str = None) -> bool:
     name: str = "df_limit"
+    if list_symbol is None:
+        logger.trace("list_code is None")
+        list_symbol = analysis.base.all_chs_code()
+    elif isinstance(list_symbol, str):
+        list_symbol = [list_symbol]
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"Limit Count Begin")
     path_main = os.getcwd()
@@ -24,21 +29,18 @@ def limit_count(list_symbol: list | str = None) -> bool:
         os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    if list_symbol is None:
-        logger.trace("list_code is None")
-        list_symbol = analysis.base.all_chs_code()
-    if isinstance(list_symbol, str):
-        list_symbol = [list_symbol]
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     dt_date_trading = analysis.base.latest_trading_day()
     str_date_trading = dt_date_trading.strftime("%Y%m%d")
     str_date_path = dt_date_trading.strftime("%Y_%m_%d")
+    file_name_df_limit_temp = os.path.join(
+        path_data, f"df_limit_count_temp_{str_date_path}.ftr"
+    )
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
     str_delta = dt_delta.strftime("%Y%m%d")
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    file_name_df_limit_temp = os.path.join(
-        path_data, f"df_limit_count_temp_{str_date_path}.ftr"
-    )
+
     list_exist = list()
     if analysis.base.is_latest_version(key=name):
         logger.trace("Limit Break End")
@@ -346,8 +348,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
             inplace=True,
         )
         df_limit.index.rename(name="symbol", inplace=True)
-        analysis.base.write_obj_to_db(obj=df_limit, key="df_limit")
-        analysis.base.add_chip_excel(df=df_limit, key=name)
+        analysis.base.write_obj_to_db(obj=df_limit, key=name, filename=filename_chip_shelve)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_df_limit_temp):
             os.remove(path=file_name_df_limit_temp)
@@ -358,11 +359,3 @@ def limit_count(list_symbol: list | str = None) -> bool:
     print(f"Limit Count analysis takes [{str_gm}]")
     logger.trace(f"Limit Count End")
     return True
-
-
-if __name__ == "__main__":
-    # 移除import创建的所有handle
-    logger.remove()
-    # 创建一个Console输出handle,eg："TRACE","DEBUG","INFO"，"ERROR"
-    logger.add(sink=sys.stderr, level="INFO")
-    limit_count(list_symbol=["sh600519", "sz002621", "sz000422"])

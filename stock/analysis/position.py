@@ -19,9 +19,10 @@ def position(index: str = "sh000001") -> str:
     logger.trace(f"position_control-[{name}] Begin")
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     path_main = os.getcwd()
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
+    path_data = os.path.join(path_main, "data")
+    if not os.path.exists(path_data):
+        os.mkdir(path_data)
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     # 取得实时上证指数
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
@@ -87,8 +88,7 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl["rank"] = df_pos_ctl["weight_volume"].rank(
         axis=0, method="min", ascending=False
     )
-    analysis.base.write_obj_to_db(obj=df_pos_ctl, key=name)
-    analysis.base.add_chip_excel(df=df_pos_ctl, key=name)
+    analysis.base.write_obj_to_db(obj=df_pos_ctl, key=name, filename=filename_chip_shelve)
     close_sh = df_index_realtime.at[index, "最新价"]
     nane = df_index_realtime.at[index, "名称"]
     close_sh = int(close_sh) // 10 * 10

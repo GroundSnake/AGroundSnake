@@ -20,49 +20,52 @@ def chip() -> object | DataFrame:
     name: str = "df_chip"
     logger.trace(f"{name} Begin")
     dt_date_trading = analysis.base.latest_trading_day()
+    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
     dt_init = datetime.datetime(year=1989, month=1, day=1)
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     path_main = os.getcwd()
+    path_data = os.path.join(path_main, "data")
+    if not os.path.exists(path_data):
+        os.mkdir(path_data)
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     path_check = os.path.join(path_main, "check")
     if not os.path.exists(path_check):
         os.mkdir(path_check)
-    file_name_game_over_csv = os.path.join(path_check, f"Game_Over_{str_date_path}.csv")
+    filename_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
     if analysis.base.is_latest_version(key=name):
-        df_chip = analysis.base.read_obj_from_db(key=name)
+        df_chip = analysis.base.read_obj_from_db(key=name, filename=filename_chip_shelve)
         logger.trace(f"{name} Break End")
         return df_chip
     logger.trace(f"Update {name}")
-    analysis.update_data.update_stock_data()
     analysis.update_data.update_index_data(symbol="sh000001")
     analysis.update_data.update_index_data(symbol="sh000852")
     if analysis.golden.golden_price():
-        df_golden = analysis.base.read_obj_from_db(key="df_golden")
+        df_golden = analysis.base.read_obj_from_db(key="df_golden", filename=filename_chip_shelve)
         logger.trace("load df_golden success")
     else:
         df_golden = pd.DataFrame()
         logger.trace("load df_golden fail")
     if analysis.limit.limit_count():
-        df_limit = analysis.base.read_obj_from_db(key="df_limit")
+        df_limit = analysis.base.read_obj_from_db(key="df_limit", filename=filename_chip_shelve)
         logger.trace("load df_limit success")
     else:
         df_limit = pd.DataFrame()
         logger.trace("load df_limit fail")
     if analysis.capital.capital():
-        df_cap = analysis.base.read_obj_from_db(key="df_cap")
+        df_cap = analysis.base.read_obj_from_db(key="df_cap", filename=filename_chip_shelve)
         logger.trace("load df_cap success")
     else:
         df_cap = pd.DataFrame()
         logger.trace("load df_cap fail")
     if analysis.st.st_income():
-        df_st = analysis.base.read_obj_from_db(key="df_st")
+        df_st = analysis.base.read_obj_from_db(key="df_st", filename=filename_chip_shelve)
         logger.trace("load df_st success")
     else:
         df_st = pd.DataFrame()
         logger.trace("load df_st fail")
     if analysis.industry.ths_industry():
-        df_industry = analysis.base.read_obj_from_db(key="df_industry")
+        df_industry = analysis.base.read_obj_from_db(key="df_industry", filename=filename_chip_shelve)
         logger.trace("load df_industry success")
     else:
         df_industry = pd.DataFrame()
@@ -83,9 +86,8 @@ def chip() -> object | DataFrame:
         by=["up_M_down", "now_price_ratio"], ascending=False, inplace=True
     )
     df_chip['dt'].fillna(value=dt_init, inplace=True)
-    analysis.base.write_obj_to_db(obj=df_chip, key=name)
+    analysis.base.write_obj_to_db(obj=df_chip, key=name, filename=filename_chip_shelve)
     logger.trace(f"{name} save as [db_chip]")
-    analysis.base.add_chip_excel(df=df_chip, key=name)
     df_g_price_1 = df_chip[
         (df_chip["now_price_ratio"] <= 71.8) & (df_chip["now_price_ratio"] >= 51.8)
     ]
@@ -105,7 +107,7 @@ def chip() -> object | DataFrame:
         & (df_chip["T20_amplitude"] >= 5)
     ]
     df_turnover_6 = df_chip[(df_chip["turnover"] >= 10)]
-    df_game_over = pd.concat(
+    df_stocks_pool = pd.concat(
         objs=[
             df_g_price_1,
             df_up_a_down_5pct_2,
@@ -117,21 +119,21 @@ def chip() -> object | DataFrame:
         axis=0,
         join="outer",
     )
-    df_game_over = df_game_over[~df_game_over.index.duplicated(keep="first")]
-    df_game_over = df_game_over[
-        (df_game_over["list_days"] > 540)
-        & (df_game_over["up_times"] >= 4)
-        & (df_game_over["now_price"] <= 25)
-        & (df_game_over["up_A_down_7pct"] >= 12)
-        & (df_game_over["up_A_down_5pct"] >= 24)
-        & (df_game_over["up_A_down_3pct"] >= 48)
-        & (df_game_over["turnover"] <= 40)
-        & (~df_game_over["name"].str.contains("ST").fillna(False))
-        & (~df_game_over["ST"].str.contains("ST").fillna(False))
+    df_stocks_pool = df_stocks_pool[~df_stocks_pool.index.duplicated(keep="first")]
+    df_stocks_pool = df_stocks_pool[
+        (df_stocks_pool["list_days"] > 540)
+        & (df_stocks_pool["up_times"] >= 4)
+        & (df_stocks_pool["now_price"] <= 25)
+        & (df_stocks_pool["up_A_down_7pct"] >= 12)
+        & (df_stocks_pool["up_A_down_5pct"] >= 24)
+        & (df_stocks_pool["up_A_down_3pct"] >= 48)
+        & (df_stocks_pool["turnover"] <= 40)
+        & (~df_stocks_pool["name"].str.contains("ST").fillna(False))
+        & (~df_stocks_pool["ST"].str.contains("ST").fillna(False))
     ]
-    df_game_over["factor_count"] = 1
-    df_game_over["factor"] = None
-    list_game_over = df_game_over.index.tolist()
+    df_stocks_pool["factor_count"] = 1
+    df_stocks_pool["factor"] = None
+    list_game_over = df_stocks_pool.index.tolist()
     list_1 = df_g_price_1.index.tolist()
     list_2 = df_up_a_down_5pct_2.index.tolist()
     list_3 = df_tm_grade_3.index.tolist()
@@ -140,47 +142,46 @@ def chip() -> object | DataFrame:
     list_6 = df_turnover_6.index.tolist()
     for symbol in list_game_over:
         if symbol in list_1:
-            if pd.notnull(df_game_over.at[symbol, "factor"]):
-                df_game_over.at[symbol, "factor"] += ",[G_price]"
-                df_game_over.at[symbol, "factor_count"] += 1
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[G_price]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
-                df_game_over.at[symbol, "factor"] = "[G_price]"
+                df_stocks_pool.at[symbol, "factor"] = "[G_price]"
         if symbol in list_2:
-            if pd.notnull(df_game_over.at[symbol, "factor"]):
-                df_game_over.at[symbol, "factor"] += ",[up_A_down_5pct]"
-                df_game_over.at[symbol, "factor_count"] += 1
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[up_A_down_5pct]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
-                df_game_over.at[symbol, "factor"] = "[up_A_down_5pct]"
+                df_stocks_pool.at[symbol, "factor"] = "[up_A_down_5pct]"
         if symbol in list_3:
-            if pd.notnull(df_game_over.at[symbol, "factor"]):
-                df_game_over.at[symbol, "factor"] += ",[tm_grade]"
-                df_game_over.at[symbol, "factor_count"] += 1
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[tm_grade]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
-                df_game_over.at[symbol, "factor"] = "[tm_grade]"
+                df_stocks_pool.at[symbol, "factor"] = "[tm_grade]"
         if symbol in list_4:
-            if pd.notnull(df_game_over.at[symbol, "factor"]):
-                df_game_over.at[symbol, "factor"] += ",[t5_pct]"
-                df_game_over.at[symbol, "factor_count"] += 1
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[t5_pct]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
-                df_game_over.at[symbol, "factor"] = "[t5_pct]"
+                df_stocks_pool.at[symbol, "factor"] = "[t5_pct]"
         if symbol in list_5:
-            if pd.notnull(df_game_over.at[symbol, "factor"]):
-                df_game_over.at[symbol, "factor"] += ",[t5_amplitude]"
-                df_game_over.at[symbol, "factor_count"] += 1
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[t5_amplitude]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
-                df_game_over.at[symbol, "factor"] = "[t5_amplitude]"
+                df_stocks_pool.at[symbol, "factor"] = "[t5_amplitude]"
         if symbol in list_6:
-            if pd.notnull(df_game_over.at[symbol, "factor"]):
-                df_game_over.at[symbol, "factor"] += ",[turnover]"
-                df_game_over.at[symbol, "factor_count"] += 1
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[turnover]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
-                df_game_over.at[symbol, "factor"] = "[turnover]"
-    df_game_over = df_game_over[df_game_over["factor_count"] > 2]
-    df_game_over.sort_values(
+                df_stocks_pool.at[symbol, "factor"] = "[turnover]"
+    df_stocks_pool = df_stocks_pool[df_stocks_pool["factor_count"] > 2]
+    df_stocks_pool.sort_values(
         by=["factor_count", "factor"], ascending=False, inplace=True
     )
-    df_game_over.to_csv(path_or_buf=file_name_game_over_csv)
-    logger.trace(f"save df_game_over at csv-[{file_name_game_over_csv}]")
+    analysis.base.write_obj_to_db(obj=df_stocks_pool, key="df_stocks_pool", filename=filename_chip_shelve)
     df_industry_rank = pd.DataFrame(
         columns=[
             "name",
@@ -203,7 +204,7 @@ def chip() -> object | DataFrame:
             "max_min",
         ]
     )
-    df_all_industry_pct = analysis.base.read_obj_from_db(key="df_all_industry_pct")
+    df_all_industry_pct = analysis.base.read_obj_from_db(key="df_all_industry_pct", filename=filename_chip_shelve)
     df_5_industry_pct = df_all_industry_pct.iloc[-5:]
     df_20_industry_pct = df_all_industry_pct.iloc[-20:-5]
     df_40_industry_pct = df_all_industry_pct.iloc[-40:-20]
@@ -292,15 +293,8 @@ def chip() -> object | DataFrame:
     df_industry_rank.sort_values(
         by=["T5_rank"], axis=0, ascending=False, inplace=True
     )
-    analysis.base.add_chip_excel(df=df_industry_rank, key='df_industry_rank')
+    analysis.base.write_obj_to_db(obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve)
     analysis.base.set_version(key=name, dt=dt_pm_end)
+    analysis.base.shelve_to_excel(path_shelve=filename_chip_shelve, path_excel=filename_excel)
     logger.trace("chip End")
     return df_chip
-
-
-if __name__ == "__main__":
-    logger.remove()
-    logger.add(
-        sink=sys.stderr, level="INFO"
-    )  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-    chip()
