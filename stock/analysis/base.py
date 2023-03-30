@@ -1,6 +1,7 @@
 # modified at 2023/3/29 15:47
 from __future__ import annotations
 import os
+import sys
 import datetime
 import shelve
 import dbm
@@ -151,7 +152,13 @@ def is_latest_version(key: str) -> bool:
     if not os.path.exists(path_data):
         os.mkdir(path_data)
     df_config = read_obj_from_db(key="df_config")
-    if df_config.at[key, "date"] < dt_now < dt_pm_end:
+    if df_config.empty:
+        logger.trace(f'df_config is empty')
+        df_config.at[key, "date"] = dt_now
+    if key not in df_config.index:
+        logger.trace(f'{key} not in df_config')
+        df_config.at[key, "date"] = dt_now
+    if df_config.at[key, "date"] <= dt_now < dt_pm_end:
         logger.trace(f"[{dt_now}] less than [{dt_pm_end}]")
         logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
         return True
