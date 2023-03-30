@@ -13,6 +13,22 @@ import tushare as ts
 from loguru import logger
 
 
+def is_trading_day() -> bool:
+    pro = ts.pro_api()
+    dt_now = datetime.datetime.now()
+    str_date_now = dt_now.strftime("%Y%m%d")
+    try:
+        df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
+    except Exception as e:
+        print('The token is invalid. Please apply for a token at tushare')
+        sys.exit()
+    df_trade.set_index(keys=["cal_date"], inplace=True)
+    if df_trade.at[str_date_now, "is_open"] == 1:
+        return True
+    else:
+        return False
+
+
 def all_ts_code() -> list | None:
     pro = ts.pro_api()
     df_basic = pro.stock_basic(
@@ -71,18 +87,6 @@ def latest_trading_day() -> datetime.date:
         str_dt_out = df_trade.at[str_date_now, "pretrade_date"]
     dt_out = datetime.datetime.strptime(str_dt_out, "%Y%m%d").date()
     return dt_out
-
-
-def is_trading_day() -> bool:
-    pro = ts.pro_api()
-    dt_now = datetime.datetime.now()
-    str_date_now = dt_now.strftime("%Y%m%d")
-    df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
-    df_trade.set_index(keys=["cal_date"], inplace=True)
-    if df_trade.at[str_date_now, "is_open"] == 1:
-        return True
-    else:
-        return False
 
 
 def transaction_unit(price: float, amount: float = 1000) -> int:
