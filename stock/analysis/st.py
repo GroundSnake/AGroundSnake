@@ -56,6 +56,7 @@ def st_income(list_symbol: str | list = None) -> bool:
     str_date_path_income = dt_period_income.strftime("%Y_%m_%d")
     str_dt_period_forecast = dt_period_forecast.strftime("%Y%m%d")
     str_dt_period_income_next = dt_period_income_next.strftime("%Y%m%d")
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     filename_df_income = os.path.join(path_data, f"df_income_{str_date_path_income}.ftr")
     filename_df_income_next_temp = os.path.join(
         path_data, f"df_income_next_temp_{str_date_path}.ftr"
@@ -222,9 +223,8 @@ def st_income(list_symbol: str | list = None) -> bool:
     if i >= all_record:
         print("\n", end="")  # 格式处理
         logger.trace(f"For loop End")
-        analysis.base.write_obj_to_db(obj=df_st, key="df_st")
+        analysis.base.write_obj_to_db(obj=df_st, key=name, filename=filename_chip_shelve)
         df_st.sort_values(by=["ST"], ascending=False, inplace=True)
-        analysis.base.add_chip_excel(df=df_st, key=name)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(filename_df_st_temp):
             os.remove(path=filename_df_st_temp)

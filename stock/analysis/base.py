@@ -7,6 +7,7 @@ import dbm
 import win32file
 import pywintypes
 import pandas as pd
+from pandas import DataFrame
 import tushare as ts
 from loguru import logger
 
@@ -103,27 +104,29 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
     return pd_series_out
 
 
-def write_obj_to_db(obj: object, key: str):
+def write_obj_to_db(obj: object, key: str, filename: str = None):
     path_main = os.getcwd()
     path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    file_name_chip_shelve = os.path.join(path_data, f"chip")
-    with shelve.open(filename=file_name_chip_shelve, flag="c") as pydbm_chip:
+    if not filename:
+        filename = os.path.join(path_data, f"chip")
+    with shelve.open(filename=filename, flag="c") as pydbm_chip:
         pydbm_chip[key] = obj
-        logger.trace(f"{key} save as pydb_chip-[{file_name_chip_shelve}]")
+        logger.trace(f"{key} save as pydb_chip-[{filename}]")
     return True
 
 
-def read_obj_from_db(key: str) -> object:
+def read_obj_from_db(key: str, filename: str = None) -> object:
     path_main = os.getcwd()
     path_data = os.path.join(path_main, "data")
     if not os.path.exists(path_data):
         os.mkdir(path_data)
-    file_name_chip_shelve = os.path.join(path_data, f"chip")
+    if not filename:
+        filename = os.path.join(path_data, f"chip")
     try:
-        with shelve.open(filename=file_name_chip_shelve, flag="r") as pydbm_chip:
-            logger.trace(f"loading {key} from [{file_name_chip_shelve}]....")
+        with shelve.open(filename=filename, flag="r") as pydbm_chip:
+            logger.trace(f"loading {key} from [{filename}]....")
             try:
                 return pydbm_chip[key]
             except KeyError as e:
@@ -134,7 +137,7 @@ def read_obj_from_db(key: str) -> object:
     except dbm.error as e:
         logger.error(repr(e))
         print(repr(e))
-        logger.trace(f"[{file_name_chip_shelve}] is not exist")
+        logger.trace(f"[{filename}] is not exist")
         return pd.DataFrame()
 
 
@@ -229,8 +232,26 @@ def add_chip_excel(df: pd.DataFrame, key: str, filename: str = None):
         ) as writer:
             df.to_excel(excel_writer=writer, sheet_name=key)
     except FileNotFoundError as e:
-        logger.error(repr(e))
+        logger.trace(repr(e))
         with pd.ExcelWriter(path=filename, mode="w") as writer:
             df.to_excel(excel_writer=writer, sheet_name=key)
     finally:
         logger.trace(f"save {key} at Excel-[{filename}]")
+
+def shelve_to_excel(path_shelve:str, path_excel:str):
+    try:
+        with shelve.open(filename=path_shelve, flag="r") as pydbm_chip:
+            count = len(pydbm_chip)
+            i = 0
+            for key in pydbm_chip:
+                i += 1
+                print(f'\r[{i}/{count}] - {key}', end='')
+                if isinstance(pydbm_chip[key], DataFrame):
+                    add_chip_excel(df=pydbm_chip[key], key=f'{key}', filename=path_excel)
+                else:
+                    logger.trace(f'{key} is not DataFrame')
+    except dbm.error as e:
+        logger.error(repr(e))
+        print(repr(e))
+        logger.trace(f"[{path_shelve}] is not exist")
+        return pd.DataFrame()

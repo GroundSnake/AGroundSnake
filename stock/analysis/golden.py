@@ -45,6 +45,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         os.mkdir(path_check)
     if not os.path.exists(path_data):
         os.mkdir(path_data)
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     file_name_df_golden_temp = os.path.join(
         path_data, f"df_golden_temp_{str_date_path}.ftr"
     )
@@ -133,8 +134,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         print("\n", end="")  # 格式处理
         df_golden.index.rename(name="symbol", inplace=True)
         df_golden.sort_values(by=["now_price_ratio"], ascending=False, inplace=True)
-        analysis.base.write_obj_to_db(obj=df_golden, key="df_golden")
-        analysis.base.add_chip_excel(df=df_golden, key=name)
+        analysis.base.write_obj_to_db(obj=df_golden, key=name, filename=filename_chip_shelve)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_df_golden_temp):  # 删除临时文件
             os.remove(path=file_name_df_golden_temp)

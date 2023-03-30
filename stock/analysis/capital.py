@@ -163,6 +163,7 @@ def capital() -> bool:
         os.mkdir(path_data)
     if not os.path.exists(path_check):
         os.mkdir(path_check)
+    filename_chip_shelve = os.path.join(path_data, f"chip")
     file_name_cap_feather_temp = os.path.join(
         path_data, f"capital_temp_{str_date_path}.ftr"
     )
@@ -216,8 +217,7 @@ def capital() -> bool:
         feather.write_dataframe(df=df_cap, dest=file_name_cap_feather_temp)
     if i >= count:
         print("\n", end="")  # 格式处理
-        analysis.base.write_obj_to_db(obj=df_cap, key="df_cap")
-        analysis.base.add_chip_excel(df=df_cap, key=name)
+        analysis.base.write_obj_to_db(obj=df_cap, key=name, filename=filename_chip_shelve)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         logger.trace(f"Update df_config-[{name}]")
         if os.path.exists(file_name_cap_feather_temp):  # 删除临时文件
