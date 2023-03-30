@@ -14,6 +14,8 @@ from loguru import logger
 
 
 def is_trading_day() -> bool:
+    """无法使用调用"""
+    ts.set_token('77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832')
     pro = ts.pro_api()
     dt_now = datetime.datetime.now()
     str_date_now = dt_now.strftime("%Y%m%d")
