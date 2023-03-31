@@ -14,7 +14,7 @@ import analysis.chip
 import analysis.base
 
 __version__ = "3.0.0"
-logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
 
 def sleep_to_time(dt_time: datetime.datetime):
@@ -22,9 +22,9 @@ def sleep_to_time(dt_time: datetime.datetime):
     while dt_now_sleep <= dt_time:
         int_delay = int((dt_time - dt_now_sleep).total_seconds())
         str_sleep_gm = time.strftime("%H:%M:%S", time.gmtime(int_delay))
-        str_sleep_msg = f"----Waiting: {str_sleep_gm}"
+        str_sleep_msg = f"Waiting: {str_sleep_gm}"
         str_sleep_msg = fg.cyan(str_sleep_msg)
-        str_sleep_msg = f"\r{dt_now_sleep}" + str_sleep_msg
+        str_sleep_msg = f"\r{dt_now_sleep}----" + str_sleep_msg
         print(str_sleep_msg, end="")  # 进度条
         time.sleep(1)
         dt_now_sleep = datetime.datetime.now()
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     dt_date = dt_now.date()
     time_program_start = datetime.time(hour=1, minute=0, second=0, microsecond=0)
     time_am_start = datetime.time(hour=9, minute=28, second=0, microsecond=0)
-    time_am_end = datetime.time(hour=11, minute=30, second=0, microsecond=0)
+    time_am_end = datetime.time(hour=12, minute=30, second=0, microsecond=0)
     time_pm_start = datetime.time(hour=13, minute=0, second=0, microsecond=0)
     time_pm_1457 = datetime.time(hour=14, minute=57, second=0, microsecond=0)
     time_pm_end = datetime.time(hour=15, minute=0, second=scan_interval, microsecond=0)
@@ -91,27 +91,27 @@ if __name__ == "__main__":
     df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty")
-        df_industry_class = pd.read_excel(io='df_industry_class.xlsx',sheet_name='df_industry_class')
+        sys.exit()
     # 加载df_industry_class End
+    # 加载df_industry_rank Begin
+    logger.trace("load df_industry_rank...")
+    df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank")
+    if df_industry_rank.empty:
+        logger.error(f"df_industry_rank is empty")
+        sys.exit()
+    # 加载df_industry_rank End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
     df_chip = analysis.base.read_obj_from_db(key="df_chip")
     if df_chip.empty:
-        logger.error(f"df_chip is empty and update")
-        df_chip = analysis.chip.chip()
+        logger.error(f"df_chip is empty")
+        sys.exit()
     else:
         dt_chip_max = df_chip["dt"].max()
         str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
         str_chip_msg = fg.red(str_chip_msg)
         print(str_chip_msg)
     # 加载df_chip End
-        # 加载df_industry_rank Begin
-        logger.trace("load df_industry_rank...")
-        df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank")
-        if df_industry_rank.empty:
-            logger.error(f"df_industry_rank is empty")
-            sys.exit()
-        # 加载df_industry_rank End
     # 加载df_traderBegin
     logger.trace("Create df_trader Begin")
     df_trader = analysis.base.read_obj_from_db(key="df_trader")
@@ -134,7 +134,8 @@ if __name__ == "__main__":
             "ST",
             "industry_code",
             "industry_name",
-            "date_of_inclusion",
+            "date_of_inclusion_first",
+            "date_of_inclusion_latest",
             "times_of_inclusion",
             "price_of_inclusion",
             "remark",
@@ -148,15 +149,14 @@ if __name__ == "__main__":
     for code in list_stocks_pool:
         if code not in list_trader:
             df_trader.loc[code] = pd.Series(index=df_trader.columns, dtype="object")
-            if pd.isnull(df_trader.at[code, "date_of_inclusion"]):
-                df_trader.at[code, "date_of_inclusion"] = dt_date
+            if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
+                df_trader.at[code, "date_of_inclusion_first"] = dt_date
                 df_trader.at[code, "times_of_inclusion"] = 1
                 df_trader.at[code, "price_of_inclusion"] = df_chip.at[code, "now_price"]
             else:
-                if df_trader.at[code, "date_of_inclusion"] != dt_date:
-                    df_trader.at[code, "date_of_inclusion"] = dt_date
-                    df_trader.at[code, "times_of_inclusion"] += 1
-    df_trader["date_of_inclusion"].fillna(dt_date, inplace=True)
+                df_trader.at[code, "date_of_inclusion_latest"] = dt_date
+                df_trader.at[code, "times_of_inclusion"] += 1
+    df_trader["date_of_inclusion_first"].fillna(dt_date, inplace=True)
     df_trader["times_of_inclusion"].fillna(1, inplace=True)
     df_trader["recent_price"].fillna(0, inplace=True)
     df_trader["position"].fillna(0, inplace=True)
@@ -392,8 +392,10 @@ if __name__ == "__main__":
                     df_trader = df_trader[~df_trader.index.duplicated(keep="first")]
                     for code in df_trader.index:
                         if code in list_in_add:
-                            if pd.isnull(df_trader.at[code, "date_of_inclusion"]):
-                                df_trader.at[code, "date_of_inclusion"] = dt_date
+                            if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
+                                df_trader.at[code, "date_of_inclusion_first"] = dt_date
+                            else:
+                                df_trader.at[code, "date_of_inclusion_latest"] = dt_date
                             if pd.isnull(df_trader.at[code, "times_of_inclusion"]):
                                 df_trader.at[code, "times_of_inclusion"] = 1
                             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
@@ -453,8 +455,8 @@ if __name__ == "__main__":
             for code in list_trader:
                 i += 1
                 dt_now = datetime.datetime.now()
-                str_msg = f"\r{dt_now}"
-                str_msg += fg.blue(f"----[{i:3d}/{count_trader:3d}]")
+                str_msg = f"\r{dt_now}----"
+                str_msg += fg.blue(f"[{i:3d}/{count_trader:3d}]")
                 print(str_msg, end="")
                 if i >= count_trader:
                     print("\n", end="")  # 调整输出console格式
@@ -530,7 +532,7 @@ if __name__ == "__main__":
                         code, "stock_index"
                     ]
                     df_signal_sell.at[code, "grade"] = df_trader.at[code, "grade"]
-                    str_msg_rise += (
+                    str_msg_rise += fg.lightred(
                         f"\n<Sell>-[{code}_{df_trader.at[code, 'name']}]-"
                         f"<{now_price:5.2f}_↑_{pct_chg:5.2f}%> - "
                         f"[{df_trader.at[code, 'recent_price']:5.2f} * "
@@ -538,26 +540,35 @@ if __name__ == "__main__":
                         f"{df_trader.at[code, 'position_unit']:3.1f}*"
                         f"{int(df_trader.at[code, 'trx_unit_share']):3d})]"
                     )
-                    if pd.notnull(df_trader.at[code, "grade"]):
-                        str_msg_rise += f" - [{df_trader.at[code, 'grade']}]"
-                    if industry_code in df_industry_rank.index:
-                        str_msg_rise += (
-                            f"[{df_industry_rank.at[industry_code, 'T5_rank']}:T5 - "
-                            f"{df_industry_rank.at[industry_code, 'T20_rank']}:T20 - "
-                            f"{df_industry_rank.at[industry_code, 'T40_rank']}:T40 - "
-                        )
-                    else:
-                        str_msg_rise += "- [No rank]"
                     if pd.notnull(df_trader.at[code, "ST"]):
-                        str_msg_rise += f" - [{df_trader.at[code, 'ST']}]"
+                        str_msg_rise += fg.white(f" - [{df_trader.at[code, 'ST']}]")
+                    str_msg_rise += fg.yellow(
+                        f"\n ---- [{df_trader.at[code, 'name']}]"
+                        f" - [{industry_code}]"
+                        f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
+                        f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
+                    )
+                    if industry_code in df_trader.index:
+                        str_msg_rise += fg.blue(
+                            f"\n ---- [{df_industry_rank.at[industry_code, 'name']}]"
+                            f" - [{industry_code}]"
+                            f" - [{df_industry_rank.at[industry_code, 'T5_rank']:2.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T20_rank']:02.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T40_rank']:02.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}] - "
+                            f"[{df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
+                        )
+                    if pd.notnull(df_trader.at[code, "grade"]):
+                        str_msg_rise += fg.lightyellow(f"\n ---- [{df_trader.at[code, 'industry_name']}]")
                     if pd.notnull(df_trader.at[code, "stock_index"]):
-                        str_msg_rise += f"\n ---- {df_trader.at[code, 'stock_index']}"
+                        str_msg_rise += fg.purple(f" - {df_trader.at[code, 'stock_index']}")
                     if pd.notnull(df_trader.at[code, "recent_trading"]):
                         if isinstance(
                             df_trader.at[code, "recent_trading"], datetime.datetime
                         ):
                             dt_trading = df_trader.at[code, "recent_trading"].date()
-                            str_msg_rise += f" - [{dt_trading}]"
+                            str_msg_rise += f"\n ---- [{dt_trading}]"
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
                     str_msg_rise += "\n\n"
@@ -592,7 +603,7 @@ if __name__ == "__main__":
                         code, "stock_index"
                     ]
                     df_signal_buy.at[code, "grade"] = df_trader.at[code, "grade"]
-                    str_msg_fall += (
+                    str_msg_fall += fg.lightgreen(
                         f"\n<Buy>-[{code}_{df_trader.at[code, 'name']}]-"
                         f"<{now_price:5.2f}_↓_{pct_chg:5.2f}%> - "
                         f"[{df_trader.at[code, 'recent_price']:5.2f} * "
@@ -600,26 +611,33 @@ if __name__ == "__main__":
                         f"{df_trader.at[code, 'position_unit']:3.1f}*"
                         f"{int(df_trader.at[code, 'trx_unit_share']):3d})]"
                     )
-                    if pd.notnull(df_trader.at[code, "grade"]):
-                        str_msg_fall += f" - [{df_trader.at[code, 'grade']}]"
-                    if industry_code in df_industry_rank.index:
-                        str_msg_fall += (
-                            f"[{df_industry_rank.at[industry_code, 'T5_rank']}:T5 - "
-                            f"{df_industry_rank.at[industry_code, 'T20_rank']}:T20 - "
-                            f"{df_industry_rank.at[industry_code, 'T40_rank']}:T40 - "
-                        )
-                    else:
-                        str_msg_fall += "- [No rank]"
                     if pd.notnull(df_trader.at[code, "ST"]):
-                        str_msg_fall += f" - [{df_trader.at[code, 'ST']}]"
+                        str_msg_fall += fg.white(f" - [{df_trader.at[code, 'ST']}]")
+                    str_msg_fall += fg.yellow(
+                        f"\n ---- [{df_trader.at[code, 'industry_name']}]"
+                        f" - [{industry_code}]"
+                        f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
+                        f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
+                    )
+                    if industry_code in df_industry_rank.index:
+                        str_msg_fall += fg.blue(
+                            f" - [{df_industry_rank.at[industry_code, 'T5_rank']:2.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T20_rank']:02.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T40_rank']:02.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
+                            f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}] - "
+                            f"[{df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
+                        )
+                    if pd.notnull(df_trader.at[code, "grade"]):
+                        str_msg_fall += fg.lightyellow(f"\n ---- [{df_trader.at[code, 'grade']}]")
                     if pd.notnull(df_trader.at[code, "stock_index"]):
-                        str_msg_fall += f"\n ---- {df_trader.at[code, 'stock_index']}"
+                        str_msg_fall += fg.purple(f" - {df_trader.at[code, 'stock_index']}")
                     if pd.notnull(df_trader.at[code, "recent_trading"]):
                         if isinstance(
                             df_trader.at[code, "recent_trading"], datetime.datetime
                         ):
                             dt_trading = df_trader.at[code, "recent_trading"].date()
-                            str_msg_fall += f" - [{dt_trading}]"
+                            str_msg_fall += f"\n ---- [{dt_trading}]"
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
                     str_msg_fall += "\n\n"
@@ -657,13 +675,11 @@ if __name__ == "__main__":
                 print(
                     f"===={fg.green('<Suggest Buying>')}==========================================="
                 )
-                str_msg_fall = fg.green(str_msg_fall)
                 print(str_msg_fall)
             if str_msg_rise != "":
                 print(
                     f"===={fg.red('<Suggest Selling>')}==========================================\a"  # 加上“\a”，铃声提醒
                 )
-                str_msg_rise = fg.red(str_msg_rise)
                 print(str_msg_rise)
             if str_msg_fall != "" or str_msg_rise != "":
                 print(
