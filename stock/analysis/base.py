@@ -1,6 +1,7 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/3/31 15:19
 from __future__ import annotations
 import os
+import sys
 import datetime
 import shelve
 import dbm
@@ -10,6 +11,24 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
+
+
+def is_trading_day() -> bool:
+    """无法使用调用"""
+    ts.set_token('77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832')
+    pro = ts.pro_api()
+    dt_now = datetime.datetime.now()
+    str_date_now = dt_now.strftime("%Y%m%d")
+    try:
+        df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
+    except Exception as e:
+        print('The token is invalid. Please apply for a token at tushare')
+        sys.exit()
+    df_trade.set_index(keys=["cal_date"], inplace=True)
+    if df_trade.at[str_date_now, "is_open"] == 1:
+        return True
+    else:
+        return False
 
 
 def all_ts_code() -> list | None:
@@ -70,18 +89,6 @@ def latest_trading_day() -> datetime.date:
         str_dt_out = df_trade.at[str_date_now, "pretrade_date"]
     dt_out = datetime.datetime.strptime(str_dt_out, "%Y%m%d").date()
     return dt_out
-
-
-def is_trading_day() -> bool:
-    pro = ts.pro_api()
-    dt_now = datetime.datetime.now()
-    str_date_now = dt_now.strftime("%Y%m%d")
-    df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
-    df_trade.set_index(keys=["cal_date"], inplace=True)
-    if df_trade.at[str_date_now, "is_open"] == 1:
-        return True
-    else:
-        return False
 
 
 def transaction_unit(price: float, amount: float = 1000) -> int:
@@ -151,7 +158,13 @@ def is_latest_version(key: str) -> bool:
     if not os.path.exists(path_data):
         os.mkdir(path_data)
     df_config = read_obj_from_db(key="df_config")
-    if df_config.at[key, "date"] < dt_now < dt_pm_end:
+    if df_config.empty:
+        logger.trace(f'df_config is empty')
+        df_config.at[key, "date"] = dt_now
+    if key not in df_config.index:
+        logger.trace(f'{key} not in df_config')
+        df_config.at[key, "date"] = dt_now
+    if df_config.at[key, "date"] <= dt_now < dt_pm_end:
         logger.trace(f"[{dt_now}] less than [{dt_pm_end}]")
         logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
         return True
