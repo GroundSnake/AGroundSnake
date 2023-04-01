@@ -1,8 +1,7 @@
 # modified at 2023/3/29 15:47
 from __future__ import annotations
 import datetime
-import os
-import sys
+import time
 import tushare as ts
 import pandas as pd
 from pandas import DataFrame
@@ -14,58 +13,59 @@ import analysis.update_data
 import analysis.capital
 import analysis.st
 import analysis.industry
+from analysis.const import filename_chip_shelve, dt_pm_end, filename_chip_excel
 
 
 def chip() -> object | DataFrame:
     name: str = "df_chip"
     logger.trace(f"{name} Begin")
-    dt_date_trading = analysis.base.latest_trading_day()
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
+    start_loop_time = time.perf_counter_ns()
     dt_init = datetime.datetime(year=1989, month=1, day=1)
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    filename_chip_shelve = os.path.join(path_data, f"chip")
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
-    filename_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
     if analysis.base.is_latest_version(key=name):
-        df_chip = analysis.base.read_obj_from_db(key=name, filename=filename_chip_shelve)
+        df_chip = analysis.base.read_obj_from_db(
+            key=name, filename=filename_chip_shelve
+        )
         logger.trace(f"{name} Break End")
         return df_chip
     logger.trace(f"Update {name}")
     analysis.update_data.update_index_data(symbol="sh000001")
     analysis.update_data.update_index_data(symbol="sh000852")
     if analysis.golden.golden_price():
-        df_golden = analysis.base.read_obj_from_db(key="df_golden", filename=filename_chip_shelve)
+        df_golden = analysis.base.read_obj_from_db(
+            key="df_golden", filename=filename_chip_shelve
+        )
         logger.trace("load df_golden success")
     else:
         df_golden = pd.DataFrame()
         logger.trace("load df_golden fail")
     if analysis.limit.limit_count():
-        df_limit = analysis.base.read_obj_from_db(key="df_limit", filename=filename_chip_shelve)
+        df_limit = analysis.base.read_obj_from_db(
+            key="df_limit", filename=filename_chip_shelve
+        )
         logger.trace("load df_limit success")
     else:
         df_limit = pd.DataFrame()
         logger.trace("load df_limit fail")
     if analysis.capital.capital():
-        df_cap = analysis.base.read_obj_from_db(key="df_cap", filename=filename_chip_shelve)
+        df_cap = analysis.base.read_obj_from_db(
+            key="df_cap", filename=filename_chip_shelve
+        )
         logger.trace("load df_cap success")
     else:
         df_cap = pd.DataFrame()
         logger.trace("load df_cap fail")
     if analysis.st.st_income():
-        df_st = analysis.base.read_obj_from_db(key="df_st", filename=filename_chip_shelve)
+        df_st = analysis.base.read_obj_from_db(
+            key="df_st", filename=filename_chip_shelve
+        )
         logger.trace("load df_st success")
     else:
         df_st = pd.DataFrame()
         logger.trace("load df_st fail")
     if analysis.industry.ths_industry():
-        df_industry = analysis.base.read_obj_from_db(key="df_industry", filename=filename_chip_shelve)
+        df_industry = analysis.base.read_obj_from_db(
+            key="df_industry", filename=filename_chip_shelve
+        )
         logger.trace("load df_industry success")
     else:
         df_industry = pd.DataFrame()
@@ -85,7 +85,7 @@ def chip() -> object | DataFrame:
     df_chip.sort_values(
         by=["up_M_down", "now_price_ratio"], ascending=False, inplace=True
     )
-    df_chip['dt'].fillna(value=dt_init, inplace=True)
+    df_chip["dt"].fillna(value=dt_init, inplace=True)
     analysis.base.write_obj_to_db(obj=df_chip, key=name, filename=filename_chip_shelve)
     logger.trace(f"{name} save as [db_chip]")
     df_g_price_1 = df_chip[
@@ -181,7 +181,9 @@ def chip() -> object | DataFrame:
     df_stocks_pool.sort_values(
         by=["factor_count", "factor"], ascending=False, inplace=True
     )
-    analysis.base.write_obj_to_db(obj=df_stocks_pool, key="df_stocks_pool", filename=filename_chip_shelve)
+    analysis.base.write_obj_to_db(
+        obj=df_stocks_pool, key="df_stocks_pool", filename=filename_chip_shelve
+    )
     df_industry_rank = pd.DataFrame(
         columns=[
             "name",
@@ -204,7 +206,9 @@ def chip() -> object | DataFrame:
             "max_min",
         ]
     )
-    df_all_industry_pct = analysis.base.read_obj_from_db(key="df_all_industry_pct", filename=filename_chip_shelve)
+    df_all_industry_pct = analysis.base.read_obj_from_db(
+        key="df_all_industry_pct", filename=filename_chip_shelve
+    )
     df_5_industry_pct = df_all_industry_pct.iloc[-5:]
     df_20_industry_pct = df_all_industry_pct.iloc[-20:-5]
     df_40_industry_pct = df_all_industry_pct.iloc[-40:-20]
@@ -246,11 +250,11 @@ def chip() -> object | DataFrame:
         axis=0, method="min", ascending=False
     )
     df_industry_rank["rank"] = (
-            df_industry_rank["T5_rank"]
-            + df_industry_rank["T20_rank"]
-            + df_industry_rank["T40_rank"]
-            + df_industry_rank["T60_rank"]
-            + df_industry_rank["T80_rank"]
+        df_industry_rank["T5_rank"]
+        + df_industry_rank["T20_rank"]
+        + df_industry_rank["T40_rank"]
+        + df_industry_rank["T60_rank"]
+        + df_industry_rank["T80_rank"]
     )
     pro = ts.pro_api()
     df_ths_index = pro.ths_index()
@@ -273,28 +277,29 @@ def chip() -> object | DataFrame:
                 df_industry_rank.at[ths_index_code, "T60_rank"],
                 df_industry_rank.at[ths_index_code, "T80_rank"],
             )
-    df_industry_rank.sort_values(
-        by=["max_min"], axis=0, ascending=False, inplace=True
-    )
+    df_industry_rank.sort_values(by=["max_min"], axis=0, ascending=False, inplace=True)
+    df_industry_rank = df_industry_rank[df_industry_rank["max_min"] >= 56]
     df_industry_rank = df_industry_rank[
-        (df_industry_rank["T5_rank"] >= 66)
-        | (df_industry_rank["T20_rank"] >= 66)
-        | (df_industry_rank["T40_rank"] >= 66)
-        | (df_industry_rank["T60_rank"] >= 66)
-        | (df_industry_rank["T80_rank"] >= 66)
-        ]
+        (df_industry_rank["T5_rank"] >= 66) | (df_industry_rank["T5_rank"] <= 10)
+    ]
     df_industry_rank = df_industry_rank[
-        (df_industry_rank["T5_rank"] <= 20)
-        | (df_industry_rank["T20_rank"] <= 10)
-        | (df_industry_rank["T40_rank"] <= 10)
-        | (df_industry_rank["T60_rank"] <= 10)
-        | (df_industry_rank["T80_rank"] <= 10)
-        ]
-    df_industry_rank.sort_values(
-        by=["T5_rank"], axis=0, ascending=False, inplace=True
+        (df_industry_rank["T20_rank"] >= 66) | (df_industry_rank["T20_rank"] <= 10)
+    ]
+
+    df_industry_rank = df_industry_rank[
+        (df_industry_rank["T40_rank"] >= 66) | (df_industry_rank["T40_rank"] <= 10)
+    ]
+    df_industry_rank.sort_values(by=["T5_rank"], axis=0, ascending=False, inplace=True)
+    analysis.base.write_obj_to_db(
+        obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve
     )
-    analysis.base.write_obj_to_db(obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve)
     analysis.base.set_version(key=name, dt=dt_pm_end)
-    analysis.base.shelve_to_excel(path_shelve=filename_chip_shelve, path_excel=filename_excel)
-    logger.trace("chip End")
+    analysis.base.shelve_to_excel(
+        path_shelve=filename_chip_shelve, path_excel=filename_chip_excel
+    )
+    end_loop_time = time.perf_counter_ns()
+    interval_time = (end_loop_time - start_loop_time) / 1000000000
+    str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
+    print(f"Chip analysis takes [{str_gm}]")
+    logger.trace("Chip End")
     return df_chip

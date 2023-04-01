@@ -9,6 +9,15 @@ from loguru import logger
 import ashare
 import akshare as ak
 import analysis.base
+from analysis.const import (
+    path_data,
+    path_index,
+    str_date_path,
+    dt_pm_end,
+    dt_date_trading,
+    filename_chip_shelve,
+    list_all_stocks,
+)
 
 
 def update_stock_data(frequency: str = "1m") -> bool:
@@ -21,27 +30,13 @@ def update_stock_data(frequency: str = "1m") -> bool:
     start_loop_time = time.perf_counter_ns()
     dt_init = datetime.datetime(year=1989, month=1, day=1)
     dt_no_data = datetime.datetime(year=1990, month=1, day=1)
-    dt_date_trading = analysis.base.latest_trading_day()
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    path_check = os.path.join(path_main, "check")
-    path_kline = os.path.join(path_main, "data", f"kline_{frequency}")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
+    path_kline = os.path.join(path_data, f"kline_{frequency}")
     if not os.path.exists(path_kline):
         os.mkdir(path_kline)
-    filename_chip_shelve = os.path.join(path_data, f"chip")
     file_name_catalogue_temp = os.path.join(
         path_data, f"catalogue_temp_{str_date_path}.ftr"
     )
-    time_pm = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_date = analysis.base.latest_trading_day()
-    dt_pm = datetime.datetime.combine(dt_date, time_pm)
     quantity = 80000
-    list_stock = analysis.base.all_chs_code()
     if analysis.base.is_latest_version(key=name):
         logger.trace(f"update stock Kline Break and End")
         return True
@@ -52,12 +47,14 @@ def update_stock_data(frequency: str = "1m") -> bool:
     else:
         df_catalogue = pd.DataFrame(columns=["start", "end", "count"])
         logger.trace(f"Create and Pickle Catalogue")
-    count = len(list_stock)
+    count = len(list_all_stocks)
     i = 0
     logger.trace(f"for loop Begin")
-    for symbol in list_stock:
+    for symbol in list_all_stocks:
         i += 1
-        str_msg = f"\rKline Update: [{i:4d}/{count:4d}] -- [{symbol}]---[{dt_date}]"
+        str_msg = (
+            f"\rKline Update: [{i:4d}/{count:4d}] -- [{symbol}]---[{dt_date_trading}]"
+        )
         if symbol not in df_catalogue.index:
             df_catalogue.at[symbol, "count"] = 0
             df_catalogue.at[symbol, "start"] = dt_init
@@ -69,7 +66,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
                 # 读取腌制数据 df_data
                 df_data = feather.read_dataframe(source=file_name_feather)
                 dt_data_max = df_data.index.max()
-                if dt_data_max == dt_pm:
+                if dt_data_max == dt_pm_end:
                     df_catalogue.loc[symbol, "end"] = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
@@ -107,9 +104,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     df_catalogue.loc[symbol, "count"] = len(df_data)
         elif dt_max == dt_no_data:
             str_msg = str_msg + f"------------No data"
-        elif dt_max == dt_pm:
+        elif dt_max == dt_pm_end:
             str_msg = str_msg + f"-------------latest"
-        elif dt_no_data < dt_max < dt_pm:
+        elif dt_no_data < dt_max < dt_pm_end:
             df_data = feather.read_dataframe(source=file_name_feather)  # 读取腌制数据 df_data
             df_delta = pd.DataFrame()
             i_times = 0
@@ -148,7 +145,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
             func=lambda x: dt_init if x == dt_no_data else x
         )
 
-        analysis.base.write_obj_to_db(obj=df_catalogue, key="df_catalogue", filename=filename_chip_shelve)
+        analysis.base.write_obj_to_db(
+            obj=df_catalogue, key="df_catalogue", filename=filename_chip_shelve
+        )
         logger.trace(f"Catalogue pickle at [pydb_chip]")
         df_catalogue.sort_values(by=["end"], ascending=False, inplace=True)
         analysis.base.set_version(key=name, dt=df_catalogue["end"].max())
@@ -173,16 +172,6 @@ def update_index_data(
     else:
         name = "index_1kline_other"
     logger.trace(f"[{symbol}] update_index_data Begin")
-    dt_date_trading = analysis.base.latest_trading_day()
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    path_index = os.path.join(path_main, "data", f"index")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    if not os.path.exists(path_index):
-        os.mkdir(path_index)
     file_name_index_feather = os.path.join(path_index, f"{symbol}.ftr")
     if analysis.base.is_latest_version(key=name):
         df_index = feather.read_dataframe(source=file_name_index_feather)

@@ -9,28 +9,25 @@ import feather
 import tushare as ts
 from loguru import logger
 import analysis.base
+from analysis.const import (
+    path_data,
+    filename_chip_shelve,
+    dt_date_trading,
+    dt_pm_end,
+    list_all_stocks,
+)
 
 
 def st_income(list_symbol: str | list = None) -> bool:
     name: str = "df_st"
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"ST income Begin")
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
     if list_symbol is None:
         logger.trace("list_code is None")
-        list_symbol = analysis.base.all_chs_code()
+        list_symbol = list_all_stocks
     if isinstance(list_symbol, str):
         list_symbol = [list_symbol]
     pro = ts.pro_api()
-    dt_date_trading = analysis.base.latest_trading_day()
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
     dt_date_trading_year = dt_date_trading.year
     dt_date_trading_month = dt_date_trading.month
     if dt_date_trading_month in [1, 2, 3, 4]:  # 预估上年的年报
@@ -56,8 +53,9 @@ def st_income(list_symbol: str | list = None) -> bool:
     str_date_path_income = dt_period_income.strftime("%Y_%m_%d")
     str_dt_period_forecast = dt_period_forecast.strftime("%Y%m%d")
     str_dt_period_income_next = dt_period_income_next.strftime("%Y%m%d")
-    filename_chip_shelve = os.path.join(path_data, f"chip")
-    filename_df_income = os.path.join(path_data, f"df_income_{str_date_path_income}.ftr")
+    filename_df_income = os.path.join(
+        path_data, f"df_income_{str_date_path_income}.ftr"
+    )
     filename_df_income_next_temp = os.path.join(
         path_data, f"df_income_next_temp_{str_date_path}.ftr"
     )
@@ -223,7 +221,9 @@ def st_income(list_symbol: str | list = None) -> bool:
     if i >= all_record:
         print("\n", end="")  # 格式处理
         logger.trace(f"For loop End")
-        analysis.base.write_obj_to_db(obj=df_st, key=name, filename=filename_chip_shelve)
+        analysis.base.write_obj_to_db(
+            obj=df_st, key=name, filename=filename_chip_shelve
+        )
         df_st.sort_values(by=["ST"], ascending=False, inplace=True)
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(filename_df_st_temp):

@@ -7,40 +7,35 @@ import time
 import random
 import feather
 import numpy as np
-import pandas as pd# 读取腌制数据 df_limit
+import pandas as pd
 from loguru import logger
 import akshare as ak
 import analysis.base
+from analysis.const import (
+    path_data,
+    str_date_path,
+    dt_pm_end,
+    dt_date_trading,
+    filename_chip_shelve,
+    list_all_stocks,
+)
 
 
 def limit_count(list_symbol: list | str = None) -> bool:
     name: str = "df_limit"
     if list_symbol is None:
         logger.trace("list_code is None")
-        list_symbol = analysis.base.all_chs_code()
+        list_symbol = list_all_stocks
     elif isinstance(list_symbol, str):
         list_symbol = [list_symbol]
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"Limit Count Begin")
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
-    filename_chip_shelve = os.path.join(path_data, f"chip")
-    dt_date_trading = analysis.base.latest_trading_day()
     str_date_trading = dt_date_trading.strftime("%Y%m%d")
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
     file_name_df_limit_temp = os.path.join(
         path_data, f"df_limit_count_temp_{str_date_path}.ftr"
     )
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
     str_delta = dt_delta.strftime("%Y%m%d")
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-
     list_exist = list()
     if analysis.base.is_latest_version(key=name):
         logger.trace("Limit Break End")
@@ -48,7 +43,9 @@ def limit_count(list_symbol: list | str = None) -> bool:
     logger.trace("Update Limit")
     if os.path.exists(file_name_df_limit_temp):
         logger.trace(f"{file_name_df_limit_temp} load feather")
-        df_limit = feather.read_dataframe(source=file_name_df_limit_temp) # 读取腌制数据 df_limit
+        df_limit = feather.read_dataframe(
+            source=file_name_df_limit_temp
+        )  # 读取腌制数据 df_limit
         if df_limit.empty:
             logger.trace("df_limit cache is empty")
         else:
@@ -127,12 +124,12 @@ def limit_count(list_symbol: list | str = None) -> bool:
                     end_date=str_date_trading,
                 )
             except KeyError as e:
-                logger.error(repr(e))
                 print(repr(e))
+                logger.trace(repr(e))
                 break
             except OSError as e:
-                logger.error(repr(e))
                 print(repr(e))
+                logger.trace(repr(e))
                 time.sleep(2)
             else:
                 break
@@ -348,7 +345,9 @@ def limit_count(list_symbol: list | str = None) -> bool:
             inplace=True,
         )
         df_limit.index.rename(name="symbol", inplace=True)
-        analysis.base.write_obj_to_db(obj=df_limit, key=name, filename=filename_chip_shelve)
+        analysis.base.write_obj_to_db(
+            obj=df_limit, key=name, filename=filename_chip_shelve
+        )
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(file_name_df_limit_temp):
             os.remove(path=file_name_df_limit_temp)

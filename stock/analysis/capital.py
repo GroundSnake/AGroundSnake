@@ -9,6 +9,13 @@ import pandas as pd
 from loguru import logger
 from requests import RequestException
 import analysis.base
+from analysis.const import (
+    path_data,
+    str_date_path,
+    filename_chip_shelve,
+    dt_pm_end,
+    list_all_stocks,
+)
 
 
 def code_id_map_em() -> dict:
@@ -152,38 +159,25 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
 def capital() -> bool:
     name: str = "df_cap"
     start_loop_time = time.perf_counter_ns()
-    dt_date_trading = analysis.base.latest_trading_day()
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
-    filename_chip_shelve = os.path.join(path_data, f"chip")
-    file_name_cap_feather_temp = os.path.join(
+    filename_cap_feather_temp = os.path.join(
         path_data, f"capital_temp_{str_date_path}.ftr"
     )
-    list_stocks = analysis.base.all_chs_code()
     list_cap_exist = list()
     df_cap = pd.DataFrame()
     if analysis.base.is_latest_version(key=name):
         logger.trace(f"capital Break End")
         return True
-    if os.path.exists(file_name_cap_feather_temp):
-        logger.trace(f"[{file_name_cap_feather_temp}] exists")
-        df_cap = feather.read_dataframe(source=file_name_cap_feather_temp)
+    if os.path.exists(filename_cap_feather_temp):
+        logger.trace(f"[{filename_cap_feather_temp}] exists")
+        df_cap = feather.read_dataframe(source=filename_cap_feather_temp)
         if df_cap.empty:
             logger.trace(f"{name} cache is empty")
         else:
             logger.trace(f"{name} cache is not empty")
             list_cap_exist = df_cap.index.to_list()
     i = 0
-    count = len(list_stocks)
-    for symbol in list_stocks:
+    count = len(list_all_stocks)
+    for symbol in list_all_stocks:
         i += 1
         str_msg = f"\rCapital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         print(str_msg, end="")
@@ -214,15 +208,17 @@ def capital() -> bool:
             if df_cap.empty:
                 df_cap = pd.DataFrame(columns=df_cap_temp.columns)
             df_cap.loc[symbol] = df_cap_temp.loc[code]
-        feather.write_dataframe(df=df_cap, dest=file_name_cap_feather_temp)
+        feather.write_dataframe(df=df_cap, dest=filename_cap_feather_temp)
     if i >= count:
         print("\n", end="")  # 格式处理
-        analysis.base.write_obj_to_db(obj=df_cap, key=name, filename=filename_chip_shelve)
+        analysis.base.write_obj_to_db(
+            obj=df_cap, key=name, filename=filename_chip_shelve
+        )
         analysis.base.set_version(key=name, dt=dt_pm_end)
         logger.trace(f"Update df_config-[{name}]")
-        if os.path.exists(file_name_cap_feather_temp):  # 删除临时文件
-            os.remove(path=file_name_cap_feather_temp)
-            logger.trace(f"[{file_name_cap_feather_temp}] remove")
+        if os.path.exists(filename_cap_feather_temp):  # 删除临时文件
+            os.remove(path=filename_cap_feather_temp)
+            logger.trace(f"[{filename_cap_feather_temp}] remove")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

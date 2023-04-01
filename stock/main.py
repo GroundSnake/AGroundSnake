@@ -12,6 +12,23 @@ from console import fg
 import analysis.position
 import analysis.chip
 import analysis.base
+from analysis.const import (
+    dt_date_trading,
+    dt_program_start,
+    dt_am_start,
+    dt_am_end,
+    dt_pm_start,
+    dt_pm_1457,
+    dt_pm_end,
+    dt_program_end,
+    filename_trader_template,
+    path_history,
+    filename_log,
+    filename_input,
+    filename_signal,
+    filename_data_csv,
+)
+
 
 __version__ = "3.0.0"
 logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
@@ -49,43 +66,8 @@ if __name__ == "__main__":
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
     frq = 0
     scan_interval = 20
-    dt_date_trading = analysis.base.latest_trading_day()
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    path_history = os.path.join(path_main, "history")
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_history):
-        os.mkdir(path_history)
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
-    file_name_log = os.path.join(path_data, "program_log.log")
-    file_name_input = os.path.join(path_main, f"input.xlsx")
-    filename_trader_template = os.path.join(path_main, f"trader.xlsx")
-    file_name_signal = os.path.join(path_check, f"signal_{str_date_path}.xlsx")
-    file_name_data_csv = os.path.join(path_check, f"position_{str_date_path}.csv")
-    logger.add(sink=file_name_log, level="TRACE")
+    logger.add(sink=filename_log, level="TRACE")
     logger.trace(f"initialization Begin")
-    #  设定交易时间 Begin
-    dt_now = datetime.datetime.now()
-    dt_date = dt_now.date()
-    time_program_start = datetime.time(hour=1, minute=0, second=0, microsecond=0)
-    time_am_start = datetime.time(hour=9, minute=28, second=0, microsecond=0)
-    time_am_end = datetime.time(hour=12, minute=30, second=0, microsecond=0)
-    time_pm_start = datetime.time(hour=13, minute=0, second=0, microsecond=0)
-    time_pm_1457 = datetime.time(hour=14, minute=57, second=0, microsecond=0)
-    time_pm_end = datetime.time(hour=15, minute=0, second=scan_interval, microsecond=0)
-    time_program_end = datetime.time(hour=23, minute=0, second=0, microsecond=0)
-    dt_program_start = datetime.datetime.combine(dt_date, time_program_start)
-    dt_am_start = datetime.datetime.combine(dt_date, time_am_start)
-    dt_am_end = datetime.datetime.combine(dt_date, time_am_end)
-    dt_pm_start = datetime.datetime.combine(dt_date, time_pm_start)
-    dt_pm_1457 = datetime.datetime.combine(dt_date, time_pm_1457)
-    dt_pm_end = datetime.datetime.combine(dt_date, time_pm_end)
-    dt_program_end = datetime.datetime.combine(dt_date, time_program_end)
-    #  设定交易时间 End
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
     df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
@@ -118,7 +100,7 @@ if __name__ == "__main__":
     if df_trader.empty:
         logger.trace(f"Create a new df_trader")
         time.sleep(20)
-        list_data_columns = [
+        list_trader_columns = [
             "name",
             "recent_price",
             "position",
@@ -140,8 +122,8 @@ if __name__ == "__main__":
             "price_of_inclusion",
             "remark",
         ]
-        list_symbol = ["sh600519", "sz300750"]
-        df_trader = pd.DataFrame(index=list_symbol, columns=list_data_columns)
+        list_trader_symbol = ["sh600519", "sz300750"]
+        df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
     df_stocks_pool = analysis.base.read_obj_from_db(key="df_stocks_pool")
     list_trader = df_trader.index.to_list()
@@ -150,13 +132,13 @@ if __name__ == "__main__":
         if code not in list_trader:
             df_trader.loc[code] = pd.Series(index=df_trader.columns, dtype="object")
             if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
-                df_trader.at[code, "date_of_inclusion_first"] = dt_date
+                df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
                 df_trader.at[code, "times_of_inclusion"] = 1
                 df_trader.at[code, "price_of_inclusion"] = df_chip.at[code, "now_price"]
             else:
-                df_trader.at[code, "date_of_inclusion_latest"] = dt_date
+                df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
                 df_trader.at[code, "times_of_inclusion"] += 1
-    df_trader["date_of_inclusion_first"].fillna(dt_date, inplace=True)
+    df_trader["date_of_inclusion_first"].fillna(dt_date_trading, inplace=True)
     df_trader["times_of_inclusion"].fillna(1, inplace=True)
     df_trader["recent_price"].fillna(0, inplace=True)
     df_trader["position"].fillna(0, inplace=True)
@@ -164,6 +146,7 @@ if __name__ == "__main__":
     df_trader["pct_chg"].fillna(0, inplace=True)
     df_trader["rise"].fillna(rise, inplace=True)
     df_trader["fall"].fillna(fall, inplace=True)
+    dt_now = datetime.datetime.now()
     df_trader["recent_trading"].fillna(dt_now, inplace=True)
     logger.trace("Create df_trader End")
     # 加载df_trader End
@@ -266,13 +249,13 @@ if __name__ == "__main__":
     # 用df_chip初始化df_data-----End
     # 创建df_trader Begin
     logger.trace("Create df_signal")
-    if os.access(path=file_name_signal, mode=os.F_OK):
-        logger.trace(f"load df_signal from [{file_name_signal}]")
+    if os.access(path=filename_signal, mode=os.F_OK):
+        logger.trace(f"load df_signal from [{filename_signal}]")
         df_signal_sell = pd.read_excel(
-            io=file_name_signal, sheet_name="sell", index_col="code"
+            io=filename_signal, sheet_name="sell", index_col="code"
         )
         df_signal_buy = pd.read_excel(
-            io=file_name_signal, sheet_name="buy", index_col="code"
+            io=filename_signal, sheet_name="buy", index_col="code"
         )
         df_signal_sell.sort_values(
             by=["position", "pct_chg", "dt"], ascending=False, inplace=True
@@ -341,17 +324,17 @@ if __name__ == "__main__":
             str_msg_modified = ""
             str_msg_add = ""
             str_msg_del = ""
-            if os.path.exists(file_name_input):
+            if os.path.exists(filename_input):
                 df_in_modified = pd.read_excel(
-                    io=file_name_input, sheet_name="modified", index_col="code"
+                    io=filename_input, sheet_name="modified", index_col="code"
                 )
                 df_in_add = pd.read_excel(
-                    io=file_name_input, sheet_name="add", index_col="code"
+                    io=filename_input, sheet_name="add", index_col="code"
                 )
                 df_in_del = pd.read_excel(
-                    io=file_name_input, sheet_name="delete", index_col="code"
+                    io=filename_input, sheet_name="delete", index_col="code"
                 )
-                logger.trace(f"load [{file_name_input}] success")
+                logger.trace(f"load [{filename_input}] success")
                 # 索引转为小写字母 Begin
                 df_in_modified.index = df_in_modified.index.str.lower()
                 df_in_add.index = df_in_add.index.str.lower()
@@ -393,9 +376,9 @@ if __name__ == "__main__":
                     for code in df_trader.index:
                         if code in list_in_add:
                             if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
-                                df_trader.at[code, "date_of_inclusion_first"] = dt_date
+                                df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
                             else:
-                                df_trader.at[code, "date_of_inclusion_latest"] = dt_date
+                                df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
                             if pd.isnull(df_trader.at[code, "times_of_inclusion"]):
                                 df_trader.at[code, "times_of_inclusion"] = 1
                             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
@@ -426,10 +409,10 @@ if __name__ == "__main__":
                     path_history, f"input_{str_now_input}.xlsx"
                 )
                 try:
-                    os.rename(src=file_name_input, dst=file_name_input_rename)
+                    os.rename(src=filename_input, dst=file_name_input_rename)
                 except Exception as e:
                     logger.error(repr(e))
-                    logger.error(f"[{file_name_input}] rename file fail")
+                    logger.error(f"[{filename_input}] rename file fail")
                 else:
                     logger.trace(f"[{file_name_input_rename}] rename file success")
                 # df_trader["recent_price"].fillna(0, inplace=True)
@@ -437,7 +420,7 @@ if __name__ == "__main__":
                 df_trader["rise"].fillna(rise, inplace=True)
                 df_trader["fall"].fillna(fall, inplace=True)
             else:
-                logger.trace(f"[{file_name_input}] is not exist")
+                logger.trace(f"[{filename_input}] is not exist")
             # 增加修改删除df_data中的项目 End
             # 调用实时数据接口，更新df_realtime Begin
             list_trader = df_trader.index.to_list()
@@ -474,7 +457,7 @@ if __name__ == "__main__":
                 except KeyError as e:
                     logger.trace(f"df_industry_class KeyError [{repr(e)}]")
                     time.sleep(5)
-                industry_code = df_trader.at[code, 'industry_code']
+                industry_code = df_trader.at[code, "industry_code"]
                 if code not in df_realtime.index:
                     logger.trace("code not in df_realtime")
                     continue
@@ -560,9 +543,13 @@ if __name__ == "__main__":
                             f"[{df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
                         )
                     if pd.notnull(df_trader.at[code, "grade"]):
-                        str_msg_rise += fg.lightyellow(f"\n ---- [{df_trader.at[code, 'industry_name']}]")
+                        str_msg_rise += fg.lightyellow(
+                            f"\n ---- [{df_trader.at[code, 'industry_name']}]"
+                        )
                     if pd.notnull(df_trader.at[code, "stock_index"]):
-                        str_msg_rise += fg.purple(f" - {df_trader.at[code, 'stock_index']}")
+                        str_msg_rise += fg.purple(
+                            f" - {df_trader.at[code, 'stock_index']}"
+                        )
                     if pd.notnull(df_trader.at[code, "recent_trading"]):
                         if isinstance(
                             df_trader.at[code, "recent_trading"], datetime.datetime
@@ -629,9 +616,13 @@ if __name__ == "__main__":
                             f"[{df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
                         )
                     if pd.notnull(df_trader.at[code, "grade"]):
-                        str_msg_fall += fg.lightyellow(f"\n ---- [{df_trader.at[code, 'grade']}]")
+                        str_msg_fall += fg.lightyellow(
+                            f"\n ---- [{df_trader.at[code, 'grade']}]"
+                        )
                     if pd.notnull(df_trader.at[code, "stock_index"]):
-                        str_msg_fall += fg.purple(f" - {df_trader.at[code, 'stock_index']}")
+                        str_msg_fall += fg.purple(
+                            f" - {df_trader.at[code, 'stock_index']}"
+                        )
                     if pd.notnull(df_trader.at[code, "recent_trading"]):
                         if isinstance(
                             df_trader.at[code, "recent_trading"], datetime.datetime
@@ -648,8 +639,8 @@ if __name__ == "__main__":
             df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
             analysis.base.write_obj_to_db(obj=df_trader, key="df_trader")
             if random.randint(0, 2) == 1:
-                df_trader.to_csv(path_or_buf=file_name_data_csv)
-                logger.trace(f"df_trader csv at [{file_name_data_csv}]")
+                df_trader.to_csv(path_or_buf=filename_data_csv)
+                logger.trace(f"df_trader csv at [{filename_data_csv}]")
             list_signal_buy_temp = df_signal_sell.index.to_list()
             list_signal_sell_temp = df_signal_buy.index.to_list()
             list_signal_chg = list()
@@ -664,7 +655,7 @@ if __name__ == "__main__":
                 for code in list_signal_temp:
                     if code not in list_signal:
                         list_signal_chg.append(code)
-                with pd.ExcelWriter(path=file_name_signal, mode="w") as writer:
+                with pd.ExcelWriter(path=filename_signal, mode="w") as writer:
                     df_signal_sell.to_excel(excel_writer=writer, sheet_name="sell")
                     df_signal_buy.to_excel(excel_writer=writer, sheet_name="buy")
             if list_signal_buy != list_signal_buy_temp:

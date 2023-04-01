@@ -1,12 +1,12 @@
 # modified at 2023/3/29 15:47
 import datetime
-import os
 import numpy as np
 import pandas as pd
 from loguru import logger
 import akshare as ak
 import analysis.base
 import analysis.update_data
+from analysis.const import dt_date_trading, time_pm_end, filename_chip_shelve
 
 
 def position(index: str = "sh000001") -> str:
@@ -17,12 +17,6 @@ def position(index: str = "sh000001") -> str:
     else:
         name = "df_pos_ctl_other"
     logger.trace(f"position_control-[{name}] Begin")
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    filename_chip_shelve = os.path.join(path_data, f"chip")
     # 取得实时上证指数
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
@@ -49,7 +43,7 @@ def position(index: str = "sh000001") -> str:
         dt_begin = datetime.datetime(year=2015, month=9, day=1)
         df_sh_index.set_index(keys=["date"], inplace=True)
         df_sh_index = df_sh_index.loc[dt_begin:]
-        dt_date = analysis.base.latest_trading_day()
+        dt_date = dt_date_trading
     df_sh_index["close"] = df_sh_index["close"].apply(
         func=lambda x: int(round(x, 0)) // 10 * 10
     )

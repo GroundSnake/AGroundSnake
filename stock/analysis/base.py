@@ -11,18 +11,21 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
+from analysis.const import filename_chip_shelve
 
 
 def is_trading_day() -> bool:
     """无法使用调用"""
-    ts.set_token('77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832')
+    ts.set_token("77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832")
     pro = ts.pro_api()
     dt_now = datetime.datetime.now()
     str_date_now = dt_now.strftime("%Y%m%d")
     try:
-        df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
+        df_trade = pro.trade_cal(
+            exchange="", start_date="20230301", end_date=str_date_now
+        )
     except Exception as e:
-        print('The token is invalid. Please apply for a token at tushare')
+        print("The token is invalid. Please apply for a token at tushare")
         sys.exit()
     df_trade.set_index(keys=["cal_date"], inplace=True)
     if df_trade.at[str_date_now, "is_open"] == 1:
@@ -112,12 +115,8 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
 
 
 def write_obj_to_db(obj: object, key: str, filename: str = None):
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
     if not filename:
-        filename = os.path.join(path_data, f"chip")
+        filename = filename_chip_shelve
     with shelve.open(filename=filename, flag="c") as pydbm_chip:
         pydbm_chip[key] = obj
         logger.trace(f"{key} save as pydb_chip-[{filename}]")
@@ -125,12 +124,8 @@ def write_obj_to_db(obj: object, key: str, filename: str = None):
 
 
 def read_obj_from_db(key: str, filename: str = None) -> object:
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
     if not filename:
-        filename = os.path.join(path_data, f"chip")
+        filename = filename_chip_shelve
     try:
         with shelve.open(filename=filename, flag="r") as pydbm_chip:
             logger.trace(f"loading {key} from [{filename}]....")
@@ -148,21 +143,17 @@ def read_obj_from_db(key: str, filename: str = None) -> object:
         return pd.DataFrame()
 
 
-def is_latest_version(key: str) -> bool:
+def is_latest_version(key: str, filename: str = None) -> bool:
     dt_now = datetime.datetime.now()
     dt_date_trading = latest_trading_day()
     time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
     dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
-    df_config = read_obj_from_db(key="df_config")
+    df_config = read_obj_from_db(key="df_config", filename=filename)
     if df_config.empty:
-        logger.trace(f'df_config is empty')
+        logger.trace(f"df_config is empty")
         df_config.at[key, "date"] = dt_now
     if key not in df_config.index:
-        logger.trace(f'{key} not in df_config')
+        logger.trace(f"{key} not in df_config")
         df_config.at[key, "date"] = dt_now
     if df_config.at[key, "date"] <= dt_now < dt_pm_end:
         logger.trace(f"[{dt_now}] less than [{dt_pm_end}]")
@@ -179,10 +170,6 @@ def is_latest_version(key: str) -> bool:
 
 
 def set_version(key: str, dt: datetime.datetime) -> bool:
-    path_main = os.getcwd()
-    path_data = os.path.join(path_main, "data")
-    if not os.path.exists(path_data):
-        os.mkdir(path_data)
     df_config = read_obj_from_db(key="df_config")
     df_config.at[key, "date"] = dt
     write_obj_to_db(obj=df_config, key="df_config")
@@ -210,8 +197,8 @@ def is_open(filename) -> bool:
         logger.trace(f"[{filename}] not in use")
         return False  # int(v_handle) == win32file.INVALID_HANDLE_VALUE
     except pywintypes.error as e:
-        logger.error(e.args[2])
-        logger.trace(f"[{filename}] in use")
+        print(e.args[2])
+        logger.trace(e.args[2])
         return True
     finally:
         try:
@@ -251,18 +238,21 @@ def add_chip_excel(df: pd.DataFrame, key: str, filename: str = None):
     finally:
         logger.trace(f"save {key} at Excel-[{filename}]")
 
-def shelve_to_excel(path_shelve:str, path_excel:str):
+
+def shelve_to_excel(path_shelve: str, path_excel: str):
     try:
         with shelve.open(filename=path_shelve, flag="r") as pydbm_chip:
             count = len(pydbm_chip)
             i = 0
             for key in pydbm_chip:
                 i += 1
-                print(f'\r[{i}/{count}] - {key}', end='')
+                print(f"\r[{i}/{count}] - {key}", end="")
                 if isinstance(pydbm_chip[key], DataFrame):
-                    add_chip_excel(df=pydbm_chip[key], key=f'{key}', filename=path_excel)
+                    add_chip_excel(
+                        df=pydbm_chip[key], key=f"{key}", filename=path_excel
+                    )
                 else:
-                    logger.trace(f'{key} is not DataFrame')
+                    logger.trace(f"{key} is not DataFrame")
     except dbm.error as e:
         logger.error(repr(e))
         print(repr(e))
