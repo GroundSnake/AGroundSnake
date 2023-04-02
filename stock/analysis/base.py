@@ -202,6 +202,8 @@ def shelve_to_excel(path_shelve: str, path_excel: str):
                     print(f" - pass", end="")
                     logger.trace(f"{key} is not DataFrame")
                     continue
+            if i >= count:
+                print("\n", end="")  # 格式处理
     except dbm.error as e:
         print(f"[{path_shelve}] is not exist - Error[{repr(e)}]")
         logger.trace(f"[{path_shelve}] is not exist - Error[{repr(e)}]")

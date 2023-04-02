@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/2 23:39
 from __future__ import annotations
 import os
 import random
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     logger.trace("load df_industry_class...")
     df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class", filename=filename_chip_shelve)
     if df_industry_class.empty:
-        logger.error(f"df_industry_class from filename_chip_shelve is empty")
+        logger.trace(f"df_industry_class from filename_chip_shelve is empty")
         try:
             df_industry_class = pd.read_excel(io='df_industry_class.xlsx', index_col='code')
         except FileNotFoundError as e:
@@ -86,12 +86,14 @@ if __name__ == "__main__":
             if df_industry_class.empty:
                 logger.error(f"df_industry_class from [df_industry_class.xlsx] is empty")
                 sys.exit()
+            else:
+                analysis.base.write_obj_to_db(obj=df_industry_class, key="df_industry_class", filename=filename_chip_shelve)
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
     df_chip = analysis.base.read_obj_from_db(key="df_chip", filename=filename_chip_shelve)
     if df_chip.empty:
-        logger.error(f"df_chip from filename_chip_shelve is empty")
+        logger.trace(f"df_chip from filename_chip_shelve is empty")
         df_chip = analysis.chip.chip()
         if df_chip.empty:
             sys.exit()
