@@ -27,6 +27,7 @@ from analysis.const import (
     filename_input,
     filename_signal,
     filename_data_csv,
+    filename_chip_shelve,
 )
 
 
@@ -53,6 +54,7 @@ if __name__ == "__main__":
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    """
     if analysis.base.is_trading_day():
         logger.trace("Betting day")
         print("Betting day")
@@ -61,6 +63,7 @@ if __name__ == "__main__":
         print("Non betting day")
         logger.trace("Program OFF")
         sys.exit()
+    """
     """init Begin"""
     fall = -5
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
@@ -70,21 +73,21 @@ if __name__ == "__main__":
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
-    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class")
+    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class",filename=filename_chip_shelve)
     if df_industry_class.empty:
         logger.error(f"df_industry_class is empty")
         sys.exit()
     # 加载df_industry_class End
     # 加载df_industry_rank Begin
     logger.trace("load df_industry_rank...")
-    df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank")
+    df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank", filename=filename_chip_shelve)
     if df_industry_rank.empty:
         logger.error(f"df_industry_rank is empty")
         sys.exit()
     # 加载df_industry_rank End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
-    df_chip = analysis.base.read_obj_from_db(key="df_chip")
+    df_chip = analysis.base.read_obj_from_db(key="df_chip", filename=filename_chip_shelve)
     if df_chip.empty:
         logger.error(f"df_chip is empty")
         sys.exit()
@@ -96,7 +99,7 @@ if __name__ == "__main__":
     # 加载df_chip End
     # 加载df_traderBegin
     logger.trace("Create df_trader Begin")
-    df_trader = analysis.base.read_obj_from_db(key="df_trader")
+    df_trader = analysis.base.read_obj_from_db(key="df_trader", filename=filename_chip_shelve)
     if df_trader.empty:
         logger.trace(f"Create a new df_trader")
         time.sleep(20)
@@ -125,7 +128,7 @@ if __name__ == "__main__":
         list_trader_symbol = ["sh600519", "sz300750"]
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
-    df_stocks_pool = analysis.base.read_obj_from_db(key="df_stocks_pool")
+    df_stocks_pool = analysis.base.read_obj_from_db(key="df_stocks_pool", filename=filename_chip_shelve)
     list_trader = df_trader.index.to_list()
     list_stocks_pool = df_stocks_pool.index.to_list()
     for code in list_stocks_pool:
@@ -376,9 +379,13 @@ if __name__ == "__main__":
                     for code in df_trader.index:
                         if code in list_in_add:
                             if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
-                                df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
+                                df_trader.at[
+                                    code, "date_of_inclusion_first"
+                                ] = dt_date_trading
                             else:
-                                df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
+                                df_trader.at[
+                                    code, "date_of_inclusion_latest"
+                                ] = dt_date_trading
                             if pd.isnull(df_trader.at[code, "times_of_inclusion"]):
                                 df_trader.at[code, "times_of_inclusion"] = 1
                             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):

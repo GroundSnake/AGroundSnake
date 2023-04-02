@@ -37,7 +37,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
     str_delta = dt_delta.strftime("%Y%m%d")
     list_exist = list()
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace("Limit Break End")
         return True
     logger.trace("Update Limit")

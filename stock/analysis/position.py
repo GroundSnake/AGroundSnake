@@ -20,8 +20,10 @@ def position(index: str = "sh000001") -> str:
     # 取得实时上证指数
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
-    if analysis.base.is_latest_version(key=name):
-        df_pos_ctl = analysis.base.read_obj_from_db(key=name)
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+        df_pos_ctl = analysis.base.read_obj_from_db(
+            key=name, filename=filename_chip_shelve
+        )
         stock_close = df_index_realtime.at[index, "最新价"]
         stock_name = df_index_realtime.at[index, "名称"]
         stock_close = int(stock_close) // 10 * 10
@@ -82,7 +84,9 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl["rank"] = df_pos_ctl["weight_volume"].rank(
         axis=0, method="min", ascending=False
     )
-    analysis.base.write_obj_to_db(obj=df_pos_ctl, key=name, filename=filename_chip_shelve)
+    analysis.base.write_obj_to_db(
+        obj=df_pos_ctl, key=name, filename=filename_chip_shelve
+    )
     close_sh = df_index_realtime.at[index, "最新价"]
     nane = df_index_realtime.at[index, "名称"]
     close_sh = int(close_sh) // 10 * 10
