@@ -13,6 +13,7 @@ from analysis.const import (
     path_data,
     path_index,
     str_date_path,
+    dt_init,
     dt_pm_end,
     dt_date_trading,
     filename_chip_shelve,
@@ -28,7 +29,6 @@ def update_stock_data(frequency: str = "1m") -> bool:
     name: str = f"update_kline_{frequency}"
     logger.trace(f"[{frequency}] A Share Data Update Begin")
     start_loop_time = time.perf_counter_ns()
-    dt_init = datetime.datetime(year=1989, month=1, day=1)
     dt_no_data = datetime.datetime(year=1990, month=1, day=1)
     path_kline = os.path.join(path_data, f"kline_{frequency}")
     if not os.path.exists(path_kline):

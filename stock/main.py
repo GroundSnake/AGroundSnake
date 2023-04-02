@@ -32,7 +32,7 @@ from analysis.const import (
 
 
 __version__ = "3.0.0"
-logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
 
 def sleep_to_time(dt_time: datetime.datetime):
@@ -73,30 +73,41 @@ if __name__ == "__main__":
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
-    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class",filename=filename_chip_shelve)
+    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class", filename=filename_chip_shelve)
     if df_industry_class.empty:
-        logger.error(f"df_industry_class is empty")
-        sys.exit()
+        logger.error(f"df_industry_class from filename_chip_shelve is empty")
+        try:
+            df_industry_class = pd.read_excel(io='df_industry_class.xlsx', index_col='code')
+        except FileNotFoundError as e:
+            print(f'[df_industry_class.xlsx] - {e.args[1]}')
+            logger.error(f'[df_industry_class.xlsx] - {e.args[1]}')
+            sys.exit()
+        else:
+            if df_industry_class.empty:
+                logger.error(f"df_industry_class from [df_industry_class.xlsx] is empty")
+                sys.exit()
     # 加载df_industry_class End
-    # 加载df_industry_rank Begin
-    logger.trace("load df_industry_rank...")
-    df_industry_rank = analysis.base.read_obj_from_db(key="df_industry_rank", filename=filename_chip_shelve)
-    if df_industry_rank.empty:
-        logger.error(f"df_industry_rank is empty")
-        sys.exit()
-    # 加载df_industry_rank End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
     df_chip = analysis.base.read_obj_from_db(key="df_chip", filename=filename_chip_shelve)
     if df_chip.empty:
-        logger.error(f"df_chip is empty")
-        sys.exit()
+        logger.error(f"df_chip from filename_chip_shelve is empty")
+        df_chip = analysis.chip.chip()
+        if df_chip.empty:
+            sys.exit()
     else:
         dt_chip_max = df_chip["dt"].max()
         str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
         str_chip_msg = fg.red(str_chip_msg)
         print(str_chip_msg)
     # 加载df_chip End
+    # 加载df_industry_rank_pool Begin
+    logger.trace("load df_industry_rank_pool...")
+    df_industry_rank_pool = analysis.base.read_obj_from_db(key="df_industry_rank_pool", filename=filename_chip_shelve)
+    if df_industry_rank_pool.empty:
+        logger.error(f"df_industry_rank_pool is empty")
+        sys.exit()
+    # 加载df_industry_rank_pool End
     # 加载df_traderBegin
     logger.trace("Create df_trader Begin")
     df_trader = analysis.base.read_obj_from_db(key="df_trader", filename=filename_chip_shelve)
@@ -540,14 +551,14 @@ if __name__ == "__main__":
                     )
                     if industry_code in df_trader.index:
                         str_msg_rise += fg.blue(
-                            f"\n ---- [{df_industry_rank.at[industry_code, 'name']}]"
+                            f"\n ---- [{df_industry_rank_pool.at[industry_code, 'name']}]"
                             f" - [{industry_code}]"
-                            f" - [{df_industry_rank.at[industry_code, 'T5_rank']:2.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T20_rank']:02.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T40_rank']:02.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}] - "
-                            f"[{df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
+                            f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T20_rank']:02.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T40_rank']:02.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T60_rank']:02.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T80_rank']:02.0f}] - "
+                            f"[{df_industry_rank_pool.at[industry_code, 'max_min']:02.0f}]"
                         )
                     if pd.notnull(df_trader.at[code, "grade"]):
                         str_msg_rise += fg.lightyellow(
@@ -613,14 +624,14 @@ if __name__ == "__main__":
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in df_industry_rank.index:
+                    if industry_code in df_industry_rank_pool.index:
                         str_msg_fall += fg.blue(
-                            f" - [{df_industry_rank.at[industry_code, 'T5_rank']:2.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T20_rank']:02.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T40_rank']:02.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
-                            f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}] - "
-                            f"[{df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
+                            f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T20_rank']:02.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T40_rank']:02.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T60_rank']:02.0f} - "
+                            f"{df_industry_rank_pool.at[industry_code, 'T80_rank']:02.0f}] - "
+                            f"[{df_industry_rank_pool.at[industry_code, 'max_min']:02.0f}]"
                         )
                     if pd.notnull(df_trader.at[code, "grade"]):
                         str_msg_fall += fg.lightyellow(

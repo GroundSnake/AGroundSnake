@@ -11,7 +11,7 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
-from analysis.const import dt_pm_end, str_date_path, path_check, filename_chip_shelve
+from analysis.const import dt_init, dt_pm_end, str_date_path, path_check, filename_chip_shelve
 
 
 def is_trading_day() -> bool:
@@ -25,7 +25,7 @@ def is_trading_day() -> bool:
             exchange="", start_date="20230301", end_date=str_date_now
         )
     except Exception as e:
-        print("The token is invalid. Please apply for a token at tushare")
+        print(f"The token is invalid. Please apply for a token at tushare - Error-[{e}]")
         sys.exit()
     df_trade.set_index(keys=["cal_date"], inplace=True)
     if df_trade.at[str_date_now, "is_open"] == 1:
@@ -91,14 +91,12 @@ def read_obj_from_db(key: str, filename: str) -> object:
             try:
                 return pydbm_chip[key]
             except KeyError as e:
-                logger.error(repr(e))
-                print(repr(e))
-                logger.trace(f"[{key}] is not exist")
+                print(f"[{key}] is not exist -Error[{repr(e)}]")
+                logger.trace(f"[{key}] is not exist -Error[{repr(e)}]")
                 return pd.DataFrame()
     except dbm.error as e:
-        logger.error(repr(e))
-        print(repr(e))
-        logger.trace(f"[{filename}] is not exist")
+        print(f"[{filename}] is not exist - Error[{repr(e)}]")
+        logger.trace(f"[{filename}] is not exist - Error[{repr(e)}]")
         return pd.DataFrame()
 
 
@@ -107,10 +105,10 @@ def is_latest_version(key: str, filename: str) -> bool:
     df_config = read_obj_from_db(key="df_config", filename=filename)
     if df_config.empty:
         logger.trace(f"df_config is empty")
-        df_config.at[key, "date"] = dt_now
+        df_config.at[key, "date"] = dt_init
     if key not in df_config.index:
         logger.trace(f"{key} not in df_config")
-        df_config.at[key, "date"] = dt_now
+        df_config.at[key, "date"] = dt_init
     if df_config.at[key, "date"] <= dt_now < dt_pm_end:
         logger.trace(f"[{dt_now}] less than [{dt_pm_end}]")
         logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
@@ -120,7 +118,7 @@ def is_latest_version(key: str, filename: str) -> bool:
         return True
     else:
         logger.trace(
-            f"the latest {key} at [{df_config.at[key, 'date']}],The new {key} at [{dt_pm_end}]"
+            f"Update key-({key}-[{dt_init}]) to [{dt_pm_end}]"
         )
         return False
 
@@ -153,15 +151,15 @@ def is_open(filename) -> bool:
         logger.trace(f"[{filename}] not in use")
         return False  # int(v_handle) == win32file.INVALID_HANDLE_VALUE
     except pywintypes.error as e:
-        print(e.args[2])
-        logger.trace(e.args[2])
+        print(f'{filename} - {e.args[2]}')
+        logger.trace(f'{filename} - {e.args[2]}')
         return True
     finally:
         try:
             v_handle.close()
             logger.trace("v_handle close")
         except pywintypes.error as e:
-            logger.error(repr(e))
+            logger.error(f'v_handle - {repr(e)}')
 
 
 def add_chip_excel(df: pd.DataFrame, key: str, filename: str):
@@ -180,7 +178,7 @@ def add_chip_excel(df: pd.DataFrame, key: str, filename: str):
         ) as writer:
             df.to_excel(excel_writer=writer, sheet_name=key)
     except FileNotFoundError as e:
-        logger.trace(repr(e))
+        logger.trace(f'{filename} is not exist -Error[{repr(e)}]')
         with pd.ExcelWriter(path=filename, mode="w") as writer:
             df.to_excel(excel_writer=writer, sheet_name=key)
     finally:
@@ -199,10 +197,12 @@ def shelve_to_excel(path_shelve: str, path_excel: str):
                     add_chip_excel(
                         df=pydbm_chip[key], key=f"{key}", filename=path_excel
                     )
+                    print(f" - writer", end="")
                 else:
+                    print(f" - pass", end="")
                     logger.trace(f"{key} is not DataFrame")
+                    continue
     except dbm.error as e:
-        logger.error(repr(e))
-        print(repr(e))
-        logger.trace(f"[{path_shelve}] is not exist")
+        print(f"[{path_shelve}] is not exist - Error[{repr(e)}]")
+        logger.trace(f"[{path_shelve}] is not exist - Error[{repr(e)}]")
         return pd.DataFrame()

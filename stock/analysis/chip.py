@@ -278,21 +278,42 @@ def chip() -> object | DataFrame:
                 df_industry_rank.at[ths_index_code, "T80_rank"],
             )
     df_industry_rank.sort_values(by=["max_min"], axis=0, ascending=False, inplace=True)
-    df_industry_rank = df_industry_rank[df_industry_rank["max_min"] >= 56]
-    df_industry_rank = df_industry_rank[
-        (df_industry_rank["T5_rank"] >= 66) | (df_industry_rank["T5_rank"] <= 10)
-    ]
-    df_industry_rank = df_industry_rank[
-        (df_industry_rank["T20_rank"] >= 66) | (df_industry_rank["T20_rank"] <= 10)
-    ]
-
-    df_industry_rank = df_industry_rank[
-        (df_industry_rank["T40_rank"] >= 66) | (df_industry_rank["T40_rank"] <= 10)
-    ]
-    df_industry_rank.sort_values(by=["T5_rank"], axis=0, ascending=False, inplace=True)
     analysis.base.write_obj_to_db(
         obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve
     )
+    df_industry_rank_pool = df_industry_rank[df_industry_rank["max_min"] >= 56]
+    df_industry_rank_pool = df_industry_rank_pool[
+        (df_industry_rank_pool["T5_rank"] >= 66)
+        | (df_industry_rank_pool["T5_rank"] <= 10)
+    ]
+    df_industry_rank_pool = df_industry_rank_pool[
+        (df_industry_rank_pool["T20_rank"] >= 66)
+        | (df_industry_rank_pool["T20_rank"] <= 10)
+    ]
+    df_industry_rank_pool = df_industry_rank_pool[
+        (df_industry_rank_pool["T40_rank"] >= 56)
+        | (df_industry_rank_pool["T40_rank"] <= 20)
+    ]
+    if df_industry_rank_pool.empty:
+        df_industry_rank_pool = analysis.base.read_obj_from_db(
+            key="df_industry_rank_pool", filename=filename_chip_shelve
+        )
+        if df_industry_rank_pool.empty:
+            df_industry_rank_pool = df_industry_rank
+            analysis.base.write_obj_to_db(
+                obj=df_industry_rank_pool,
+                key="df_industry_rank_pool",
+                filename=filename_chip_shelve,
+            )
+    else:
+        df_industry_rank_pool.sort_values(
+            by=["T5_rank"], axis=0, ascending=False, inplace=True
+        )
+        analysis.base.write_obj_to_db(
+            obj=df_industry_rank_pool,
+            key="df_industry_rank_pool",
+            filename=filename_chip_shelve,
+        )
     analysis.base.set_version(key=name, dt=dt_pm_end)
     analysis.base.shelve_to_excel(
         path_shelve=filename_chip_shelve, path_excel=filename_chip_excel

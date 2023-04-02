@@ -192,12 +192,12 @@ def capital() -> bool:
             try:
                 df_cap_temp = stock_individual_info(code=code)
             except KeyError as e:
-                logger.error(repr(e))
                 print("--", repr(e))
+                logger.trace(repr(e))
                 break
             except ConnectionError as e:
-                logger.error(repr(e))
                 print("--", repr(e))
+                logger.trace(repr(e))
             else:
                 break
             if i_times >= 2:
