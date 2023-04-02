@@ -21,7 +21,7 @@ def chip() -> object | DataFrame:
     logger.trace(f"{name} Begin")
     start_loop_time = time.perf_counter_ns()
     dt_init = datetime.datetime(year=1989, month=1, day=1)
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         df_chip = analysis.base.read_obj_from_db(
             key=name, filename=filename_chip_shelve
         )

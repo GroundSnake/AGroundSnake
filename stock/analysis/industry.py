@@ -42,7 +42,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         path_data, f"industry_pct_temp_{str_date_path}.ftr"
     )
     list_exist = list()
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"ths_industry,Break and End")
         return True
     df_industry_class = analysis.base.read_obj_from_db(
@@ -175,7 +175,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
     if i >= len_list_symbol:
         print("\n", end="")  # 格式处理
-        analysis.base.write_obj_to_db(obj=df_industry, key=name)
+        analysis.base.write_obj_to_db(
+            obj=df_industry, key=name, filename=filename_chip_shelve
+        )
         df_all_industry_pct = df_all_industry_pct.applymap(func=lambda x: x + 100)
         len_df_all_industry_pct = len(df_all_industry_pct)
         i = 0
@@ -187,7 +189,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             i += 1
         if i >= len_df_all_industry_pct:
             analysis.base.write_obj_to_db(
-                obj=df_all_industry_pct, key="df_all_industry_pct"
+                obj=df_all_industry_pct,
+                key="df_all_industry_pct",
+                filename=filename_chip_shelve,
             )
             dt_all_industry_pct = datetime.datetime.combine(
                 df_all_industry_pct.index.max().date(), time_pm_end

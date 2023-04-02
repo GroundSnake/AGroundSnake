@@ -37,7 +37,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
         path_data, f"catalogue_temp_{str_date_path}.ftr"
     )
     quantity = 80000
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"update stock Kline Break and End")
         return True
     if os.path.exists(file_name_catalogue_temp):
@@ -173,7 +173,7 @@ def update_index_data(
         name = "index_1kline_other"
     logger.trace(f"[{symbol}] update_index_data Begin")
     file_name_index_feather = os.path.join(path_index, f"{symbol}.ftr")
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         df_index = feather.read_dataframe(source=file_name_index_feather)
         logger.trace(f"[{symbol}] update_index_data Break and End")
         return df_index

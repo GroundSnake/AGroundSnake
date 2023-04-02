@@ -63,7 +63,7 @@ def st_income(list_symbol: str | list = None) -> bool:
         path_data, f"df_forecast_temp_{str_date_path}.ftr"
     )
     filename_df_st_temp = os.path.join(path_data, f"df_st_temp_{str_date_path}.ftr")
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"ST Break End")
         return True
     if os.path.exists(filename_df_income):

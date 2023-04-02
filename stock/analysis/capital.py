@@ -164,7 +164,7 @@ def capital() -> bool:
     )
     list_cap_exist = list()
     df_cap = pd.DataFrame()
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"capital Break End")
         return True
     if os.path.exists(filename_cap_feather_temp):

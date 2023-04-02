@@ -11,7 +11,7 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
-from analysis.const import filename_chip_shelve
+from analysis.const import dt_pm_end, str_date_path, path_check, filename_chip_shelve
 
 
 def is_trading_day() -> bool:
@@ -32,29 +32,6 @@ def is_trading_day() -> bool:
         return True
     else:
         return False
-
-
-def all_ts_code() -> list | None:
-    pro = ts.pro_api()
-    df_basic = pro.stock_basic(
-        exchange="",
-        list_status="L",
-        fields="ts_code,symbol,name,area,industry,list_date",
-    )
-    if len(df_basic) == 0:
-        return
-    else:
-        list_ts_code = df_basic["ts_code"].tolist()
-        return list_ts_code
-
-
-def all_chs_code() -> list | None:
-    list_ts_code = all_ts_code()
-    if list_ts_code:
-        list_chs_code = [item[-2:].lower() + item[:6] for item in list_ts_code]
-        return list_chs_code
-    else:
-        return
 
 
 def code_ths_to_ts(symbol: str):
@@ -80,20 +57,6 @@ def get_stock_type_in(code_in: str):
         return "bj"
 
 
-def latest_trading_day() -> datetime.date:
-    dt_now = datetime.datetime.now()
-    str_date_now = dt_now.strftime("%Y%m%d")
-    pro = ts.pro_api()
-    df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
-    df_trade.set_index(keys=["cal_date"], inplace=True)
-    if df_trade.at[str_date_now, "is_open"] == 1:
-        str_dt_out = str_date_now
-    else:
-        str_dt_out = df_trade.at[str_date_now, "pretrade_date"]
-    dt_out = datetime.datetime.strptime(str_dt_out, "%Y%m%d").date()
-    return dt_out
-
-
 def transaction_unit(price: float, amount: float = 1000) -> int:
     if price * 100 > amount:
         return 100
@@ -114,18 +77,14 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
     return pd_series_out
 
 
-def write_obj_to_db(obj: object, key: str, filename: str = None):
-    if not filename:
-        filename = filename_chip_shelve
+def write_obj_to_db(obj: object, key: str, filename: str):
     with shelve.open(filename=filename, flag="c") as pydbm_chip:
         pydbm_chip[key] = obj
         logger.trace(f"{key} save as pydb_chip-[{filename}]")
     return True
 
 
-def read_obj_from_db(key: str, filename: str = None) -> object:
-    if not filename:
-        filename = filename_chip_shelve
+def read_obj_from_db(key: str, filename: str) -> object:
     try:
         with shelve.open(filename=filename, flag="r") as pydbm_chip:
             logger.trace(f"loading {key} from [{filename}]....")
@@ -143,11 +102,8 @@ def read_obj_from_db(key: str, filename: str = None) -> object:
         return pd.DataFrame()
 
 
-def is_latest_version(key: str, filename: str = None) -> bool:
+def is_latest_version(key: str, filename: str) -> bool:
     dt_now = datetime.datetime.now()
-    dt_date_trading = latest_trading_day()
-    time_pm_end = datetime.time(hour=15, minute=0, second=0, microsecond=0)
-    dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
     df_config = read_obj_from_db(key="df_config", filename=filename)
     if df_config.empty:
         logger.trace(f"df_config is empty")
@@ -170,9 +126,9 @@ def is_latest_version(key: str, filename: str = None) -> bool:
 
 
 def set_version(key: str, dt: datetime.datetime) -> bool:
-    df_config = read_obj_from_db(key="df_config")
+    df_config = read_obj_from_db(key="df_config", filename=filename_chip_shelve)
     df_config.at[key, "date"] = dt
-    write_obj_to_db(obj=df_config, key="df_config")
+    write_obj_to_db(obj=df_config, key="df_config", filename=filename_chip_shelve)
     logger.trace(f"{key} update - [{df_config.at[key, 'date']}]")
     return True
 
@@ -208,15 +164,7 @@ def is_open(filename) -> bool:
             logger.error(repr(e))
 
 
-def add_chip_excel(df: pd.DataFrame, key: str, filename: str = None):
-    dt_date_trading = latest_trading_day()
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
-    path_main = os.getcwd()
-    path_check = os.path.join(path_main, "check")
-    if not os.path.exists(path_check):
-        os.mkdir(path_check)
-    if not filename:
-        filename = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
+def add_chip_excel(df: pd.DataFrame, key: str, filename: str):
     i = 0
     while True:
         if is_open(filename=filename):

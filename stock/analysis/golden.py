@@ -45,13 +45,13 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         path_data, f"df_golden_temp_{str_date_path}.ftr"
     )
     # 判断Kline是不是最新的
-    if analysis.base.is_latest_version(key=kline):
+    if analysis.base.is_latest_version(key=kline, filename=filename_chip_shelve):
         pass
     else:
         logger.trace("Update the Kline")
         if analysis.update_data.update_stock_data():
             logger.trace("{kline} Update finish")
-    if analysis.base.is_latest_version(key=name):
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace("Golden Price Analysis Break End")
         return True  # df_golden is object
     list_golden_exist = list()

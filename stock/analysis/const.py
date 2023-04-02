@@ -1,6 +1,43 @@
 import os
 import datetime
-import analysis.base
+import tushare as ts
+
+
+def latest_trading_day() -> datetime.date:
+    dt_now = datetime.datetime.now()
+    str_date_now = dt_now.strftime("%Y%m%d")
+    pro = ts.pro_api()
+    df_trade = pro.trade_cal(exchange="", start_date="20230301", end_date=str_date_now)
+    df_trade.set_index(keys=["cal_date"], inplace=True)
+    if df_trade.at[str_date_now, "is_open"] == 1:
+        str_dt_out = str_date_now
+    else:
+        str_dt_out = df_trade.at[str_date_now, "pretrade_date"]
+    dt_out = datetime.datetime.strptime(str_dt_out, "%Y%m%d").date()
+    return dt_out
+
+
+def all_ts_code() -> list | None:
+    pro = ts.pro_api()
+    df_basic = pro.stock_basic(
+        exchange="",
+        list_status="L",
+        fields="ts_code,symbol,name,area,industry,list_date",
+    )
+    if len(df_basic) == 0:
+        return
+    else:
+        list_ts_code = df_basic["ts_code"].tolist()
+        return list_ts_code
+
+
+def all_chs_code() -> list | None:
+    list_ts_code = all_ts_code()
+    if list_ts_code:
+        list_chs_code = [item[-2:].lower() + item[:6] for item in list_ts_code]
+        return list_chs_code
+    else:
+        return
 
 
 path_main = os.getcwd()
@@ -16,7 +53,7 @@ if not os.path.exists(path_check):
 path_index = os.path.join(path_data, f"index")
 if not os.path.exists(path_index):
     os.mkdir(path_index)
-dt_date_trading = analysis.base.latest_trading_day()
+dt_date_trading = latest_trading_day()
 str_date_path = dt_date_trading.strftime("%Y_%m_%d")
 time_program_start = datetime.time(hour=1, minute=0, second=0, microsecond=0)
 time_am_start = datetime.time(hour=9, minute=28, second=0, microsecond=0)
@@ -39,4 +76,4 @@ filename_chip_shelve = os.path.join(path_data, f"chip")
 filename_chip_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
 filename_signal = os.path.join(path_check, f"signal_{str_date_path}.xlsx")
 filename_data_csv = os.path.join(path_check, f"trader_{str_date_path}.csv")
-list_all_stocks = analysis.base.all_chs_code()
+list_all_stocks = all_chs_code()
