@@ -104,22 +104,24 @@ def is_latest_version(key: str, filename: str) -> bool:
     dt_now = datetime.datetime.now()
     df_config = read_obj_from_db(key="df_config", filename=filename)
     if df_config.empty:
-        logger.trace(f"df_config is empty")
+        logger.trace(f"df_config-[{key}] is empty")
         df_config.at[key, "date"] = dt_init
     if key not in df_config.index:
         logger.trace(f"{key} not in df_config")
         df_config.at[key, "date"] = dt_init
-    if df_config.at[key, "date"] <= dt_now < dt_pm_end:
-        logger.trace(f"[{dt_now}] less than [{dt_pm_end}]")
-        logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
-        return True
-    elif df_config.at[key, "date"] == dt_pm_end:
-        logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
-        return True
-    else:
+    if df_config.at[key, "date"] == dt_init:
         logger.trace(
             f"Update key-({key}-[{dt_init}]) to [{dt_pm_end}]"
         )
+        return False
+    elif df_config.at[key, "date"] < dt_now < dt_pm_end:
+        logger.trace(f"{key}-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update {key} at [{dt_pm_end}]")
+        return True
+    elif df_config.at[key, "date"] ==dt_pm_end:
+        logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
+        return True
+    else:
+        logger.trace(f"{key}-Error")
         return False
 
 
@@ -185,26 +187,25 @@ def add_chip_excel(df: pd.DataFrame, key: str, filename: str):
         logger.trace(f"save {key} at Excel-[{filename}]")
 
 
-def shelve_to_excel(path_shelve: str, path_excel: str):
+def shelve_to_excel(filename_shelve: str, filename_excel: str):
     try:
-        with shelve.open(filename=path_shelve, flag="r") as pydbm_chip:
+        with shelve.open(filename=filename_shelve, flag="r") as pydbm_chip:
             count = len(pydbm_chip)
             i = 0
             for key in pydbm_chip:
                 i += 1
-                print(f"\r[{i}/{count}] - {key}", end="")
+                str_shelve_to_excel = f"\r[{i}/{count}] - {key}"
+                print(str_shelve_to_excel, end="")
                 if isinstance(pydbm_chip[key], DataFrame):
                     add_chip_excel(
-                        df=pydbm_chip[key], key=f"{key}", filename=path_excel
+                        df=pydbm_chip[key], key=f"{key}", filename=filename_excel
                     )
-                    print(f" - writer", end="")
                 else:
-                    print(f" - pass", end="")
                     logger.trace(f"{key} is not DataFrame")
                     continue
             if i >= count:
                 print("\n", end="")  # 格式处理
     except dbm.error as e:
-        print(f"[{path_shelve}] is not exist - Error[{repr(e)}]")
-        logger.trace(f"[{path_shelve}] is not exist - Error[{repr(e)}]")
+        print(f"[{filename_shelve}] is not exist - Error[{repr(e)}]")
+        logger.trace(f"[{filename_shelve}] is not exist - Error[{repr(e)}]")
         return pd.DataFrame()
