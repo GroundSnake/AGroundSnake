@@ -13,7 +13,7 @@ import analysis.update_data
 import analysis.capital
 import analysis.st
 import analysis.industry
-from analysis.const import filename_chip_shelve, dt_pm_end, filename_chip_excel
+from analysis.const import filename_chip_shelve, filename_chip_excel, dt_pm_end
 
 
 def chip() -> object | DataFrame:
@@ -314,9 +314,11 @@ def chip() -> object | DataFrame:
             key="df_industry_rank_pool",
             filename=filename_chip_shelve,
         )
-    analysis.base.set_version(key=name, dt=dt_pm_end)
+    df_config = analysis.base.read_obj_from_db(key='df_config', filename=filename_chip_shelve)
+    dt_chip = df_config['date'].min()
+    analysis.base.set_version(key=name, dt=dt_chip)
     analysis.base.shelve_to_excel(
-        path_shelve=filename_chip_shelve, path_excel=filename_chip_excel
+        filename_shelve=filename_chip_shelve, filename_excel=filename_chip_excel
     )
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000

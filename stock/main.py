@@ -1,4 +1,4 @@
-# modified at 2023/4/2 23:39
+# modified at 2023/3/29 15:47
 from __future__ import annotations
 import os
 import random
@@ -32,7 +32,7 @@ from analysis.const import (
 
 
 __version__ = "3.0.0"
-logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
 
 def sleep_to_time(dt_time: datetime.datetime):
@@ -73,25 +73,37 @@ if __name__ == "__main__":
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
-    df_industry_class = analysis.base.read_obj_from_db(key="df_industry_class", filename=filename_chip_shelve)
+    df_industry_class = analysis.base.read_obj_from_db(
+        key="df_industry_class", filename=filename_chip_shelve
+    )
     if df_industry_class.empty:
         logger.trace(f"df_industry_class from filename_chip_shelve is empty")
         try:
-            df_industry_class = pd.read_excel(io='df_industry_class.xlsx', index_col='code')
+            df_industry_class = pd.read_excel(
+                io="df_industry_class.xlsx", index_col="code"
+            )
         except FileNotFoundError as e:
-            print(f'[df_industry_class.xlsx] - {e.args[1]}')
-            logger.error(f'[df_industry_class.xlsx] - {e.args[1]}')
+            print(f"[df_industry_class.xlsx] - {e.args[1]}")
+            logger.error(f"[df_industry_class.xlsx] - {e.args[1]}")
             sys.exit()
         else:
             if df_industry_class.empty:
-                logger.error(f"df_industry_class from [df_industry_class.xlsx] is empty")
+                logger.error(
+                    f"df_industry_class from [df_industry_class.xlsx] is empty"
+                )
                 sys.exit()
             else:
-                analysis.base.write_obj_to_db(obj=df_industry_class, key="df_industry_class", filename=filename_chip_shelve)
+                analysis.base.write_obj_to_db(
+                    obj=df_industry_class,
+                    key="df_industry_class",
+                    filename=filename_chip_shelve,
+                )
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
-    df_chip = analysis.base.read_obj_from_db(key="df_chip", filename=filename_chip_shelve)
+    df_chip = analysis.base.read_obj_from_db(
+        key="df_chip", filename=filename_chip_shelve
+    )
     if df_chip.empty:
         logger.trace(f"df_chip from filename_chip_shelve is empty")
         df_chip = analysis.chip.chip()
@@ -105,14 +117,29 @@ if __name__ == "__main__":
     # 加载df_chip End
     # 加载df_industry_rank_pool Begin
     logger.trace("load df_industry_rank_pool...")
-    df_industry_rank_pool = analysis.base.read_obj_from_db(key="df_industry_rank_pool", filename=filename_chip_shelve)
+    df_industry_rank_pool = analysis.base.read_obj_from_db(
+        key="df_industry_rank_pool", filename=filename_chip_shelve
+    )
     if df_industry_rank_pool.empty:
         logger.error(f"df_industry_rank_pool is empty")
         sys.exit()
+    else:
+        df_industry_rank_pool_buying = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] >= 66
+        ]
+        df_industry_rank_pool_selling = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] <= 10
+        ]
+        list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
+        list_industry_buying_code = df_industry_rank_pool_buying.index.tolist()
+        list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
+        list_industry_selling_code = df_industry_rank_pool_selling.index.tolist()
     # 加载df_industry_rank_pool End
     # 加载df_traderBegin
     logger.trace("Create df_trader Begin")
-    df_trader = analysis.base.read_obj_from_db(key="df_trader", filename=filename_chip_shelve)
+    df_trader = analysis.base.read_obj_from_db(
+        key="df_trader", filename=filename_chip_shelve
+    )
     if df_trader.empty:
         logger.trace(f"Create a new df_trader")
         time.sleep(20)
@@ -141,19 +168,24 @@ if __name__ == "__main__":
         list_trader_symbol = ["sh600519", "sz300750"]
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
-    df_stocks_pool = analysis.base.read_obj_from_db(key="df_stocks_pool", filename=filename_chip_shelve)
+    df_stocks_pool = analysis.base.read_obj_from_db(
+        key="df_stocks_pool", filename=filename_chip_shelve
+    )
     list_trader = df_trader.index.to_list()
     list_stocks_pool = df_stocks_pool.index.to_list()
     for code in list_stocks_pool:
         if code not in list_trader:
             df_trader.loc[code] = pd.Series(index=df_trader.columns, dtype="object")
-            if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
-                df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
-                df_trader.at[code, "times_of_inclusion"] = 1
-                df_trader.at[code, "price_of_inclusion"] = df_chip.at[code, "now_price"]
-            else:
-                df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
-                df_trader.at[code, "times_of_inclusion"] += 1
+        if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
+            df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
+            df_trader.at[code, "times_of_inclusion"] = 1
+            df_trader.at[code, "price_of_inclusion"] = df_chip.at[code, "now_price"]
+            df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
+        if pd.isnull(df_trader.at[code, "date_of_inclusion_latest"]):
+            df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
+        elif df_trader.at[code, "date_of_inclusion_latest"] != dt_date_trading:
+            df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
+            df_trader.at[code, "times_of_inclusion"] += 1
     df_trader["date_of_inclusion_first"].fillna(dt_date_trading, inplace=True)
     df_trader["times_of_inclusion"].fillna(1, inplace=True)
     df_trader["recent_price"].fillna(0, inplace=True)
@@ -314,7 +346,7 @@ if __name__ == "__main__":
             df=df_delete, key="delete", filename=filename_trader_template
         )
     else:
-        logger.trace(f"[{filename_trader_template}] access")
+        logger.trace(f"[{filename_trader_template}] can be access")
     # 创建空的交易员模板 file_name_trader End
     # 取得仓位控制提示
     str_pos_ctl_zh = analysis.position.position(index="sh000001")
@@ -545,14 +577,15 @@ if __name__ == "__main__":
                     )
                     if pd.notnull(df_trader.at[code, "ST"]):
                         str_msg_rise += fg.white(f" - [{df_trader.at[code, 'ST']}]")
-                    str_msg_rise += fg.yellow(
+                    str_msg_rise_industry = (
                         f"\n ---- [{df_trader.at[code, 'name']}]"
                         f" - [{industry_code}]"
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in df_trader.index:
-                        str_msg_rise += fg.blue(
+                    if industry_code in list_industry_buying_code:
+                        str_msg_rise_industry = fg.lightred(str_msg_rise_industry)
+                        str_msg_rise += str_msg_rise_industry + fg.blue(
                             f"\n ---- [{df_industry_rank_pool.at[industry_code, 'name']}]"
                             f" - [{industry_code}]"
                             f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
@@ -562,6 +595,9 @@ if __name__ == "__main__":
                             f"{df_industry_rank_pool.at[industry_code, 'T80_rank']:02.0f}] - "
                             f"[{df_industry_rank_pool.at[industry_code, 'max_min']:02.0f}]"
                         )
+                    else:
+                        str_msg_rise_industry = fg.yellow(str_msg_rise_industry)
+                        str_msg_rise += str_msg_rise_industry
                     if pd.notnull(df_trader.at[code, "grade"]):
                         str_msg_rise += fg.lightyellow(
                             f"\n ---- [{df_trader.at[code, 'industry_name']}]"
@@ -620,14 +656,15 @@ if __name__ == "__main__":
                     )
                     if pd.notnull(df_trader.at[code, "ST"]):
                         str_msg_fall += fg.white(f" - [{df_trader.at[code, 'ST']}]")
-                    str_msg_fall += fg.yellow(
+                    str_msg_fall_industry = (
                         f"\n ---- [{df_trader.at[code, 'industry_name']}]"
                         f" - [{industry_code}]"
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in df_industry_rank_pool.index:
-                        str_msg_fall += fg.blue(
+                    if industry_code in list_industry_selling_code:
+                        str_msg_fall_industry = fg.lightred(str_msg_fall_industry)
+                        str_msg_fall += str_msg_fall_industry + fg.blue(
                             f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
                             f"{df_industry_rank_pool.at[industry_code, 'T20_rank']:02.0f} - "
                             f"{df_industry_rank_pool.at[industry_code, 'T40_rank']:02.0f} - "
@@ -635,6 +672,9 @@ if __name__ == "__main__":
                             f"{df_industry_rank_pool.at[industry_code, 'T80_rank']:02.0f}] - "
                             f"[{df_industry_rank_pool.at[industry_code, 'max_min']:02.0f}]"
                         )
+                    else:
+                        str_msg_fall_industry = fg.yellow(str_msg_fall_industry)
+                        str_msg_fall += str_msg_fall_industry
                     if pd.notnull(df_trader.at[code, "grade"]):
                         str_msg_fall += fg.lightyellow(
                             f"\n ---- [{df_trader.at[code, 'grade']}]"
@@ -657,7 +697,9 @@ if __name__ == "__main__":
                 # df_trader End
             # 更新df_data，str_msg_rise，str_msg_fall------End
             df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
-            analysis.base.write_obj_to_db(obj=df_trader, key="df_trader")
+            analysis.base.write_obj_to_db(
+                obj=df_trader, key="df_trader", filename=filename_chip_shelve
+            )
             if random.randint(0, 2) == 1:
                 df_trader.to_csv(path_or_buf=filename_data_csv)
                 logger.trace(f"df_trader csv at [{filename_data_csv}]")
@@ -682,20 +724,21 @@ if __name__ == "__main__":
                 list_signal_buy = list_signal_buy_temp.copy()
             if list_signal_sell != list_signal_sell_temp:
                 list_signal_sell = list_signal_sell_temp.copy()
+            print(
+                f"===={fg.green('<Suggest Buying>')}=================================================="
+                f"\n{fg.lightred(f'{list_industry_buying}')}"
+            )
             if str_msg_fall != "":
-                print(
-                    f"===={fg.green('<Suggest Buying>')}==========================================="
-                )
                 print(str_msg_fall)
+            print(
+                f"===={fg.red('<Suggest Selling>')}================================================="
+                f"\n{fg.lightred(f'{list_industry_selling}')}"
+            )
             if str_msg_rise != "":
-                print(
-                    f"===={fg.red('<Suggest Selling>')}==========================================\a"  # 加上“\a”，铃声提醒
-                )
-                print(str_msg_rise)
-            if str_msg_fall != "" or str_msg_rise != "":
-                print(
-                    f"****{fg.yellow('<Suggest END>')}**********************************************"
-                )
+                print(str_msg_rise,'\a')  # 加上“\a”，铃声提醒
+            print(
+                f"****{fg.yellow('<Suggest END>')}*****************************************************"
+            )
             str_msg_temp = str_msg_modified + str_msg_add + str_msg_del
             if str_msg_temp != "":
                 str_msg_temp = fg.red(str_msg_temp)

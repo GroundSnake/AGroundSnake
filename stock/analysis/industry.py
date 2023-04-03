@@ -60,8 +60,14 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             list_exist = df_industry.index.tolist()
     else:
         df_industry = pd.DataFrame()
+    list_all_industry_pct_exist = set()
     if os.path.exists(filename_industry_pct_temp):
         df_all_industry_pct = feather.read_dataframe(source=filename_industry_pct_temp)
+        if df_all_industry_pct.empty:
+            logger.trace(f"df_all_industry_pct cache is empty")
+        else:
+            list_all_industry_pct_exist = set(df_all_industry_pct.columns.tolist())
+            logger.trace(f"df_all_industry_pct cache is not empty")
     else:
         df_all_industry_pct = pd.DataFrame()
     list_symbol_industry_class = df_industry_class.index.tolist()
@@ -117,6 +123,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 df_ths_daily.set_index(keys=["trade_date"], inplace=True)
                 df_ths_daily.sort_index(ascending=True, inplace=True)
                 feather.write_dataframe(df=df_ths_daily, dest=filename_ths_daily)
+            if ts_code_class not in list_all_industry_pct_exist:
                 df_ths_daily_pct = df_ths_daily[["pct_change"]].copy()
                 df_ths_daily_pct.rename(
                     columns={"pct_change": ts_code_class}, inplace=True
@@ -126,6 +133,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                     axis=1,
                     join="outer",
                 )
+                list_all_industry_pct_exist.add(ts_code_class)
                 feather.write_dataframe(
                     df=df_all_industry_pct, dest=filename_industry_pct_temp
                 )
