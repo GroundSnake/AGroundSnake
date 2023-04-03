@@ -11,7 +11,7 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
-from analysis.const import dt_init, dt_pm_end, str_date_path, path_check, filename_chip_shelve
+from analysis.const import dt_pm_end, str_date_path, path_check, filename_chip_shelve
 
 
 def is_trading_day() -> bool:
@@ -104,25 +104,24 @@ def is_latest_version(key: str, filename: str) -> bool:
     dt_now = datetime.datetime.now()
     df_config = read_obj_from_db(key="df_config", filename=filename)
     if df_config.empty:
-        logger.trace(f"df_config-[{key}] is empty")
-        df_config.at[key, "date"] = dt_init
-    if key not in df_config.index:
-        logger.trace(f"{key} not in df_config")
-        df_config.at[key, "date"] = dt_init
-    if df_config.at[key, "date"] == dt_init:
-        logger.trace(
-            f"Update key-({key}-[{dt_init}]) to [{dt_pm_end}]"
-        )
+        logger.trace(f"df_config is empty")
         return False
-    elif df_config.at[key, "date"] < dt_now < dt_pm_end:
-        logger.trace(f"{key}-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update {key} at [{dt_pm_end}]")
-        return True
-    elif df_config.at[key, "date"] ==dt_pm_end:
-        logger.trace(f"{key}-[{df_config.at[key, 'date']}]is latest")
-        return True
     else:
-        logger.trace(f"{key}-Error")
-        return False
+        if key not in df_config.index:
+            logger.trace(f"df_config-[{key}] is not exist")
+            return False
+        else:
+            if df_config.at[key, "date"] < dt_now < dt_pm_end:
+                logger.trace(
+                    f"df_config-[{key}]-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update df_config-[{key}] on [{dt_pm_end}]"
+                )
+                return True
+            elif df_config.at[key, "date"] == dt_pm_end:
+                logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}]is latest")
+                return True
+            else:
+                logger.trace(f"df_config-[{key}]-Error")
+                return False
 
 
 def set_version(key: str, dt: datetime.datetime) -> bool:
