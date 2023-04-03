@@ -198,7 +198,7 @@ if __name__ == "__main__":
     df_trader["recent_trading"].fillna(dt_now, inplace=True)
     logger.trace("Create df_trader End")
     # 加载df_trader End
-    # 用df_chip初始化df_data----Begin
+    # 用df_chip初始化df_trader----Begin
     logger.trace("initialization df_index")
     list_trader = df_trader.index.to_list()
     for code in list_trader:
@@ -294,8 +294,13 @@ if __name__ == "__main__":
             )
             df_trader.at[code, "grade"] = grade
             df_trader.at[code, "ST"] = df_chip.at[code, "ST"]
-    # 用df_chip初始化df_data-----End
-    # 创建df_trader Begin
+    # 用df_chip初始化df_trader-----End
+    # 保存df_trader Begin
+    analysis.base.write_obj_to_db(
+        obj=df_trader, key="df_trader", filename=filename_chip_shelve
+    )
+    # 保存df_trader End
+    # 创建df_signal Begin
     logger.trace("Create df_signal")
     if os.access(path=filename_signal, mode=os.F_OK):
         logger.trace(f"load df_signal from [{filename_signal}]")
@@ -353,7 +358,6 @@ if __name__ == "__main__":
     str_pos_ctl_csi1000 = analysis.position.position(index="sh000852")
     logger.trace(f"initialization End")
     """init End"""
-
     """loop Begin"""
     while True:
         if frq > 2:
