@@ -14,12 +14,13 @@ from loguru import logger
 from analysis.const import dt_pm_end, str_date_path, path_check, filename_chip_shelve
 
 
-def is_trading_day() -> bool:
+def is_trading_day(dt:datetime.datetime = None) -> bool:
     """无法使用调用"""
     ts.set_token("77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832")
     pro = ts.pro_api()
-    dt_now = datetime.datetime.now()
-    str_date_now = dt_now.strftime("%Y%m%d")
+    if dt is None:
+        dt = datetime.datetime.now()
+    str_date_now = dt.strftime("%Y%m%d")
     try:
         df_trade = pro.trade_cal(
             exchange="", start_date="20230301", end_date=str_date_now
