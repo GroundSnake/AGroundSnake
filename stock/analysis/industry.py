@@ -144,10 +144,11 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             down_keep_days = 0
             i_recode = 0
             len_record = len(list_index_df_data)
+            dt_ths_daily = df_ths_daily.index.max().date()
             for index in list_index_df_data:
                 i_recode += 1
                 print(
-                    f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}] -- [{i_recode:3d}/{len_record:3d}]",
+                    f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}] -- [{i_recode:3d}/{len_record:3d}] - {dt_ths_daily}",
                     end="",
                 )
                 if index in list_index_df_ths_daily:
