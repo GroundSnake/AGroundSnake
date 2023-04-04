@@ -51,6 +51,7 @@ def sleep_to_time(dt_time: datetime.datetime):
 if __name__ == "__main__":
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
+    logger.add(sink=filename_log, level='TRACE', encoding='utf-8')
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
     if analysis.is_trading_day():
         logger.trace("Betting day")
@@ -65,7 +66,6 @@ if __name__ == "__main__":
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
     frq = 0
     scan_interval = 20
-    logger.add(sink=filename_log, level="TRACE")
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
