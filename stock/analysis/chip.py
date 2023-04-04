@@ -315,7 +315,8 @@ def chip() -> object | DataFrame:
             filename=filename_chip_shelve,
         )
     df_config = analysis.base.read_obj_from_db(key='df_config', filename=filename_chip_shelve)
-    dt_chip = df_config['date'].min()
+    df_config_temp = df_config.drop(index=[name])
+    dt_chip = df_config_temp["date"].min()
     analysis.base.set_version(key=name, dt=dt_chip)
     analysis.base.shelve_to_excel(
         filename_shelve=filename_chip_shelve, filename_excel=filename_chip_excel

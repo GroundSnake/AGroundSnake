@@ -38,14 +38,12 @@ def position(index: str = "sh000001") -> str:
     logger.trace(f"Update df_pos_ctl-[pydb_chip] Begin")
     if index == "sh000001":
         df_sh_index = analysis.update_data.update_index_data(symbol=index)
-        dt_date = df_sh_index.index.max().date()
     else:
         df_sh_index = ak.stock_zh_index_daily(symbol=index)
         df_sh_index["date"] = pd.to_datetime(df_sh_index["date"])
         dt_begin = datetime.datetime(year=2015, month=9, day=1)
         df_sh_index.set_index(keys=["date"], inplace=True)
         df_sh_index = df_sh_index.loc[dt_begin:]
-        dt_date = dt_date_trading
     df_sh_index["close"] = df_sh_index["close"].apply(
         func=lambda x: int(round(x, 0)) // 10 * 10
     )
@@ -92,6 +90,7 @@ def position(index: str = "sh000001") -> str:
     close_sh = int(close_sh) // 10 * 10
     len_df_pos_ctl = len(df_pos_ctl)
     rank = int(df_pos_ctl.at[close_sh, "rank"])
+    dt_date = df_sh_index.index.max().date()
     str_pos_ctl = (
         f"[{nane}] - [{close_sh} - {rank:3.0f}/{len_df_pos_ctl:3.0f}] --- "
         f"[{df_pos_ctl.at[close_sh, 'sun_descending']:5.2f}] -- {dt_date}"

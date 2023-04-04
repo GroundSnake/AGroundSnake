@@ -71,7 +71,6 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     else:
         df_all_industry_pct = pd.DataFrame()
     list_symbol_industry_class = df_industry_class.index.tolist()
-    set_industry_class = set(df_industry_class["industry_code"].tolist())
     pro = ts.pro_api()
     i = 0
     len_list_symbol = len(list_symbol)
@@ -145,10 +144,11 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             down_keep_days = 0
             i_recode = 0
             len_record = len(list_index_df_data)
+            dt_ths_daily = df_ths_daily.index.max().date()
             for index in list_index_df_data:
                 i_recode += 1
                 print(
-                    f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}] -- [{i_recode:3d}/{len_record:3d}]",
+                    f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}] -- [{i_recode:3d}/{len_record:3d}] - {dt_ths_daily}",
                     end="",
                 )
                 if index in list_index_df_ths_daily:
@@ -212,6 +212,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         if os.path.exists(filename_industry_temp):  # 删除临时文件
             os.remove(path=filename_industry_temp)
             logger.trace(f"remove {filename_industry_temp} success")
+        set_industry_class = set(df_industry_class["industry_code"].tolist())
         for ts_code_class in set_industry_class:
             symbol_class = analysis.base.code_ts_to_ths(ts_code_class)
             filename_ths_daily = os.path.join(

@@ -53,6 +53,9 @@ if not os.path.exists(path_check):
 path_index = os.path.join(path_data, f"index")
 if not os.path.exists(path_index):
     os.mkdir(path_index)
+path_log = os.path.join(path_data, f"log")
+if not os.path.exists(path_log):
+    os.mkdir(path_log)
 dt_date_trading = latest_trading_day()
 str_date_path = dt_date_trading.strftime("%Y_%m_%d")
 time_program_start = datetime.time(hour=1, minute=0, second=0, microsecond=0)
@@ -70,7 +73,7 @@ dt_pm_start = datetime.datetime.combine(dt_date_trading, time_pm_start)
 dt_pm_1457 = datetime.datetime.combine(dt_date_trading, time_pm_1457)
 dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
 dt_program_end = datetime.datetime.combine(dt_date_trading, time_program_end)
-filename_log = os.path.join(path_data, "program_log.log")
+filename_log = os.path.join(path_log, "log{time}.log")
 filename_input = os.path.join(path_main, f"input.xlsx")
 filename_trader_template = os.path.join(path_main, f"trader.xlsx")
 filename_chip_shelve = os.path.join(path_data, f"chip")

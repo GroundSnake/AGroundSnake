@@ -9,10 +9,8 @@ import pandas as pd
 from ashare import realtime_quotations
 from loguru import logger
 from console import fg
-import analysis.position
-import analysis.chip
-import analysis.base
-from analysis.const import (
+import analysis
+from analysis import (
     dt_date_trading,
     dt_program_start,
     dt_am_start,
@@ -53,9 +51,9 @@ def sleep_to_time(dt_time: datetime.datetime):
 if __name__ == "__main__":
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
+    logger.add(sink=filename_log, level='TRACE', encoding='utf-8')
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-    """
-    if analysis.base.is_trading_day():
+    if analysis.is_trading_day():
         logger.trace("Betting day")
         print("Betting day")
     else:
@@ -63,17 +61,15 @@ if __name__ == "__main__":
         print("Non betting day")
         logger.trace("Program OFF")
         sys.exit()
-    """
     """init Begin"""
     fall = -5
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
     frq = 0
     scan_interval = 20
-    logger.add(sink=filename_log, level="TRACE")
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
-    df_industry_class = analysis.base.read_obj_from_db(
+    df_industry_class = analysis.read_obj_from_db(
         key="df_industry_class", filename=filename_chip_shelve
     )
     if df_industry_class.empty:
@@ -93,7 +89,7 @@ if __name__ == "__main__":
                 )
                 sys.exit()
             else:
-                analysis.base.write_obj_to_db(
+                analysis.write_obj_to_db(
                     obj=df_industry_class,
                     key="df_industry_class",
                     filename=filename_chip_shelve,
@@ -101,12 +97,12 @@ if __name__ == "__main__":
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
-    df_chip = analysis.base.read_obj_from_db(
+    df_chip = analysis.read_obj_from_db(
         key="df_chip", filename=filename_chip_shelve
     )
     if df_chip.empty:
         logger.trace(f"df_chip from filename_chip_shelve is empty")
-        df_chip = analysis.chip.chip()
+        df_chip = analysis.chip()
         if df_chip.empty:
             sys.exit()
     else:
@@ -117,7 +113,7 @@ if __name__ == "__main__":
     # 加载df_chip End
     # 加载df_industry_rank_pool Begin
     logger.trace("load df_industry_rank_pool...")
-    df_industry_rank_pool = analysis.base.read_obj_from_db(
+    df_industry_rank_pool = analysis.read_obj_from_db(
         key="df_industry_rank_pool", filename=filename_chip_shelve
     )
     if df_industry_rank_pool.empty:
@@ -137,7 +133,7 @@ if __name__ == "__main__":
     # 加载df_industry_rank_pool End
     # 加载df_traderBegin
     logger.trace("Create df_trader Begin")
-    df_trader = analysis.base.read_obj_from_db(
+    df_trader = analysis.read_obj_from_db(
         key="df_trader", filename=filename_chip_shelve
     )
     if df_trader.empty:
@@ -168,7 +164,7 @@ if __name__ == "__main__":
         list_trader_symbol = ["sh600519", "sz300750"]
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
-    df_stocks_pool = analysis.base.read_obj_from_db(
+    df_stocks_pool = analysis.read_obj_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
     list_trader = df_trader.index.to_list()
@@ -225,7 +221,7 @@ if __name__ == "__main__":
             up_A_down_5pct = int(df_chip.at[code, "up_A_down_5pct"])
             up_A_down_3pct = int(df_chip.at[code, "up_A_down_3pct"])
             turnover = round(df_chip.at[code, "turnover"], 1)
-            df_trader.at[code, "trx_unit_share"] = analysis.base.transaction_unit(
+            df_trader.at[code, "trx_unit_share"] = analysis.transaction_unit(
                 price=df_chip.at[code, "G_price"]
             )
             df_trader.at[code, "position_unit"] = (
@@ -296,7 +292,7 @@ if __name__ == "__main__":
             df_trader.at[code, "ST"] = df_chip.at[code, "ST"]
     # 用df_chip初始化df_trader-----End
     # 保存df_trader Begin
-    analysis.base.write_obj_to_db(
+    analysis.write_obj_to_db(
         obj=df_trader, key="df_trader", filename=filename_chip_shelve
     )
     # 保存df_trader End
@@ -341,21 +337,21 @@ if __name__ == "__main__":
         df_add.index.rename(name="code", inplace=True)
         df_delete = pd.DataFrame(columns=df_trader.columns)
         df_delete.index.rename(name="code", inplace=True)
-        analysis.base.add_chip_excel(
+        analysis.add_chip_excel(
             df=df_modified, key="modified", filename=filename_trader_template
         )
-        analysis.base.add_chip_excel(
+        analysis.add_chip_excel(
             df=df_add, key="add", filename=filename_trader_template
         )
-        analysis.base.add_chip_excel(
+        analysis.add_chip_excel(
             df=df_delete, key="delete", filename=filename_trader_template
         )
     else:
         logger.trace(f"[{filename_trader_template}] can be access")
     # 创建空的交易员模板 file_name_trader End
     # 取得仓位控制提示
-    str_pos_ctl_zh = analysis.position.position(index="sh000001")
-    str_pos_ctl_csi1000 = analysis.position.position(index="sh000852")
+    str_pos_ctl_zh = analysis.position(index="sh000001")
+    str_pos_ctl_csi1000 = analysis.position(index="sh000852")
     logger.trace(f"initialization End")
     """init End"""
     """loop Begin"""
@@ -530,7 +526,7 @@ if __name__ == "__main__":
                 if not pd.notnull(df_trader.at[code, "position_unit"]):
                     df_trader.at[
                         code, "trx_unit_share"
-                    ] = analysis.base.transaction_unit(
+                    ] = analysis.transaction_unit(
                         price=df_chip.at[code, "G_price"]
                     )
                     df_trader.at[code, "position_unit"] = (
@@ -701,7 +697,7 @@ if __name__ == "__main__":
                 # df_trader End
             # 更新df_data，str_msg_rise，str_msg_fall------End
             df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
-            analysis.base.write_obj_to_db(
+            analysis.write_obj_to_db(
                 obj=df_trader, key="df_trader", filename=filename_chip_shelve
             )
             if random.randint(0, 2) == 1:
@@ -785,11 +781,12 @@ if __name__ == "__main__":
         elif dt_pm_end < dt_now < dt_program_end:
             logger.trace(f"loop End")
             print("\a\r", end="")
-            str_pos_ctl_zh = analysis.position.position(index="sh000001")
-            str_pos_ctl_csi1000 = analysis.position.position(index="sh000852")
+            analysis.unit_net()
+            str_pos_ctl_zh = analysis.position(index="sh000001")
+            str_pos_ctl_csi1000 = analysis.position(index="sh000852")
             print(str_pos_ctl_zh)
             print(str_pos_ctl_csi1000)
-            df_chip = analysis.chip.chip()
+            df_chip = analysis.chip()
             print(df_chip)
             logger.trace(f"Program End")
             sys.exit()
