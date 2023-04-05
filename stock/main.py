@@ -94,6 +94,7 @@ if __name__ == "__main__":
                     key="df_industry_class",
                     filename=filename_chip_shelve,
                 )
+    logger.trace(f"df_industry_class create success")
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
@@ -103,13 +104,14 @@ if __name__ == "__main__":
     if df_chip.empty:
         logger.trace(f"df_chip from filename_chip_shelve is empty")
         df_chip = analysis.chip()
+        logger.trace(f"df_chip create success")
         if df_chip.empty:
             sys.exit()
-    else:
-        dt_chip_max = df_chip["dt"].max()
-        str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
-        str_chip_msg = fg.red(str_chip_msg)
-        print(str_chip_msg)
+    dt_chip_max = df_chip["dt"].max()
+    str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
+    str_chip_msg = fg.red(str_chip_msg)
+    print(str_chip_msg)
+    logger.trace(f"load df_chip success")
     # 加载df_chip End
     # 加载df_industry_rank_pool Begin
     logger.trace("load df_industry_rank_pool...")
@@ -118,20 +120,20 @@ if __name__ == "__main__":
     )
     if df_industry_rank_pool.empty:
         logger.error(f"df_industry_rank_pool is empty")
+        print('Please rerun df_ Chip function')
         sys.exit()
-    else:
-        df_industry_rank_pool_buying = df_industry_rank_pool[
-            df_industry_rank_pool["T5_rank"] >= 66
+    df_industry_rank_pool_buying = df_industry_rank_pool[
+        df_industry_rank_pool["T5_rank"] >= 66
         ]
-        df_industry_rank_pool_selling = df_industry_rank_pool[
-            df_industry_rank_pool["T5_rank"] <= 10
+    df_industry_rank_pool_selling = df_industry_rank_pool[
+        df_industry_rank_pool["T5_rank"] <= 10
         ]
-        list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
-        list_industry_buying_code = df_industry_rank_pool_buying.index.tolist()
-        list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
-        list_industry_selling_code = df_industry_rank_pool_selling.index.tolist()
+    list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
+    list_industry_buying_code = df_industry_rank_pool_buying.index.tolist()
+    list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
+    list_industry_selling_code = df_industry_rank_pool_selling.index.tolist()
     # 加载df_industry_rank_pool End
-    # 加载df_traderBegin
+    # 加载df_trader Begin
     logger.trace("Create df_trader Begin")
     df_trader = analysis.read_obj_from_db(
         key="df_trader", filename=filename_chip_shelve
