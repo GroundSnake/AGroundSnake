@@ -11,7 +11,7 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
-from analysis.const import dt_pm_end, str_date_path, path_check, filename_chip_shelve
+from analysis.const import dt_am_0910, dt_pm_end, str_date_path, path_check, filename_chip_shelve
 
 
 def is_trading_day(dt:datetime.datetime = None) -> bool:
@@ -112,7 +112,7 @@ def is_latest_version(key: str, filename: str) -> bool:
             logger.trace(f"df_config-[{key}] is not exist")
             return False
         else:
-            if df_config.at[key, "date"] < dt_now < dt_pm_end:
+            if dt_am_0910 < dt_now < dt_pm_end:
                 logger.trace(
                     f"df_config-[{key}]-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update df_config-[{key}] on [{dt_pm_end}]"
                 )
