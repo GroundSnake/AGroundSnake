@@ -26,6 +26,7 @@ from analysis import (
     filename_signal,
     filename_data_csv,
     filename_chip_shelve,
+    list_all_stocks,
 )
 
 
@@ -365,7 +366,7 @@ if __name__ == "__main__":
         if frq % 4 == 0:
             df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
             df_realtime.sort_values(by=['amount'], ascending=False, inplace=True)
-            top5_stocks = int(round(len(df_realtime) * 0.05, 0))
+            top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
             df_realtime_top5 = df_realtime.iloc[:top5_stocks]
             amount_all = df_realtime['amount'].sum()
             amount_top5 = df_realtime_top5['amount'].sum()
