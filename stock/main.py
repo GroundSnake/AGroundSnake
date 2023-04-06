@@ -69,6 +69,8 @@ if __name__ == "__main__":
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
     frq = 0
     scan_interval = 20
+    amount_all = 0
+    amount_top5 = 0
     concentration_rate_amount = 0
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
@@ -368,8 +370,8 @@ if __name__ == "__main__":
             df_realtime.sort_values(by=['amount'], ascending=False, inplace=True)
             top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
             df_realtime_top5 = df_realtime.iloc[:top5_stocks]
-            amount_all = df_realtime['amount'].sum()
-            amount_top5 = df_realtime_top5['amount'].sum()
+            amount_all = df_realtime['amount'].sum() / 10000000
+            amount_top5 = df_realtime_top5['amount'].sum() / 100000000
             concentration_rate_amount = (amount_top5 / amount_all).round(2)
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
@@ -811,7 +813,7 @@ if __name__ == "__main__":
             str_msg_loop_end = f"{dt_now}----[{str_gm}]"
             str_msg_loop_ctl_zh = f"{dt_now}----{fg.red(str_pos_ctl_zh)}"
             str_msg_loop_ctl_csi1000 = f"{dt_now}----{fg.red(str_pos_ctl_csi1000)}"
-            print(str_msg_loop_end, 'top_5% =', concentration_rate_amount)
+            print(f"{str_msg_loop_end}----top_5% = {concentration_rate_amount}-[{amount_top5:.2f}/{amount_all:.2f}]")
             print(str_msg_loop_ctl_zh)
             print(str_msg_loop_ctl_csi1000)
             # 收盘前集合竟价：14:57 -- 15:00 响玲

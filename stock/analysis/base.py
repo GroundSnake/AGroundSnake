@@ -96,8 +96,8 @@ def read_obj_from_db(key: str, filename: str) -> object:
                 logger.trace(f"[{key}] is not exist -Error[{repr(e)}]")
                 return pd.DataFrame()
     except dbm.error as e:
-        print(f"[{filename}] is not exist - Error[{repr(e)}]")
-        logger.trace(f"[{filename}] is not exist - Error[{repr(e)}]")
+        print(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
+        logger.trace(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
         return pd.DataFrame()
 
 

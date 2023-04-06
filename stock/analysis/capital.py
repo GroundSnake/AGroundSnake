@@ -179,12 +179,11 @@ def capital() -> bool:
     count = len(list_all_stocks)
     for symbol in list_all_stocks:
         i += 1
-        str_msg = f"\rCapital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
-        print(str_msg, end="")
+        str_msg_bar = f"\rCapital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_cap_exist:
+            print(f"{str_msg_bar} - exist", end="")
             continue
-        if symbol in ["bj834770"]:  # 删除无法识别的股票, 可能是新股
-            continue
+        print(str_msg_bar, end="")
         code = symbol[2:]
         df_cap_temp = pd.DataFrame()
         i_times = 0
@@ -209,6 +208,8 @@ def capital() -> bool:
                 df_cap = pd.DataFrame(columns=df_cap_temp.columns)
             df_cap.loc[symbol] = df_cap_temp.loc[code]
         feather.write_dataframe(df=df_cap, dest=filename_cap_feather_temp)
+    print(df_cap_temp)
+    sys.exit()
     if i >= count:
         print("\n", end="")  # 格式处理
         analysis.base.write_obj_to_db(
