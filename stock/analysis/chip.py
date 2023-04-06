@@ -315,7 +315,12 @@ def chip() -> object | DataFrame:
             filename=filename_chip_shelve,
         )
     df_config = analysis.base.read_obj_from_db(key='df_config', filename=filename_chip_shelve)
-    df_config_temp = df_config.drop(index=[name])
+    try:
+        df_config_temp = df_config.drop(index=[name])
+    except KeyError as e:
+        print(f"[{name}] is not found in axis -Error[{repr(e)}]")
+        logger.trace(f"[{name}] is not found in axis -Error[{repr(e)}]")
+        df_config_temp = df_config.copy()
     dt_chip = df_config_temp["date"].min()
     analysis.base.set_version(key=name, dt=dt_chip)
     analysis.base.shelve_to_excel(

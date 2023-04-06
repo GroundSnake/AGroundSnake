@@ -12,13 +12,12 @@ from console import fg
 import analysis
 from analysis import (
     dt_date_trading,
-    dt_program_start,
+    dt_am_0910,
     dt_am_start,
     dt_am_end,
     dt_pm_start,
     dt_pm_1457,
     dt_pm_end,
-    dt_program_end,
     filename_trader_template,
     path_history,
     filename_log,
@@ -53,6 +52,7 @@ if __name__ == "__main__":
     logger.add(sink=sys.stderr, level=logger_console_level)
     logger.add(sink=filename_log, level='TRACE', encoding='utf-8')
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    """
     if analysis.is_trading_day():
         logger.trace("Betting day")
         print("Betting day")
@@ -61,6 +61,7 @@ if __name__ == "__main__":
         print("Non betting day")
         logger.trace("Program OFF")
         sys.exit()
+    """
     """init Begin"""
     fall = -5
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
@@ -363,8 +364,13 @@ if __name__ == "__main__":
             logger.trace(f"clear screen")
         logger.trace(f"loop Begin")
         dt_now = datetime.datetime.now()
+        # 开盘前：9:10 至 9:30
+        if dt_am_0910 < dt_now < dt_am_start:
+            logger.trace(f"The exchange will open ar {dt_am_start}")
+            print(f"The exchange will open ar {dt_am_start}")
+            sleep_to_time(dt_am_start)
         # 盘中 9:30 -- 11:30 and 13:00 -- 15:00
-        if (dt_am_start <= dt_now <= dt_am_end) or (dt_pm_start <= dt_now <= dt_pm_end):
+        elif (dt_am_start <= dt_now <= dt_am_end) or (dt_pm_start <= dt_now <= dt_pm_end):
             logger.trace(f"Start of this cycle.---[{frq:3d}]---<Start>")
             start_loop_time = time.perf_counter_ns()
             logger.trace(f"start_loop_time = {start_loop_time}")
@@ -585,7 +591,7 @@ if __name__ == "__main__":
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in list_industry_buying_code:
+                    if industry_code in list_industry_selling_code:
                         str_msg_rise_industry = fg.lightred(str_msg_rise_industry)
                         str_msg_rise += str_msg_rise_industry + fg.blue(
                             f"\n ---- [{df_industry_rank_pool.at[industry_code, 'name']}]"
@@ -664,7 +670,7 @@ if __name__ == "__main__":
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in list_industry_selling_code:
+                    if industry_code in list_industry_buying_code:
                         str_msg_fall_industry = fg.lightred(str_msg_fall_industry)
                         str_msg_fall += str_msg_fall_industry + fg.blue(
                             f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
@@ -774,14 +780,7 @@ if __name__ == "__main__":
             logger.trace(f"loop End")
             sleep_to_time(dt_pm_start)
             # -----当前时间与当日指定时间的间隔时间计算-----
-        # 开盘前：1:00 至 9:30
-        elif dt_program_start < dt_now < dt_am_start:
-            logger.trace(f"The exchange will open ar {dt_am_start}")
-            print(f"The exchange will open ar {dt_am_start}")
-            sleep_to_time(dt_am_start)
-        # 收盘后：15:00 -- 23:00
-        elif dt_pm_end < dt_now < dt_program_end:
-            logger.trace(f"loop End")
+        else:
             print("\a\r", end="")
             analysis.unit_net()
             str_pos_ctl_zh = analysis.position(index="sh000001")
@@ -791,11 +790,6 @@ if __name__ == "__main__":
             df_chip = analysis.chip()
             print(df_chip)
             logger.trace(f"Program End")
-            sys.exit()
-        # 休息： 23:00 -- +1:00(次日)
-        else:
-            logger.trace(f"loop End")
-            logger.trace("Program OFF")
             sys.exit()
         frq += 1
         logger.trace(
