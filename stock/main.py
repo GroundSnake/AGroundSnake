@@ -591,7 +591,7 @@ if __name__ == "__main__":
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in list_industry_buying_code:
+                    if industry_code in list_industry_selling_code:
                         str_msg_rise_industry = fg.lightred(str_msg_rise_industry)
                         str_msg_rise += str_msg_rise_industry + fg.blue(
                             f"\n ---- [{df_industry_rank_pool.at[industry_code, 'name']}]"
@@ -670,7 +670,7 @@ if __name__ == "__main__":
                         f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
-                    if industry_code in list_industry_selling_code:
+                    if industry_code in list_industry_buying_code:
                         str_msg_fall_industry = fg.lightred(str_msg_fall_industry)
                         str_msg_fall += str_msg_fall_industry + fg.blue(
                             f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
