@@ -6,7 +6,8 @@ import sys
 import datetime
 import time
 import pandas as pd
-from ashare import realtime_quotations
+import akshare as ak
+from ashare import realtime_quotations, stock_zh_a_spot_em
 from loguru import logger
 from console import fg
 import analysis
@@ -25,6 +26,7 @@ from analysis import (
     filename_signal,
     filename_data_csv,
     filename_chip_shelve,
+    list_all_stocks,
 )
 
 
@@ -50,7 +52,7 @@ def sleep_to_time(dt_time: datetime.datetime):
 if __name__ == "__main__":
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
-    logger.add(sink=filename_log, level='TRACE', encoding='utf-8')
+    logger.add(sink=filename_log, level="TRACE", encoding="utf-8")
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
     """
     if analysis.is_trading_day():
@@ -67,6 +69,7 @@ if __name__ == "__main__":
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
     frq = 0
     scan_interval = 20
+    concentration_rate_amount = 0
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_class...")
@@ -99,9 +102,7 @@ if __name__ == "__main__":
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
-    df_chip = analysis.read_obj_from_db(
-        key="df_chip", filename=filename_chip_shelve
-    )
+    df_chip = analysis.read_obj_from_db(key="df_chip", filename=filename_chip_shelve)
     if df_chip.empty:
         logger.trace(f"df_chip from filename_chip_shelve is empty")
         df_chip = analysis.chip()
@@ -121,14 +122,14 @@ if __name__ == "__main__":
     )
     if df_industry_rank_pool.empty:
         logger.error(f"df_industry_rank_pool is empty")
-        print('Please rerun df_ Chip function')
+        print("Please rerun df_ Chip function")
         sys.exit()
     df_industry_rank_pool_buying = df_industry_rank_pool[
         df_industry_rank_pool["T5_rank"] >= 66
-        ]
+    ]
     df_industry_rank_pool_selling = df_industry_rank_pool[
         df_industry_rank_pool["T5_rank"] <= 10
-        ]
+    ]
     list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
     list_industry_buying_code = df_industry_rank_pool_buying.index.tolist()
     list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
@@ -343,9 +344,7 @@ if __name__ == "__main__":
         analysis.add_chip_excel(
             df=df_modified, key="modified", filename=filename_trader_template
         )
-        analysis.add_chip_excel(
-            df=df_add, key="add", filename=filename_trader_template
-        )
+        analysis.add_chip_excel(df=df_add, key="add", filename=filename_trader_template)
         analysis.add_chip_excel(
             df=df_delete, key="delete", filename=filename_trader_template
         )
@@ -364,13 +363,23 @@ if __name__ == "__main__":
             logger.trace(f"clear screen")
         logger.trace(f"loop Begin")
         dt_now = datetime.datetime.now()
+        if frq % 4 == 0:
+            df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
+            df_realtime.sort_values(by=['amount'], ascending=False, inplace=True)
+            top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
+            df_realtime_top5 = df_realtime.iloc[:top5_stocks]
+            amount_all = df_realtime['amount'].sum()
+            amount_top5 = df_realtime_top5['amount'].sum()
+            concentration_rate_amount = (amount_top5 / amount_all).round(2)
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
             logger.trace(f"The exchange will open ar {dt_am_start}")
             print(f"The exchange will open ar {dt_am_start}")
             sleep_to_time(dt_am_start)
         # 盘中 9:30 -- 11:30 and 13:00 -- 15:00
-        elif (dt_am_start <= dt_now <= dt_am_end) or (dt_pm_start <= dt_now <= dt_pm_end):
+        elif (dt_am_start <= dt_now <= dt_am_end) or (
+            dt_pm_start <= dt_now <= dt_pm_end
+        ):
             logger.trace(f"Start of this cycle.---[{frq:3d}]---<Start>")
             start_loop_time = time.perf_counter_ns()
             logger.trace(f"start_loop_time = {start_loop_time}")
@@ -489,6 +498,44 @@ if __name__ == "__main__":
                 logger.trace(f"[df_realtime] is empty, the program ends")
                 sys.exit()
             # 调用实时数据接口，更新df_realtime End
+            df_stock_market_activity_legu = ak.stock_market_activity_legu()
+            logger.trace("stock_market_activity_legu load")
+            df_stock_market_activity_legu.at[10, "value"] = (
+                df_stock_market_activity_legu.at[10, "value"]
+                .replace("\n", "")
+                .replace("\t", "")
+            )
+            df_stock_market_activity_legu.at[11, "value"] = pd.to_datetime(
+                df_stock_market_activity_legu.at[11, "value"]
+            )
+            str_stock_market_activity_items = (
+                fg.red(f"{df_stock_market_activity_legu.at[0, 'item']}   ")
+                + fg.green(f"{df_stock_market_activity_legu.at[4, 'item']}   ")
+                + f"{df_stock_market_activity_legu.at[1, 'item']}   "
+                f"{df_stock_market_activity_legu.at[5, 'item']}   "
+                f"{df_stock_market_activity_legu.at[2, 'item']}   "
+                f"{df_stock_market_activity_legu.at[6, 'item']}   "
+                f"{df_stock_market_activity_legu.at[3, 'item']}   "
+                f"{df_stock_market_activity_legu.at[7, 'item']}   "
+                f"{df_stock_market_activity_legu.at[8, 'item']}   "
+                f"{df_stock_market_activity_legu.at[9, 'item']}   "
+                f"{df_stock_market_activity_legu.at[10, 'item']}   "
+                f"{df_stock_market_activity_legu.at[11, 'value'].date()}"
+            )
+            str_stock_market_activity_value = (
+                fg.red(f"{df_stock_market_activity_legu.at[0, 'value']:4.0f}   ")
+                + fg.green(f"{df_stock_market_activity_legu.at[4, 'value']:4.0f}  ")
+                + f"{df_stock_market_activity_legu.at[1, 'value']:4.0f}   "
+                f"{df_stock_market_activity_legu.at[5, 'value']:4.0f}     "
+                f"{df_stock_market_activity_legu.at[2, 'value']:4.0f}       "
+                f"{df_stock_market_activity_legu.at[6, 'value']:4.0f}         "
+                f"{df_stock_market_activity_legu.at[3, 'value']:4.0f}        "
+                f"{df_stock_market_activity_legu.at[7, 'value']:4.0f}      "
+                f"{df_stock_market_activity_legu.at[8, 'value']:4.0f}  "
+                f"{df_stock_market_activity_legu.at[9, 'value']:4.0f}     "
+                f"{df_stock_market_activity_legu.at[10, 'value']}   "
+                f"{df_stock_market_activity_legu.at[11, 'value'].time()}"
+            )
             # 更新df_data，str_msg_rise，str_msg_fall------Begin
             str_msg_rise = ""
             str_msg_fall = ""
@@ -532,9 +579,7 @@ if __name__ == "__main__":
                 pct_chg = round(pct_chg, 2)
                 df_trader.at[code, "pct_chg"] = pct_chg
                 if not pd.notnull(df_trader.at[code, "position_unit"]):
-                    df_trader.at[
-                        code, "trx_unit_share"
-                    ] = analysis.transaction_unit(
+                    df_trader.at[code, "trx_unit_share"] = analysis.transaction_unit(
                         price=df_chip.at[code, "G_price"]
                     )
                     df_trader.at[code, "position_unit"] = (
@@ -622,7 +667,7 @@ if __name__ == "__main__":
                             str_msg_rise += f"\n ---- [{dt_trading}]"
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
-                    str_msg_rise += "\n\n"
+                    str_msg_rise += "\n"
                 elif pct_chg <= df_trader.at[code, "fall"]:
                     if (
                         code in list_signal_sell
@@ -699,7 +744,7 @@ if __name__ == "__main__":
                             str_msg_fall += f"\n ---- [{dt_trading}]"
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
-                    str_msg_fall += "\n\n"
+                    str_msg_fall += "\n"
                 else:
                     pass
                 # df_trader End
@@ -743,7 +788,7 @@ if __name__ == "__main__":
                 f"\n{fg.lightred(f'{list_industry_selling}')}"
             )
             if str_msg_rise != "":
-                print(str_msg_rise,'\a')  # 加上“\a”，铃声提醒
+                print(str_msg_rise, "\a")  # 加上“\a”，铃声提醒
             print(
                 f"****{fg.yellow('<Suggest END>')}*****************************************************"
             )
@@ -753,6 +798,8 @@ if __name__ == "__main__":
                 print(dt_now, str_msg_temp)
             if len(list_signal_chg) > 0:
                 print(dt_now, ":", list_signal_chg, " --- New Signal\a")
+            print(str_stock_market_activity_items)
+            print(str_stock_market_activity_value)
             # 主循环块---------End----End-----End----End------End----End------End------End-------End------
 
             end_loop_time = time.perf_counter_ns()
@@ -764,7 +811,7 @@ if __name__ == "__main__":
             str_msg_loop_end = f"{dt_now}----[{str_gm}]"
             str_msg_loop_ctl_zh = f"{dt_now}----{fg.red(str_pos_ctl_zh)}"
             str_msg_loop_ctl_csi1000 = f"{dt_now}----{fg.red(str_pos_ctl_csi1000)}"
-            print(str_msg_loop_end)
+            print(str_msg_loop_end, 'top_5% =', concentration_rate_amount)
             print(str_msg_loop_ctl_zh)
             print(str_msg_loop_ctl_csi1000)
             # 收盘前集合竟价：14:57 -- 15:00 响玲
