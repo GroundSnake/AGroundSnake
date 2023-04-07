@@ -22,7 +22,7 @@ from analysis.const import (
 
 def ths_industry(list_symbol: list | str = None) -> bool:
     name: str = f"df_industry"
-    logger.trace(f"{name} Begin")
+    logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
     str_date_trading = dt_date_trading.strftime("%Y%m%d")
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
