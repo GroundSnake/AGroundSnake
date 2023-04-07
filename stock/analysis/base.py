@@ -11,7 +11,7 @@ import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
-from analysis.const import dt_am_0910, dt_pm_end, str_date_path, path_check, filename_chip_shelve
+from analysis.const import dt_am_0100, dt_am_0910, dt_pm_end, str_date_path, path_check, filename_chip_shelve
 
 
 def is_trading_day(dt:datetime.datetime = None) -> bool:
@@ -96,8 +96,8 @@ def read_obj_from_db(key: str, filename: str) -> object:
                 logger.trace(f"[{key}] is not exist -Error[{repr(e)}]")
                 return pd.DataFrame()
     except dbm.error as e:
-        print(f"[{filename}] is not exist - Error[{repr(e)}]")
-        logger.trace(f"[{filename}] is not exist - Error[{repr(e)}]")
+        print(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
+        logger.trace(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
         return pd.DataFrame()
 
 
@@ -118,10 +118,18 @@ def is_latest_version(key: str, filename: str) -> bool:
                 )
                 return True
             elif df_config.at[key, "date"] == dt_pm_end:
-                logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}]is latest")
+                logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest")
                 return True
+            elif dt_am_0100 < dt_now < dt_am_0910:
+                dt_pm_end_latest = dt_pm_end - datetime.timedelta(days=1)
+                if df_config.at[key, "date"] == dt_pm_end_latest:
+                    logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest")
+                    return True
+                else:
+                    logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is not latest")
+                    return False
             else:
-                logger.trace(f"df_config-[{key}]-Error")
+                logger.trace(f"df_config-[{key}] update")
                 return False
 
 

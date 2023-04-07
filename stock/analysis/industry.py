@@ -76,8 +76,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     len_list_symbol = len(list_symbol)
     for symbol in list_symbol:
         i += 1
+        str_msg_bar = f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}]"
         if symbol in list_exist:  # 己存在，断点继续
-            print(f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}]", end="")
+            print(f"{str_msg_bar}- exist", end="")
             continue
         if symbol in list_symbol_industry_class:
             ts_code = analysis.base.code_ths_to_ts(symbol)
@@ -95,15 +96,16 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                     logger.error(repr(e))
                     time.sleep(2)
                 else:
-                    break
-                finally:
-                    if i_times >= 2:
-                        print(f"[{symbol}] Request ConnectionError")
-                        sys.exit()
+                    if df_daily.empty:
+                        print(f"[df_daily - {ts_code}] is empty.")
+                        logger.trace(f"[df_daily - {ts_code}] is empty.")
+                    else:
+                        break
+                if i_times >= 2:
+                    print(f"[{symbol}] Request ConnectionError - [{i_times}]times")
+                    logger.trace(f"[{symbol}] Request ConnectionError - [{i_times}]times")
+                    sys.exit()
                 i_times += 1
-            if df_daily.empty:
-                print(f"[{df_daily}] is empty.")
-                sys.exit()
             df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
             df_daily.set_index(keys=["trade_date"], inplace=True)
             df_daily.sort_index(ascending=True, inplace=True)
@@ -142,15 +144,13 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             down = 0
             up_keep_days = 0
             down_keep_days = 0
-            i_recode = 0
             len_record = len(list_index_df_data)
-            dt_ths_daily = df_ths_daily.index.max().date()
+            dt_ths_daily = datetime.datetime.combine( df_ths_daily.index.max(), time_pm_end)
+            print(
+                f"{str_msg_bar} - [{len_record:3d}] - [{dt_ths_daily}]",
+                end="",
+            )
             for index in list_index_df_data:
-                i_recode += 1
-                print(
-                    f"\rIndustry:[{i:4d}/{len_list_symbol:4d}] -- [{symbol}] -- [{i_recode:3d}/{len_record:3d}] - {dt_ths_daily}",
-                    end="",
-                )
                 if index in list_index_df_ths_daily:
                     if (
                         df_daily.at[index, "pct_chg"]

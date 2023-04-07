@@ -14,8 +14,8 @@ import analysis.base
 from analysis.const import (
     path_data,
     str_date_path,
-    dt_pm_end,
     dt_date_trading,
+    time_pm_end,
     filename_chip_shelve,
     list_all_stocks,
 )
@@ -35,6 +35,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
         path_data, f"df_limit_count_temp_{str_date_path}.ftr"
     )
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
+    dt_limit = None
     str_delta = dt_delta.strftime("%Y%m%d")
     list_exist = list()
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
@@ -110,8 +111,9 @@ def limit_count(list_symbol: list | str = None) -> bool:
     logger.trace(f"For loop Begin")
     for symbol in list_symbol:
         i += 1
-        print(f"\rLimit Update: [{i:4d}/{count:4d}] -- [{symbol}]", end="")
+        str_msg_bar = f"\rLimit Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_exist:  # 己存在，断点继续
+            print(f"{str_msg_bar} - exist", end="")
             continue
         df_stock = pd.DataFrame()
         i_times = 0
@@ -171,6 +173,12 @@ def limit_count(list_symbol: list | str = None) -> bool:
         df_stock["date"] = pd.to_datetime(df_stock["date"])
         df_stock.set_index(keys="date", inplace=True)
         df_stock.sort_index(ascending=True, inplace=True)
+        dt_stock_latest = datetime.datetime.combine(df_stock.index.max(), time_pm_end)
+        if dt_limit is None:
+            dt_limit = dt_stock_latest
+        elif dt_limit < dt_stock_latest:
+            dt_limit = dt_stock_latest
+        print(f"{str_msg_bar} - [{dt_stock_latest}]", end="")
         df_up = df_stock[df_stock["pct_chg"] > 9.9]
         up_times = len(df_up)
         df_up_7pct = df_stock[df_stock["pct_chg"] > 7]
@@ -348,7 +356,8 @@ def limit_count(list_symbol: list | str = None) -> bool:
         analysis.base.write_obj_to_db(
             obj=df_limit, key=name, filename=filename_chip_shelve
         )
-        analysis.base.set_version(key=name, dt=dt_pm_end)
+        print(dt_limit)
+        analysis.base.set_version(key=name, dt=dt_limit)
         if os.path.exists(file_name_df_limit_temp):
             os.remove(path=file_name_df_limit_temp)
             logger.trace(f"[{file_name_df_limit_temp}] remove")
