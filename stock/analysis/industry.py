@@ -145,7 +145,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
             up_keep_days = 0
             down_keep_days = 0
             len_record = len(list_index_df_data)
-            dt_ths_daily = df_ths_daily.index.max().date()
+            dt_ths_daily = datetime.datetime.combine(df_ths_daily.index.max(), time_pm_end)
             print(
                 f"{str_msg_bar} - [{len_record:3d}] - [{dt_ths_daily}]",
                 end="",

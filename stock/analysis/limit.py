@@ -15,6 +15,7 @@ from analysis.const import (
     path_data,
     str_date_path,
     dt_date_trading,
+    time_pm_end,
     filename_chip_shelve,
     list_all_stocks,
 )
@@ -169,15 +170,15 @@ def limit_count(list_symbol: list | str = None) -> bool:
             },
             inplace=True,
         )
-        dt_stock_latest = df_stock['date'].max()
+        df_stock["date"] = pd.to_datetime(df_stock["date"])
+        df_stock.set_index(keys="date", inplace=True)
+        df_stock.sort_index(ascending=True, inplace=True)
+        dt_stock_latest = datetime.datetime.combine(df_stock.index.max(), time_pm_end)
         if dt_limit is None:
             dt_limit = dt_stock_latest
         elif dt_limit < dt_stock_latest:
             dt_limit = dt_stock_latest
         print(f"{str_msg_bar} - [{dt_stock_latest}]", end="")
-        df_stock["date"] = pd.to_datetime(df_stock["date"])
-        df_stock.set_index(keys="date", inplace=True)
-        df_stock.sort_index(ascending=True, inplace=True)
         df_up = df_stock[df_stock["pct_chg"] > 9.9]
         up_times = len(df_up)
         df_up_7pct = df_stock[df_stock["pct_chg"] > 7]
@@ -355,6 +356,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
         analysis.base.write_obj_to_db(
             obj=df_limit, key=name, filename=filename_chip_shelve
         )
+        print(dt_limit)
         analysis.base.set_version(key=name, dt=dt_limit)
         if os.path.exists(file_name_df_limit_temp):
             os.remove(path=file_name_df_limit_temp)

@@ -208,8 +208,6 @@ def capital() -> bool:
                 df_cap = pd.DataFrame(columns=df_cap_temp.columns)
             df_cap.loc[symbol] = df_cap_temp.loc[code]
         feather.write_dataframe(df=df_cap, dest=filename_cap_feather_temp)
-    print(df_cap_temp)
-    sys.exit()
     if i >= count:
         print("\n", end="")  # 格式处理
         analysis.base.write_obj_to_db(

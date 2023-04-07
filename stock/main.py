@@ -365,14 +365,21 @@ if __name__ == "__main__":
             logger.trace(f"clear screen")
         logger.trace(f"loop Begin")
         dt_now = datetime.datetime.now()
-        if frq % 4 == 0:
+        if frq % 3 == 0:
             df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
-            df_realtime.sort_values(by=['amount'], ascending=False, inplace=True)
+            df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
             top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
             df_realtime_top5 = df_realtime.iloc[:top5_stocks]
-            amount_all = df_realtime['amount'].sum() / 10000000
-            amount_top5 = df_realtime_top5['amount'].sum() / 100000000
-            concentration_rate_amount = (amount_top5 / amount_all).round(2)
+            amount_all = df_realtime["amount"].sum() / 100000000
+            amount_top5 = df_realtime_top5["amount"].sum() / 100000000
+            if pd.notnull(df_realtime.iat[0, 6]):
+                dt_concentration_rate_amount = df_realtime.iat[0, 6]
+            else:
+                dt_concentration_rate_amount = dt_now
+            if amount_all == 0 or amount_top5 == 0:
+                concentration_rate_amount = 0
+            else:
+                concentration_rate_amount = (amount_top5 / amount_all).round(2)
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
             logger.trace(f"The exchange will open ar {dt_am_start}")
@@ -718,7 +725,7 @@ if __name__ == "__main__":
                         f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
                     if industry_code in list_industry_buying_code:
-                        str_msg_fall_industry = fg.lightred(str_msg_fall_industry)
+                        str_msg_fall_industry = fg.red(str_msg_fall_industry)
                         str_msg_fall += str_msg_fall_industry + fg.blue(
                             f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
                             f"{df_industry_rank_pool.at[industry_code, 'T20_rank']:02.0f} - "
@@ -813,7 +820,9 @@ if __name__ == "__main__":
             str_msg_loop_end = f"{dt_now}----[{str_gm}]"
             str_msg_loop_ctl_zh = f"{dt_now}----{fg.red(str_pos_ctl_zh)}"
             str_msg_loop_ctl_csi1000 = f"{dt_now}----{fg.red(str_pos_ctl_csi1000)}"
-            print(f"{str_msg_loop_end}----top_5% = {concentration_rate_amount}-[{amount_top5:.2f}/{amount_all:.2f}]")
+            print(
+                f"{str_msg_loop_end} - top_5% = {concentration_rate_amount} - [{amount_top5:.2f}/{amount_all:.2f}] - {dt_concentration_rate_amount.time()}"
+            )
             print(str_msg_loop_ctl_zh)
             print(str_msg_loop_ctl_csi1000)
             # 收盘前集合竟价：14:57 -- 15:00 响玲
