@@ -1,7 +1,6 @@
 # modified at 2023/4/7 20：03
 from __future__ import annotations
 import os
-import random
 import sys
 import datetime
 import time
@@ -296,6 +295,10 @@ if __name__ == "__main__":
             )
             df_trader.at[code, "grade"] = grade
             df_trader.at[code, "ST"] = df_chip.at[code, "ST"]
+            if pd.isnull(df_trader.at[code, "date_of_inclusion_latest"]):
+                df_trader.at[code, "date_of_inclusion_latest"] = df_trader.at[code, "date_of_inclusion_first"]
+            if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
+                df_trader.at[code, "price_of_inclusion"] = G_price
     # 用df_chip初始化df_trader-----End
     # 保存df_trader Begin
     analysis.write_obj_to_db(
@@ -762,7 +765,7 @@ if __name__ == "__main__":
             analysis.write_obj_to_db(
                 obj=df_trader, key="df_trader", filename=filename_chip_shelve
             )
-            if random.randint(0, 2) == 1:
+            if frq % 3 == 0:
                 df_trader.to_csv(path_or_buf=filename_data_csv)
                 logger.trace(f"df_trader csv at [{filename_data_csv}]")
             list_signal_buy_temp = df_signal_sell.index.to_list()

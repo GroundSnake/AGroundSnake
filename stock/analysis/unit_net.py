@@ -1,6 +1,6 @@
-import datetime
 import sys
 import pandas as pd
+from loguru import logger
 import analysis.base
 from analysis.const import filename_chip_shelve, dt_date_trading
 
@@ -15,6 +15,7 @@ def unit_net():
         key="df_trader", filename=filename_chip_shelve
     )
     if df_trader.empty:
+        logger.trace('df_trader empty')
         sys.exit()
     for code in df_trader.index:
         if pd.notnull(df_trader.at[code, "position"]):
