@@ -3,6 +3,7 @@ import datetime
 import os
 import time
 import sys
+import requests
 import pandas as pd
 import feather
 from loguru import logger
@@ -53,7 +54,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
     for symbol in list_all_stocks:
         i += 1
         str_msg = (
-            f"\rKline Update: [{i:4d}/{count:4d}] -- [{symbol}]---[{dt_date_trading}]"
+            f"\rKline Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         )
         if symbol not in df_catalogue.index:
             df_catalogue.at[symbol, "count"] = 0
@@ -67,45 +68,61 @@ def update_stock_data(frequency: str = "1m") -> bool:
                 df_data = feather.read_dataframe(source=file_name_feather)
                 dt_data_max = df_data.index.max()
                 if dt_data_max == dt_pm_end:
-                    df_catalogue.loc[symbol, "end"] = df_data.index.max()
+                    df_catalogue.loc[symbol, "end"] = dt_latest_trading = dt_data_max
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
-                    str_msg = str_msg + f"-------------latest"
+                    str_msg = str_msg + f" - [{dt_latest_trading}]-------------latest"
                 else:
-                    df_delta = ashare.get_history_n_min_tx(
-                        symbol=symbol, frequency=frequency, count=quantity
-                    )
+                    while True:
+                        try:
+                            df_delta = ashare.get_history_n_min_tx(
+                                symbol=symbol, frequency=frequency, count=quantity
+                            )
+                        except requests.exceptions.Timeout as e:
+                            print(repr(e))
+                            logger.trace(repr(e))
+                            time.sleep(2)
+                        else:
+                            break
                     df_data = pd.concat([df_data, df_delta], axis=0, join="outer")
                     df_data = df_data[~df_data.index.duplicated(keep="last")]  # 删除重复记录
                     df_data.sort_values(by=["datetime"], ascending=True, inplace=True)
                     feather.write_dataframe(
                         df=df_data, dest=file_name_feather
                     )  # 写入腌制数据 df_data
-                    df_catalogue.loc[symbol, "end"] = df_data.index.max()
+                    df_catalogue.loc[symbol, "end"] = dt_latest_trading = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
-                    str_msg = str_msg + f"-------------update"
+                    str_msg = str_msg + f" - [{dt_latest_trading}]-------------update"
             else:
-                df_data = ashare.get_history_n_min_tx(
-                    symbol=symbol, frequency=frequency, count=quantity
-                )
+                while True:
+                    try:
+                        df_data = ashare.get_history_n_min_tx(
+                            symbol=symbol, frequency=frequency, count=quantity
+                        )
+                    except requests.exceptions.Timeout as e:
+                        print(repr(e))
+                        logger.trace(repr(e))
+                        time.sleep(2)
+                    else:
+                        break
                 if df_data.empty:
-                    df_catalogue.loc[symbol, "end"] = dt_no_data
+                    df_catalogue.loc[symbol, "end"] = dt_latest_trading = dt_no_data
                     df_catalogue.loc[symbol, "start"] = dt_init
                     df_catalogue.loc[symbol, "count"] = 0
-                    str_msg = str_msg + f"-unable to get data"
+                    str_msg = str_msg + f" - [{dt_latest_trading}]-unable to get data"
                 else:
                     feather.write_dataframe(
                         df=df_data, dest=file_name_feather
                     )  # 写入腌制数据 df_data
-                    str_msg = str_msg + f"-------------Create"
-                    df_catalogue.loc[symbol, "end"] = df_data.index.max()
+                    df_catalogue.loc[symbol, "end"] = dt_latest_trading = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
+                    str_msg = str_msg + f" - [{dt_latest_trading}]-------------Create"
         elif dt_max == dt_no_data:
-            str_msg = str_msg + f"------------No data"
+            str_msg = str_msg + f" - [{dt_max}]------------No data"
         elif dt_max == dt_pm_end:
-            str_msg = str_msg + f"-------------latest"
+            str_msg = str_msg + f" - [{dt_max}]-------------latest"
         elif dt_no_data < dt_max < dt_pm_end:
             df_data = feather.read_dataframe(source=file_name_feather)  # 读取腌制数据 df_data
             df_delta = pd.DataFrame()
@@ -198,6 +215,7 @@ def update_index_data(
     df_index.sort_index(inplace=True)
     if not df_index.empty:
         feather.write_dataframe(df=df_index, dest=file_name_index_feather)
-    analysis.base.set_version(key=name, dt=dt_pm_end)
+    dt_update_index_data = df_index.index.max()
+    analysis.base.set_version(key=name, dt=dt_update_index_data)
     logger.trace(f"[{symbol}] update_index_data End")
     return df_index

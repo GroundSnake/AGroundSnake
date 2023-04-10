@@ -218,7 +218,7 @@ if __name__ == "__main__":
                 pd.isnull(df_trader.at[code, "recent_price"])
                 or df_trader.at[code, "recent_price"] == 0
             ):
-                df_trader.at[code, "recent_price"] = G_price
+                df_trader.at[code, "recent_price"] = now_price
             t5_amplitude = df_chip.at[code, "T5_amplitude"]
             t5_pct = df_chip.at[code, "T5_pct"]
             up_times = int(df_chip.at[code, "up_times"])
@@ -791,13 +791,13 @@ if __name__ == "__main__":
                 list_signal_sell = list_signal_sell_temp.copy()
             print(
                 f"===={fg.green('<Suggest Buying>')}=================================================="
-                f"\n{fg.lightred(f'{list_industry_buying}')}"
+                f"\n{fg.red(f'{list_industry_buying}')}"
             )
             if str_msg_fall != "":
                 print(str_msg_fall)
             print(
                 f"===={fg.red('<Suggest Selling>')}================================================="
-                f"\n{fg.lightred(f'{list_industry_selling}')}"
+                f"\n{fg.red(f'{list_industry_selling}')}"
             )
             if str_msg_rise != "":
                 print(str_msg_rise, "\a")  # 加上“\a”，铃声提醒
