@@ -104,7 +104,6 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 if i_times >= 2:
                     print(f"[{symbol}] Request ConnectionError - [{i_times}]times")
                     logger.trace(f"[{symbol}] Request ConnectionError - [{i_times}]times")
-                    sys.exit()
                 i_times += 1
             df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
             df_daily.set_index(keys=["trade_date"], inplace=True)
@@ -123,6 +122,10 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 df_ths_daily["trade_date"] = pd.to_datetime(df_ths_daily["trade_date"])
                 df_ths_daily.set_index(keys=["trade_date"], inplace=True)
                 df_ths_daily.sort_index(ascending=True, inplace=True)
+                str_date_ths_daily_max = df_ths_daily.index.max().strftime("%Y_%m_%d")
+                filename_ths_daily = os.path.join(
+                    path_industry, f"{symbol_class}_{str_date_ths_daily_max}.ftr"
+                )
                 feather.write_dataframe(df=df_ths_daily, dest=filename_ths_daily)
             if ts_code_class not in list_all_industry_pct_exist:
                 df_ths_daily_pct = df_ths_daily[["pct_change"]].copy()
@@ -212,13 +215,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         if os.path.exists(filename_industry_temp):  # 删除临时文件
             os.remove(path=filename_industry_temp)
             logger.trace(f"remove {filename_industry_temp} success")
-        set_industry_class = set(df_industry_class["industry_code"].tolist())
-        for ts_code_class in set_industry_class:
-            symbol_class = analysis.base.code_ts_to_ths(ts_code_class)
-            filename_ths_daily = os.path.join(
-                path_industry, f"{symbol_class}_{str_date_path}.ftr"
-            )
-            if os.path.exists(filename_ths_daily):  # 删除临时文件
+        for file in os.listdir(path_industry):  # 删除临时文件
+            if file.startswith('ti') and file.endswith('.ftr'):
+                filename_ths_daily = os.path.join(path_industry, file)
                 os.remove(path=filename_ths_daily)
         logger.trace(f"remove all ths_daily_industry ftr success")
     dt_industry = datetime.datetime.combine(

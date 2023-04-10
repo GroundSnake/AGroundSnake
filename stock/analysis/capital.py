@@ -116,7 +116,8 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
         try:
             r = requests.get(url, params=params)
         except RequestException as e:
-            logger.error(repr(e))
+            print(repr(e))
+            logger.trace(repr(e))
             time.sleep(2)
         else:
             break
@@ -213,7 +214,9 @@ def capital() -> bool:
         analysis.base.write_obj_to_db(
             obj=df_cap, key=name, filename=filename_chip_shelve
         )
-        analysis.base.set_version(key=name, dt=dt_pm_end)
+        dt_now = datetime.datetime.now()
+        if dt_now > dt_pm_end:
+            analysis.base.set_version(key=name, dt=dt_pm_end)
         logger.trace(f"Update df_config-[{name}]")
         if os.path.exists(filename_cap_feather_temp):  # 删除临时文件
             os.remove(path=filename_cap_feather_temp)
