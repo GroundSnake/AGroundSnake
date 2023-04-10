@@ -121,8 +121,12 @@ def is_latest_version(key: str, filename: str) -> bool:
                 logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest")
                 return True
             elif dt_am_0100 < dt_now < dt_am_0910:
-                dt_pm_end_latest = dt_pm_end - datetime.timedelta(days=1)
-                if df_config.at[key, "date"] == dt_pm_end_latest:
+                dt_latest_trading = dt_pm_end - datetime.timedelta(days=1)
+                i = 1
+                while not is_trading_day(dt_latest_trading):
+                    i += 1
+                    dt_latest_trading = dt_pm_end - datetime.timedelta(days=i)
+                if df_config.at[key, "date"] == dt_latest_trading:
                     logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest")
                     return True
                 else:

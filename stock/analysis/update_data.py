@@ -198,6 +198,7 @@ def update_index_data(
     df_index.sort_index(inplace=True)
     if not df_index.empty:
         feather.write_dataframe(df=df_index, dest=file_name_index_feather)
-    analysis.base.set_version(key=name, dt=dt_pm_end)
+    dt_update_index_data = df_index.index.max()
+    analysis.base.set_version(key=name, dt=dt_update_index_data)
     logger.trace(f"[{symbol}] update_index_data End")
     return df_index
