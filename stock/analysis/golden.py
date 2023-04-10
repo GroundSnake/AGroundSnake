@@ -22,7 +22,7 @@ from analysis.const import (
 
 
 def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
-    """分析挂仓成本
+    """
     :param list_code: e.g.sh600519
     :param frequency: choice of {"1m" ,"5m"}
     :return: bool
