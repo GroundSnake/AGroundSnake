@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/12 13:36
 from __future__ import annotations
 import os
 import sys
@@ -356,7 +356,6 @@ def limit_count(list_symbol: list | str = None) -> bool:
         analysis.base.write_obj_to_db(
             obj=df_limit, key=name, filename=filename_chip_shelve
         )
-        print(dt_limit)
         analysis.base.set_version(key=name, dt=dt_limit)
         if os.path.exists(file_name_df_limit_temp):
             os.remove(path=file_name_df_limit_temp)

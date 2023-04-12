@@ -1,4 +1,4 @@
-# modified at 2023/3/31 15:19
+# modified at 2023/4/12 13:36
 from __future__ import annotations
 import os
 import sys
@@ -114,7 +114,7 @@ def is_latest_version(key: str, filename: str) -> bool:
         else:
             if dt_am_0910 < dt_now < dt_pm_end:
                 logger.trace(
-                    f"df_config-[{key}]-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update df_config-[{key}] on [{dt_pm_end}]"
+                    f"df_config-[{key}]-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update df_config-[{key}] will at [{dt_pm_end}]"
                 )
                 return True
             elif df_config.at[key, "date"] == dt_pm_end:

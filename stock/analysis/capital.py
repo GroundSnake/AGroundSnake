@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/12 13:36
 import os
 import sys
 import time
@@ -116,7 +116,8 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
         try:
             r = requests.get(url, params=params)
         except RequestException as e:
-            logger.error(repr(e))
+            print(repr(e))
+            logger.trace(repr(e))
             time.sleep(2)
         else:
             break

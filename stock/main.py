@@ -1,4 +1,4 @@
-# modified at 2023/4/7 20：03
+# modified at 2023/4/12 13:36
 from __future__ import annotations
 import os
 import sys
@@ -73,33 +73,33 @@ if __name__ == "__main__":
     concentration_rate_amount = 0
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
-    logger.trace("load df_industry_class...")
-    df_industry_class = analysis.read_obj_from_db(
-        key="df_industry_class", filename=filename_chip_shelve
+    logger.trace("load df_industry_index...")
+    df_industry_index = analysis.read_obj_from_db(
+        key="df_industry_index", filename=filename_chip_shelve
     )
-    if df_industry_class.empty:
-        logger.trace(f"df_industry_class from filename_chip_shelve is empty")
+    if df_industry_index.empty:
+        logger.trace(f"df_industry_index from filename_chip_shelve is empty")
         try:
-            df_industry_class = pd.read_excel(
-                io="df_industry_class.xlsx", index_col="code"
+            df_industry_index = pd.read_excel(
+                io="df_industry_index.xlsx", index_col="code"
             )
         except FileNotFoundError as e:
-            print(f"[df_industry_class.xlsx] - {e.args[1]}")
-            logger.error(f"[df_industry_class.xlsx] - {e.args[1]}")
+            print(f"[df_industry_index.xlsx] - {e.args[1]}")
+            logger.error(f"[df_industry_index.xlsx] - {e.args[1]}")
             sys.exit()
         else:
-            if df_industry_class.empty:
+            if df_industry_index.empty:
                 logger.error(
-                    f"df_industry_class from [df_industry_class.xlsx] is empty"
+                    f"df_industry_index from [df_industry_index.xlsx] is empty"
                 )
                 sys.exit()
             else:
                 analysis.write_obj_to_db(
-                    obj=df_industry_class,
-                    key="df_industry_class",
+                    obj=df_industry_index,
+                    key="df_industry_index",
                     filename=filename_chip_shelve,
                 )
-    logger.trace(f"df_industry_class create success")
+    logger.trace(f"df_industry_index create success")
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
@@ -180,8 +180,11 @@ if __name__ == "__main__":
         if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
             df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
             df_trader.at[code, "times_of_inclusion"] = 1
-            df_trader.at[code, "price_of_inclusion"] = df_chip.at[code, "now_price"]
+            df_trader.at[code, "price_of_inclusion"] = df_trader.at[
+                code, "recent_price"
+            ] = df_trader.at[code, "now_price"] = df_chip.at[code, "now_price"]
             df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
+            df_trader.at[code, "name"] = df_chip.at[code, "name"]
         if pd.isnull(df_trader.at[code, "date_of_inclusion_latest"]):
             df_trader.at[code, "date_of_inclusion_latest"] = dt_date_trading
         elif df_trader.at[code, "date_of_inclusion_latest"] != dt_date_trading:
@@ -203,11 +206,11 @@ if __name__ == "__main__":
     logger.trace("initialization df_index")
     list_trader = df_trader.index.to_list()
     for code in list_trader:
-        if code in df_industry_class.index:
-            df_trader.at[code, "industry_code"] = df_industry_class.at[
+        if code in df_industry_index.index:
+            df_trader.at[code, "industry_code"] = df_industry_index.at[
                 code, "industry_code"
             ]
-            df_trader.at[code, "industry_name"] = df_industry_class.at[
+            df_trader.at[code, "industry_name"] = df_industry_index.at[
                 code, "industry_name"
             ]
         if code in df_chip.index:
@@ -296,7 +299,9 @@ if __name__ == "__main__":
             df_trader.at[code, "grade"] = grade
             df_trader.at[code, "ST"] = df_chip.at[code, "ST"]
             if pd.isnull(df_trader.at[code, "date_of_inclusion_latest"]):
-                df_trader.at[code, "date_of_inclusion_latest"] = df_trader.at[code, "date_of_inclusion_first"]
+                df_trader.at[code, "date_of_inclusion_latest"] = df_trader.at[
+                    code, "date_of_inclusion_first"
+                ]
             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
                 df_trader.at[code, "price_of_inclusion"] = G_price
     # 用df_chip初始化df_trader-----End
@@ -564,17 +569,17 @@ if __name__ == "__main__":
                     print("\n", end="")  # 调整输出console格式
                 try:
                     if not pd.notnull(df_trader.at[code, "industry_code"]):
-                        df_trader.at[code, "industry_code"] = df_industry_class.at[
+                        df_trader.at[code, "industry_code"] = df_industry_index.at[
                             code, "industry_code"
                         ]
                         logger.trace(f"{code} update industry_code")
                     if not pd.notnull(df_trader.at[code, "industry_name"]):
-                        df_trader.at[code, "industry_name"] = df_industry_class.at[
+                        df_trader.at[code, "industry_name"] = df_industry_index.at[
                             code, "industry_name"
                         ]
                         logger.trace(f"{code} update industry_name")
                 except KeyError as e:
-                    logger.trace(f"df_industry_class KeyError [{repr(e)}]")
+                    logger.trace(f"df_industry_index KeyError [{repr(e)}]")
                     time.sleep(5)
                 industry_code = df_trader.at[code, "industry_code"]
                 if code not in df_realtime.index:
@@ -583,7 +588,10 @@ if __name__ == "__main__":
                 df_trader.at[code, "name"] = df_realtime.at[code, "name"]
                 now_price = df_realtime.at[code, "close"]
                 df_trader.at[code, "now_price"] = now_price
-                if pd.isnull(df_trader.at[code, "recent_price"]):
+                if (
+                    pd.isnull(df_trader.at[code, "recent_price"])
+                    or df_trader.at[code, "recent_price"] == 0
+                ):
                     df_trader.at[code, "recent_price"] = recent_price = now_price
                 else:
                     recent_price = df_trader.at[code, "recent_price"]
@@ -850,8 +858,13 @@ if __name__ == "__main__":
             print(str_pos_ctl_csi1000)
             df_chip = analysis.chip()
             print(df_chip)
-            logger.trace(f"Program End")
-            sys.exit()
+            if dt_now < dt_am_0910:
+                df_trader.to_csv(path_or_buf=filename_data_csv)
+                logger.trace(f"df_trader csv at [{filename_data_csv}]")
+                sleep_to_time(dt_am_start)
+            elif dt_now > dt_pm_end:
+                logger.trace(f"Program End")
+                sys.exit()
         frq += 1
         logger.trace(
             f"The [No{frq:3d}] cycle will start in {scan_interval:2d} seconds."
