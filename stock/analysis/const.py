@@ -1,6 +1,8 @@
 # modified at 2023/4/12 13:36
 import os
 import datetime
+import random
+
 import tushare as ts
 
 
@@ -15,7 +17,6 @@ def latest_trading_day(t:int = 0) -> datetime.date:
     pro = ts.pro_api()
     df_trade = pro.trade_cal(exchange="", start_date="20230401", end_date=str_date_now)
     df_trade.set_index(keys=["cal_date"], inplace=True)
-    print(df_trade)
     str_dt_date = dt_date.strftime("%Y%m%d")
     if df_trade.at[str_dt_date, "is_open"] == 1:
         str_dt_out = str_dt_date
@@ -36,6 +37,7 @@ def all_ts_code() -> list | None:
         return
     else:
         list_ts_code = df_basic["ts_code"].tolist()
+        random.shuffle(list_ts_code)
         return list_ts_code
 
 

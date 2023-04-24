@@ -15,25 +15,29 @@ from analysis.const import dt_am_0100, dt_am_0910, dt_pm_end, str_date_path, pat
 
 
 def is_trading_day(dt:datetime.datetime = None) -> bool:
-    """无法使用调用"""
     ts.set_token("77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832")
     pro = ts.pro_api()
     if dt is None:
         dt = datetime.datetime.now()
+    dt_start = dt - datetime.timedelta(days=14)
+    str_date_start = dt_start.strftime("%Y%m%d")
     str_date_now = dt.strftime("%Y%m%d")
     try:
         df_trade = pro.trade_cal(
-            exchange="", start_date="20230301", end_date=str_date_now
+            exchange="", start_date=str_date_start, end_date=str_date_now
         )
     except Exception as e:
         print(f"The token is invalid. Please apply for a token at tushare - Error-[{e}]")
         sys.exit()
     df_trade.set_index(keys=["cal_date"], inplace=True)
-    if df_trade.at[str_date_now, "is_open"] == 1:
-        return True
-    else:
-        return False
-
+    try:
+        if df_trade.at[str_date_now, "is_open"] == 1:
+            return True
+        else:
+            return False
+    except KeyError as e:
+        print(repr(e))
+        sys.exit()
 
 def code_ths_to_ts(symbol: str):
     return symbol[2:] + "." + symbol[0:2].upper()
@@ -87,13 +91,13 @@ def write_obj_to_db(obj: object, key: str, filename: str):
 
 def read_obj_from_db(key: str, filename: str) -> object:
     try:
-        with shelve.open(filename=filename, flag="r") as pydbm_chip:
+        with shelve.open(filename=filename, flag="r") as py_dbm_chip:
             logger.trace(f"loading {key} from [{filename}]....")
             try:
-                return pydbm_chip[key]
+                return py_dbm_chip[key]
             except KeyError as e:
                 print(f"[{key}] is not exist -Error[{repr(e)}]")
-                logger.trace(f"[{key}] is not exist -Error[{repr(e)}]")
+                logger.trace(f"[{key}] is not exist - Error[{repr(e)}]")
                 return pd.DataFrame()
     except dbm.error as e:
         print(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
@@ -206,8 +210,8 @@ def shelve_to_excel(filename_shelve: str, filename_excel: str):
             i = 0
             for key in pydbm_chip:
                 i += 1
-                str_shelve_to_excel = f"\r[{i}/{count}] - {key}"
-                print(str_shelve_to_excel, end="")
+                str_shelve_to_excel = f"[{i}/{count}] - {key}"
+                print(f'\r{str_shelve_to_excel}\033[K', end="")
                 if isinstance(pydbm_chip[key], DataFrame):
                     add_chip_excel(
                         df=pydbm_chip[key], key=f"{key}", filename=filename_excel

@@ -2,6 +2,8 @@
 from analysis.chip import chip
 from analysis.position import position
 from analysis.unit_net import unit_net
+from analysis.concentration import concentration_rate
+from analysis.index import make_ssb_index
 from analysis.const import *
 from analysis.base import (
     is_trading_day,

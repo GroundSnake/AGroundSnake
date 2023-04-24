@@ -6,7 +6,7 @@ from loguru import logger
 import akshare as ak
 import analysis.base
 import analysis.update_data
-from analysis.const import dt_date_trading, time_pm_end, filename_chip_shelve
+from analysis.const import time_pm_end, filename_chip_shelve
 
 
 def position(index: str = "sh000001") -> str:
@@ -35,7 +35,7 @@ def position(index: str = "sh000001") -> str:
         )
         logger.trace(f"position_control-[{name}] Break End")
         return str_pos_ctl
-    logger.trace(f"Update df_pos_ctl-[pydb_chip] Begin")
+    logger.trace(f"Update df_pos_ctl-[py_dbm_chip] Begin")
     if index == "sh000001":
         df_sh_index = analysis.update_data.update_index_data(symbol=index)
     else:

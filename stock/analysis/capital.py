@@ -108,7 +108,7 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
         "ut": "fa5fd1943c7b386f172d6893dbfba10b",
         "fltt": "2",
         "invt": "2",
-        "fields": "f57,f58,f84,f85,f189",
+        "fields": "f57,f58,f84,f85,f116,f189",
         "secid": f"{code_id_dict[code]}.{code}",
         "_": "1640157544804",
     }
@@ -136,6 +136,7 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
         "f58": "name",
         "f84": "total_cap",
         "f85": "circ_cap",
+        "f116": "total_mv_E",
         "f189": "list_date",
     }
     temp_df["index"] = temp_df["index"].map(code_name_map)
@@ -154,6 +155,10 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
             str_list_date, "%Y%m%d"
         )
     df_return.set_index(keys="code", inplace=True)
+    df_return["total_mv_E"] = df_return["total_mv_E"].apply(func=lambda x: round(x / 100000000, 2))
+    df_return = df_return.reindex(
+        columns=["name", "list_date", "total_cap", "circ_cap", "total_mv_E"]
+    )
     return df_return
 
 
@@ -175,16 +180,18 @@ def capital() -> bool:
             logger.trace(f"{name} cache is empty")
         else:
             logger.trace(f"{name} cache is not empty")
+            df_cap = df_cap.sample(frac=1)
             list_cap_exist = df_cap.index.to_list()
     i = 0
     count = len(list_all_stocks)
     for symbol in list_all_stocks:
         i += 1
-        str_msg_bar = f"\rCapital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
+        str_msg_bar = f"Capital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_cap_exist:
-            print(f"{str_msg_bar} - exist", end="")
+            print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
-        print(str_msg_bar, end="")
+        else:
+            print(f'\r{str_msg_bar} - update\033[K', end="")
         code = symbol[2:]
         df_cap_temp = pd.DataFrame()
         i_times = 0

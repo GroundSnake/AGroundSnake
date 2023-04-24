@@ -51,6 +51,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
             logger.trace("df_limit cache is empty")
         else:
             logger.trace("df_limit cache is not empty")
+            df_limit = df_limit.sample(frac=1)
             list_exist = df_limit.index.to_list()
     else:
         logger.trace(f"{file_name_df_limit_temp} not exists")
@@ -111,9 +112,9 @@ def limit_count(list_symbol: list | str = None) -> bool:
     logger.trace(f"For loop Begin")
     for symbol in list_symbol:
         i += 1
-        str_msg_bar = f"\rLimit Update: [{i:4d}/{count:4d}] -- [{symbol}]"
+        str_msg_bar = f"Limit Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_exist:  # 己存在，断点继续
-            print(f"{str_msg_bar} - exist", end="")
+            print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
         df_stock = pd.DataFrame()
         i_times = 0
@@ -178,7 +179,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
             dt_limit = dt_stock_latest
         elif dt_limit < dt_stock_latest:
             dt_limit = dt_stock_latest
-        print(f"{str_msg_bar} - [{dt_stock_latest}]", end="")
+        print(f"\r{str_msg_bar} - [{dt_stock_latest}]\033[K", end="")
         df_up = df_stock[df_stock["pct_chg"] > 9.9]
         up_times = len(df_up)
         df_up_7pct = df_stock[df_stock["pct_chg"] > 7]

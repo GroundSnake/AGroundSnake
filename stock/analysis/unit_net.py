@@ -27,6 +27,6 @@ def unit_net():
     print(df_unit_net.tail(5))
     analysis.base.write_obj_to_db(
         obj=df_unit_net,
-        key="df_unit_net",
+        key=name,
         filename=filename_chip_shelve,
     )

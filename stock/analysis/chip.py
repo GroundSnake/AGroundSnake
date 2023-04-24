@@ -61,14 +61,6 @@ def chip() -> object | DataFrame:
     else:
         df_st = pd.DataFrame()
         logger.trace("load df_st fail")
-    if analysis.industry.ths_industry():
-        df_industry = analysis.base.read_obj_from_db(
-            key="df_industry", filename=filename_chip_shelve
-        )
-        logger.trace("load df_industry success")
-    else:
-        df_industry = pd.DataFrame()
-        logger.trace("load df_industry fail")
     if analysis.industry.industry_rank():
         df_industry_rank_pool = analysis.base.read_obj_from_db(
             key="df_industry_rank_pool", filename=filename_chip_shelve
@@ -81,6 +73,14 @@ def chip() -> object | DataFrame:
         df_industry_rank_pool = pd.DataFrame()
         df_industry_rank = pd.DataFrame()
         logger.trace("load df_industry_rank fail")
+    if analysis.industry.ths_industry():
+        df_industry = analysis.base.read_obj_from_db(
+            key="df_industry", filename=filename_chip_shelve
+        )
+        logger.trace("load df_industry success")
+    else:
+        df_industry = pd.DataFrame()
+        logger.trace("load df_industry fail")
     if df_industry_rank_pool.empty:
         print(df_industry_rank)
     else:
@@ -98,7 +98,7 @@ def chip() -> object | DataFrame:
     df_chip["turnover"] = df_chip["turnover"].apply(func=lambda x: round(x, 2))
     df_chip["turnover"].fillna(value=0, inplace=True)
     df_chip.sort_values(
-        by=["up_M_down", "now_price_ratio"], ascending=False, inplace=True
+        by=["T5_pct"], ascending=False, inplace=True
     )
     df_chip["dt"].fillna(value=dt_init, inplace=True)
     analysis.base.write_obj_to_db(obj=df_chip, key=name, filename=filename_chip_shelve)
@@ -206,11 +206,11 @@ def chip() -> object | DataFrame:
         print(f"[{name}] is not found in axis -Error[{repr(e)}]")
         logger.trace(f"[{name}] is not found in axis -Error[{repr(e)}]")
         df_config_temp = df_config.copy()
-    dt_chip = df_config_temp["date"].min()
-    analysis.base.set_version(key=name, dt=dt_chip)
     analysis.base.shelve_to_excel(
         filename_shelve=filename_chip_shelve, filename_excel=filename_chip_excel
     )
+    dt_chip = df_config_temp["date"].min()
+    analysis.base.set_version(key=name, dt=dt_chip)
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
