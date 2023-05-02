@@ -1,9 +1,9 @@
-# modified at 2023/4/12 13:36
+# modified at 2023/5/2 16:03
 from analysis.chip import chip
 from analysis.position import position
 from analysis.unit_net import unit_net
 from analysis.concentration import concentration_rate
-from analysis.index import make_ssb_index
+from analysis.index import stocks_in_ssb
 from analysis.const import *
 from analysis.base import (
     is_trading_day,
@@ -13,9 +13,8 @@ from analysis.base import (
     transaction_unit,
     zeroing_sort,
     write_obj_to_db,
-    read_obj_from_db,
+    read_df_from_db,
     is_latest_version,
     set_version,
-    add_chip_excel,
     shelve_to_excel,
 )

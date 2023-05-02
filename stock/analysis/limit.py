@@ -1,4 +1,4 @@
-# modified at 2023/4/12 13:36
+# modified at 2023/5/2 16:03
 from __future__ import annotations
 import os
 import sys
@@ -17,6 +17,7 @@ from analysis.const import (
     dt_date_trading,
     time_pm_end,
     filename_chip_shelve,
+    str_date_trading,
     list_all_stocks,
 )
 
@@ -30,7 +31,6 @@ def limit_count(list_symbol: list | str = None) -> bool:
         list_symbol = [list_symbol]
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"Limit Count Begin")
-    str_date_trading = dt_date_trading.strftime("%Y%m%d")
     file_name_df_limit_temp = os.path.join(
         path_data, f"df_limit_count_temp_{str_date_path}.ftr"
     )

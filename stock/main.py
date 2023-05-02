@@ -1,4 +1,4 @@
-# modified at 2023/4/12 13:36
+# modified at 2023/5/2 16:03
 from __future__ import annotations
 import os
 import sys
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_index...")
-    df_industry_index = analysis.read_obj_from_db(
+    df_industry_index = analysis.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
     if df_industry_index.empty:
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     # 加载df_industry_class End
     # 加载df_chip Begin
     logger.trace("load df_chip...")
-    df_chip = analysis.read_obj_from_db(key="df_chip", filename=filename_chip_shelve)
+    df_chip = analysis.read_df_from_db(key="df_chip", filename=filename_chip_shelve)
     if df_chip.empty:
         logger.trace(f"df_chip from filename_chip_shelve is empty")
         df_chip = analysis.chip()
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     # 加载df_chip End
     # 加载df_industry_rank_pool Begin
     logger.trace("load df_industry_rank_pool...")
-    df_industry_rank_pool = analysis.read_obj_from_db(
+    df_industry_rank_pool = analysis.read_df_from_db(
         key="df_industry_rank_pool", filename=filename_chip_shelve
     )
     if df_industry_rank_pool.empty:
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     # 加载df_industry_rank_pool End
     # 加载df_trader Begin
     logger.trace("Create df_trader Begin")
-    df_trader = analysis.read_obj_from_db(
+    df_trader = analysis.read_df_from_db(
         key="df_trader", filename=filename_chip_shelve
     )
     if df_trader.empty:
@@ -170,7 +170,7 @@ if __name__ == "__main__":
         list_trader_symbol = ["sh600519", "sz300750"]
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
-    df_stocks_pool = analysis.read_obj_from_db(
+    df_stocks_pool = analysis.read_df_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
     list_trader = df_trader.index.to_list()
@@ -497,7 +497,6 @@ if __name__ == "__main__":
                 logger.trace(f"[{filename_input}] is not exist")
             # 增加修改删除df_data中的项目 End
             # 调用实时数据接口，更新df_realtime Begin
-            df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
             list_trader = df_trader.index.to_list()
             df_realtime = realtime_quotations(stock_codes=list_trader)  # 调用实时数据接口
             if df_realtime.empty:
@@ -549,7 +548,6 @@ if __name__ == "__main__":
             count_fall = 0
             i = 0
             count_trader = len(list_trader)
-            # 清空df_trader
             for code in list_trader:
                 i += 1
                 dt_now = datetime.datetime.now()
@@ -768,6 +766,7 @@ if __name__ == "__main__":
                     pass
                 # df_trader End
             # 更新df_data，str_msg_rise，str_msg_fall------End
+            df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
             analysis.write_obj_to_db(
                 obj=df_trader, key="df_trader", filename=filename_chip_shelve
             )
@@ -798,15 +797,11 @@ if __name__ == "__main__":
             print(
                 f"===={fg.green('<Suggest Buying>')}=================================================="
             )
-            if list_industry_buying:
-                print(f"{fg.red(f'{list_industry_buying}')}")
             if str_msg_fall != "":
                 print(str_msg_fall)
             print(
                 f"===={fg.red('<Suggest Selling>')}================================================="
             )
-            if list_industry_selling:
-                print(f"{fg.red(f'{list_industry_selling}')}")
             if str_msg_rise != "":
                 print(str_msg_rise, "\a")  # 加上“\a”，铃声提醒
             print(
@@ -818,8 +813,15 @@ if __name__ == "__main__":
                 print(dt_now, str_msg_temp)
             if len(list_signal_chg) > 0:
                 print(dt_now, ":", list_signal_chg, " --- New Signal\a")
+            if list_industry_buying:
+                print(f"{fg.green(f'Buying: {list_industry_buying}')}")
+                print('*' * 108)
+            if list_industry_selling:
+                print(f"{fg.red(f'Selling: {list_industry_selling}')}")
+                print('*' * 108)
             print(str_stock_market_activity_items)
             print(str_stock_market_activity_value)
+            print('*' * 108)
             # 主循环块---------End----End-----End----End------End----End------End------End-------End------
 
             end_loop_time = time.perf_counter_ns()

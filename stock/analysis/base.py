@@ -1,20 +1,30 @@
-# modified at 2023/4/12 13:36
+# modified at 2023/5/2 16:03
 from __future__ import annotations
 import os
+import random
 import sys
 import datetime
 import shelve
 import dbm
+import time
+
 import win32file
 import pywintypes
 import pandas as pd
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
-from analysis.const import dt_am_0100, dt_am_0910, dt_pm_end, str_date_path, path_check, filename_chip_shelve
+from analysis.const import (
+    dt_am_0100,
+    dt_am_0910,
+    dt_pm_end,
+    str_date_path,
+    path_check,
+    filename_chip_shelve,
+)
 
 
-def is_trading_day(dt:datetime.datetime = None) -> bool:
+def is_trading_day(dt: datetime.datetime = None) -> bool:
     ts.set_token("77f61903681b936f371c34d8abf7603a324ed90d070e4eb6992d0832")
     pro = ts.pro_api()
     if dt is None:
@@ -27,7 +37,9 @@ def is_trading_day(dt:datetime.datetime = None) -> bool:
             exchange="", start_date=str_date_start, end_date=str_date_now
         )
     except Exception as e:
-        print(f"The token is invalid. Please apply for a token at tushare - Error-[{e}]")
+        print(
+            f"The token is invalid. Please apply for a token at tushare - Error-[{e}]"
+        )
         sys.exit()
     df_trade.set_index(keys=["cal_date"], inplace=True)
     try:
@@ -38,6 +50,7 @@ def is_trading_day(dt:datetime.datetime = None) -> bool:
     except KeyError as e:
         print(repr(e))
         sys.exit()
+
 
 def code_ths_to_ts(symbol: str):
     return symbol[2:] + "." + symbol[0:2].upper()
@@ -83,18 +96,20 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
 
 
 def write_obj_to_db(obj: object, key: str, filename: str):
-    with shelve.open(filename=filename, flag="c") as pydbm_chip:
-        pydbm_chip[key] = obj
+    with shelve.open(filename=filename, flag="c") as py_dbm_chip:
+        py_dbm_chip[key] = obj
         logger.trace(f"{key} save as pydb_chip-[{filename}]")
     return True
 
 
-def read_obj_from_db(key: str, filename: str) -> object:
+def read_df_from_db(key: str, filename: str) -> DataFrame:
     try:
         with shelve.open(filename=filename, flag="r") as py_dbm_chip:
             logger.trace(f"loading {key} from [{filename}]....")
             try:
-                return py_dbm_chip[key]
+                df = py_dbm_chip[key]
+                isinstance(df, DataFrame)
+                return df
             except KeyError as e:
                 print(f"[{key}] is not exist -Error[{repr(e)}]")
                 logger.trace(f"[{key}] is not exist - Error[{repr(e)}]")
@@ -107,7 +122,7 @@ def read_obj_from_db(key: str, filename: str) -> object:
 
 def is_latest_version(key: str, filename: str) -> bool:
     dt_now = datetime.datetime.now()
-    df_config = read_obj_from_db(key="df_config", filename=filename)
+    df_config = read_df_from_db(key="df_config", filename=filename)
     if df_config.empty:
         logger.trace(f"df_config is empty")
         return False
@@ -122,7 +137,9 @@ def is_latest_version(key: str, filename: str) -> bool:
                 )
                 return True
             elif df_config.at[key, "date"] == dt_pm_end:
-                logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest")
+                logger.trace(
+                    f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest"
+                )
                 return True
             elif dt_am_0100 < dt_now < dt_am_0910:
                 dt_latest_trading = dt_pm_end - datetime.timedelta(days=1)
@@ -131,10 +148,14 @@ def is_latest_version(key: str, filename: str) -> bool:
                     i += 1
                     dt_latest_trading = dt_pm_end - datetime.timedelta(days=i)
                 if df_config.at[key, "date"] == dt_latest_trading:
-                    logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest")
+                    logger.trace(
+                        f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest"
+                    )
                     return True
                 else:
-                    logger.trace(f"df_config-[{key}]-[{df_config.at[key, 'date']}] is not latest")
+                    logger.trace(
+                        f"df_config-[{key}]-[{df_config.at[key, 'date']}] is not latest"
+                    )
                     return False
             else:
                 logger.trace(f"df_config-[{key}] update")
@@ -142,7 +163,7 @@ def is_latest_version(key: str, filename: str) -> bool:
 
 
 def set_version(key: str, dt: datetime.datetime) -> bool:
-    df_config = read_obj_from_db(key="df_config", filename=filename_chip_shelve)
+    df_config = read_df_from_db(key="df_config", filename=filename_chip_shelve)
     df_config.at[key, "date"] = dt
     write_obj_to_db(obj=df_config, key="df_config", filename=filename_chip_shelve)
     logger.trace(f"{key} update - [{df_config.at[key, 'date']}]")
@@ -151,11 +172,10 @@ def set_version(key: str, dt: datetime.datetime) -> bool:
 
 def is_open(filename) -> bool:
     if not os.access(path=filename, mode=os.F_OK):
-        logger.trace(f"[{filename}] is exist")
+        logger.trace(f"[{filename}] is not exist")
         return False
     else:
-        logger.trace(f"[{filename}] is not exist")
-    v_handle = pywintypes.HANDLE()
+        logger.trace(f"[{filename}] is exist")
     try:
         v_handle = win32file.CreateFile(
             filename,
@@ -166,62 +186,68 @@ def is_open(filename) -> bool:
             win32file.FILE_ATTRIBUTE_NORMAL,
             None,
         )
-        logger.trace(f"[{filename}] not in use")
-        return False  # int(v_handle) == win32file.INVALID_HANDLE_VALUE
-    except pywintypes.error as e:
-        print(f'{filename} - {e.args[2]}')
-        logger.trace(f'{filename} - {e.args[2]}')
+    except Exception as e:
+        print(f"{filename} - {repr(e)}")
+        logger.trace(f"{filename} - {repr(e)}")
         return True
-    finally:
-        try:
-            v_handle.close()
-            logger.trace("v_handle close")
-        except pywintypes.error as e:
-            logger.error(f'v_handle - {repr(e)}')
-
-
-def add_chip_excel(df: pd.DataFrame, key: str, filename: str):
-    i = 0
-    while True:
-        if is_open(filename=filename):
-            logger.trace(f"[{filename}] is open")
-        else:
-            logger.trace(f"[{filename}] is not open")
-            break
-        i += 1
-        filename = os.path.join(path_check, f"chip_{str_date_path}_{i}.xlsx")
-    try:
-        with pd.ExcelWriter(
-            path=filename, mode="a", if_sheet_exists="replace"
-        ) as writer:
-            df.to_excel(excel_writer=writer, sheet_name=key)
-    except FileNotFoundError as e:
-        logger.trace(f'{filename} is not exist -Error[{repr(e)}]')
-        with pd.ExcelWriter(path=filename, mode="w") as writer:
-            df.to_excel(excel_writer=writer, sheet_name=key)
-    finally:
-        logger.trace(f"save {key} at Excel-[{filename}]")
+    else:
+        v_handle.close()
+        logger.trace("close Handle")
+        logger.trace(f"[{filename}] not in use")
+        return False
 
 
 def shelve_to_excel(filename_shelve: str, filename_excel: str):
+    i_file = 0
+    while True:
+        if is_open(filename=filename_excel):
+            logger.trace(f"[{filename_excel}] is open")
+        else:
+            logger.trace(f"[{filename_excel}] is not open")
+            break
+        i_file += 1
+        filename_excel = os.path.join(path_check, f"chip_{str_date_path}_{i_file}.xlsx")
     try:
-        with shelve.open(filename=filename_shelve, flag="r") as pydbm_chip:
-            count = len(pydbm_chip)
+        logger.trace(f"try open [{filename_shelve}]")
+        with shelve.open(filename=filename_shelve, flag="r") as py_dbm_chip:
+            key_random = ""
+            try:
+                writer = pd.ExcelWriter(
+                    path=filename_excel, mode="a", if_sheet_exists="replace"
+                )
+            except FileNotFoundError as e:
+                logger.trace(f"{filename_excel} is not exist -Error[{repr(e)}]")
+                with pd.ExcelWriter(path=filename_excel, mode="w") as writer_e:
+                    key_random = random.choice(list(py_dbm_chip.keys()))
+                    if isinstance(py_dbm_chip[key_random], DataFrame):
+                        py_dbm_chip[key_random].to_excel(
+                            excel_writer=writer_e, sheet_name=key_random
+                        )
+                    else:
+                        logger.trace(f"{key_random} is not DataFrame")
+                writer = pd.ExcelWriter(
+                    path=filename_excel, mode="a", if_sheet_exists="replace"
+                )
+                logger.trace(f"create file-[{filename_excel}]")
+            count = len(py_dbm_chip)
             i = 0
-            for key in pydbm_chip:
+            for key in py_dbm_chip:
                 i += 1
                 str_shelve_to_excel = f"[{i}/{count}] - {key}"
-                print(f'\r{str_shelve_to_excel}\033[K', end="")
-                if isinstance(pydbm_chip[key], DataFrame):
-                    add_chip_excel(
-                        df=pydbm_chip[key], key=f"{key}", filename=filename_excel
-                    )
+                print(f"\r{str_shelve_to_excel}\033[K", end="")
+                if key != key_random:
+                    if isinstance(py_dbm_chip[key], DataFrame):
+                        py_dbm_chip[key].to_excel(excel_writer=writer, sheet_name=key)
+                    else:
+                        logger.trace(f"{key} is not DataFrame")
+                        continue
                 else:
-                    logger.trace(f"{key} is not DataFrame")
+                    logger.trace(f"{key} is exist")
                     continue
+            writer.close()
             if i >= count:
                 print("\n", end="")  # 格式处理
+                return
     except dbm.error as e:
         print(f"[{filename_shelve}] is not exist - Error[{repr(e)}]")
         logger.trace(f"[{filename_shelve}] is not exist - Error[{repr(e)}]")
-        return pd.DataFrame()

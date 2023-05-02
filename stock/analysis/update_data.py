@@ -1,4 +1,4 @@
-# modified at 2023/4/12 13:36
+# modified at 2023/5/2 16:03
 import datetime
 import os
 import time
@@ -16,7 +16,6 @@ from analysis.const import (
     str_date_path,
     dt_init,
     dt_pm_end,
-    dt_date_trading,
     filename_chip_shelve,
     list_all_stocks,
 )
