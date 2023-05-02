@@ -40,7 +40,7 @@ def sleep_to_time(dt_time: datetime.datetime):
         str_sleep_msg = f"Waiting: {str_sleep_gm}"
         str_sleep_msg = fg.cyan(str_sleep_msg)
         str_sleep_msg = f"{dt_now_sleep}----" + str_sleep_msg
-        print(f'\r{str_sleep_msg}\033[K', end="")  # 进度条
+        print(f"\r{str_sleep_msg}\033[K", end="")  # 进度条
         time.sleep(1)
         dt_now_sleep = datetime.datetime.now()
     print("\n", end="")
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     logger.add(sink=sys.stderr, level=logger_console_level)
     logger.add(sink=filename_log, level="TRACE", encoding="utf-8")
     # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-    '''
+    """
     if analysis.is_trading_day():
         logger.trace("Betting day")
         print("Betting day")
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         print("Non betting day")
         logger.trace("Program OFF")
         sys.exit()
-    '''
+    """
     """init Begin"""
     fall = -5
     rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     amount_all = 0
     amount_top5 = 0
     concentration_rate_amount = 0
-    str_msg_concentration_rate = ''
+    str_msg_concentration_rate = ""
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
     logger.trace("load df_industry_index...")
@@ -80,9 +80,7 @@ if __name__ == "__main__":
     if df_industry_index.empty:
         logger.trace(f"df_industry_index from filename_chip_shelve is empty")
         try:
-            df_industry_index = pd.read_excel(
-                io="df_industry_index.xlsx", index_col=0
-            )
+            df_industry_index = pd.read_excel(io="df_industry_index.xlsx", index_col=0)
         except FileNotFoundError as e:
             print(f"[df_industry_index.xlsx] - {e.args[1]}")
             logger.error(f"[df_industry_index.xlsx] - {e.args[1]}")
@@ -138,9 +136,7 @@ if __name__ == "__main__":
     # 加载df_industry_rank_pool End
     # 加载df_trader Begin
     logger.trace("Create df_trader Begin")
-    df_trader = analysis.read_df_from_db(
-        key="df_trader", filename=filename_chip_shelve
-    )
+    df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
     if df_trader.empty:
         logger.trace(f"Create a new df_trader")
         time.sleep(20)
@@ -318,9 +314,7 @@ if __name__ == "__main__":
         df_signal_sell = pd.read_excel(
             io=filename_signal, sheet_name="sell", index_col=0
         )
-        df_signal_buy = pd.read_excel(
-            io=filename_signal, sheet_name="buy", index_col=0
-        )
+        df_signal_buy = pd.read_excel(io=filename_signal, sheet_name="buy", index_col=0)
         df_signal_sell.sort_values(
             by=["position", "pct_chg", "dt"], ascending=False, inplace=True
         )
@@ -352,13 +346,10 @@ if __name__ == "__main__":
         df_add.index.rename(name="code", inplace=True)
         df_delete = pd.DataFrame(columns=df_trader.columns)
         df_delete.index.rename(name="code", inplace=True)
-        analysis.add_chip_excel(
-            df=df_modified, key="modified", filename=filename_trader_template
-        )
-        analysis.add_chip_excel(df=df_add, key="add", filename=filename_trader_template)
-        analysis.add_chip_excel(
-            df=df_delete, key="delete", filename=filename_trader_template
-        )
+        with pd.ExcelWriter(path=filename_trader_template, mode="w") as writer:
+            df_modified.to_excel(excel_writer=writer, sheet_name="modified")
+            df_add.to_excel(excel_writer=writer, sheet_name="add")
+            df_delete.to_excel(excel_writer=writer, sheet_name="delete")
     else:
         logger.trace(f"[{filename_trader_template}] can be access")
     # 创建空的交易员模板 file_name_trader End
@@ -553,7 +544,7 @@ if __name__ == "__main__":
                 dt_now = datetime.datetime.now()
                 str_msg = f"\r{dt_now}----"
                 str_msg += fg.blue(f"[{i:3d}/{count_trader:3d}]")
-                print(f'\r{str_msg}\033[K', end="")
+                print(f"\r{str_msg}\033[K", end="")
                 if i >= count_trader:
                     print("\n", end="")  # 调整输出console格式
                 try:
@@ -588,7 +579,9 @@ if __name__ == "__main__":
                 pct_chg = round(pct_chg, 2)
                 df_trader.at[code, "pct_chg"] = pct_chg
                 if pd.notnull(df_trader.at[code, "price_of_inclusion"]):
-                    pct_of_inclusion = (now_price / df_trader.at[code, "price_of_inclusion"] - 1) * 100
+                    pct_of_inclusion = (
+                        now_price / df_trader.at[code, "price_of_inclusion"] - 1
+                    ) * 100
                     pct_of_inclusion = round(pct_of_inclusion, 2)
                 else:
                     pct_of_inclusion = 0
@@ -815,13 +808,13 @@ if __name__ == "__main__":
                 print(dt_now, ":", list_signal_chg, " --- New Signal\a")
             if list_industry_buying:
                 print(f"{fg.green(f'Buying: {list_industry_buying}')}")
-                print('*' * 108)
+                print("*" * 108)
             if list_industry_selling:
                 print(f"{fg.red(f'Selling: {list_industry_selling}')}")
-                print('*' * 108)
+                print("*" * 108)
             print(str_stock_market_activity_items)
             print(str_stock_market_activity_value)
-            print('*' * 108)
+            print("*" * 108)
             # 主循环块---------End----End-----End----End------End----End------End------End-------End------
 
             end_loop_time = time.perf_counter_ns()
@@ -833,9 +826,7 @@ if __name__ == "__main__":
             str_msg_loop_end = f"{dt_now}----[{str_gm}]"
             str_msg_loop_ctl_zh = f"{dt_now}----{fg.red(str_pos_ctl_zh)}"
             str_msg_loop_ctl_csi1000 = f"{dt_now}----{fg.red(str_pos_ctl_csi1000)}"
-            print(
-                f"{str_msg_loop_end} - {str_msg_concentration_rate}"
-            )
+            print(f"{str_msg_loop_end} - {str_msg_concentration_rate}")
             print(str_msg_loop_ctl_zh)
             print(str_msg_loop_ctl_csi1000)
             # 收盘前集合竟价：14:57 -- 15:00 响玲

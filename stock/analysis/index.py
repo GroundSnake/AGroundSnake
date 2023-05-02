@@ -22,7 +22,7 @@ from analysis.const import (
 )
 
 
-def update_index_data(dt: datetime.datetime = None, dt_origin_year: int = None) -> bool:
+def update_index_data(dt: datetime.datetime = None, dt_origin_year: int = 2023) -> bool:
     """
     :param dt: 指数的日期
     :param dt_origin_year: 指数起点，默认2023年1月1日
@@ -37,10 +37,6 @@ def update_index_data(dt: datetime.datetime = None, dt_origin_year: int = None) 
         dt_pos = dt_trading
     else:
         dt_pos = dt
-    if dt_origin_year is None:
-        dt_origin_year = 2023
-    else:
-        dt_origin_year = dt_pos.year
     dt_origin = datetime.datetime(year=dt_origin_year, month=1, day=1)
     str_dt_origin = dt_origin.strftime("%Y%m%d")
     str_dt_now = dt_pos.strftime("%Y%m%d")
