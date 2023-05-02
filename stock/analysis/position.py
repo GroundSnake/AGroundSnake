@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/28 13:44
 import datetime
 import numpy as np
 import pandas as pd
@@ -6,7 +6,7 @@ from loguru import logger
 import akshare as ak
 import analysis.base
 import analysis.update_data
-from analysis.const import dt_date_trading, time_pm_end, filename_chip_shelve
+from analysis.const import time_pm_end, filename_chip_shelve
 
 
 def position(index: str = "sh000001") -> str:
@@ -21,7 +21,7 @@ def position(index: str = "sh000001") -> str:
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        df_pos_ctl = analysis.base.read_obj_from_db(
+        df_pos_ctl = analysis.base.read_df_from_db(
             key=name, filename=filename_chip_shelve
         )
         stock_close = df_index_realtime.at[index, "最新价"]
@@ -35,7 +35,7 @@ def position(index: str = "sh000001") -> str:
         )
         logger.trace(f"position_control-[{name}] Break End")
         return str_pos_ctl
-    logger.trace(f"Update df_pos_ctl-[pydb_chip] Begin")
+    logger.trace(f"Update df_pos_ctl-[py_dbm_chip] Begin")
     if index == "sh000001":
         df_sh_index = analysis.update_data.update_index_data(symbol=index)
     else:

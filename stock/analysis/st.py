@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/28 13:44
 from __future__ import annotations
 import os
 import datetime
@@ -127,11 +127,11 @@ def st_income(list_symbol: str | list = None) -> bool:
     all_record = len(list_symbol)
     for symbol in list_symbol:
         i += 1
-        str_msg_bar = f"\rST Update:[{i:4d}/{all_record:4d}[--[{symbol}]"
+        str_msg_bar = f"ST Update:[{i:4d}/{all_record:4d}]--[{symbol}]"
         if symbol in list_df_st:
-            print(f'{str_msg_bar} - exist', end='')
+            print(f'\r{str_msg_bar} - exist\033[K', end='')
             continue
-        print(f'{str_msg_bar}', end='')
+        print(f'\r{str_msg_bar} - {dt_date_trading}\033[K', end='')
         zero_time = datetime.time()
         period_forecast = datetime.datetime.combine(dt_period_forecast, zero_time)
         period_income = datetime.datetime.combine(dt_period_income, zero_time)

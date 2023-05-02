@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/28 13:44
 from __future__ import annotations
 import os
 import time
@@ -81,9 +81,11 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
     logger.trace(f"for loop Begin")
     for symbol in list_code:
         i += 1
-        print(f"\rGolden Price Update:[{i:4d}/{all_record:4d}] -- [{symbol}]", end="")
+        str_msg_bar = f"{name}:[{i:4d}/{all_record:4d}] -- [{symbol}]"
         if symbol in list_golden_exist:
+            print(f'\r{str_msg_bar}-- exist\033[K', end="")
             continue
+        print(f'\r{str_msg_bar}\033[K', end="")
         file_name_data_feather = os.path.join(path_kline, f"{symbol}.ftr")
         if os.path.exists(file_name_data_feather):
             # 找到kline，读取腌制数据 df_data

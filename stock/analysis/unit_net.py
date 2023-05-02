@@ -1,3 +1,4 @@
+# modified at 2023/4/28 13:44
 import sys
 import pandas as pd
 from loguru import logger
@@ -8,10 +9,10 @@ from analysis.const import filename_chip_shelve, dt_date_trading
 def unit_net():
     name: str = f"df_unit_net"
     total_market_value = 0
-    df_unit_net = analysis.base.read_obj_from_db(
+    df_unit_net = analysis.base.read_df_from_db(
         key=name, filename=filename_chip_shelve
     )
-    df_trader = analysis.base.read_obj_from_db(
+    df_trader = analysis.base.read_df_from_db(
         key="df_trader", filename=filename_chip_shelve
     )
     if df_trader.empty:
@@ -26,6 +27,6 @@ def unit_net():
     print(df_unit_net.tail(5))
     analysis.base.write_obj_to_db(
         obj=df_unit_net,
-        key="df_unit_net",
+        key=name,
         filename=filename_chip_shelve,
     )

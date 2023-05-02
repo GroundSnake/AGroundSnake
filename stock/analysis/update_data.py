@@ -1,4 +1,4 @@
-# modified at 2023/3/29 15:47
+# modified at 2023/4/28 13:44
 import datetime
 import os
 import time
@@ -16,7 +16,6 @@ from analysis.const import (
     str_date_path,
     dt_init,
     dt_pm_end,
-    dt_date_trading,
     filename_chip_shelve,
     list_all_stocks,
 )
@@ -54,7 +53,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
     for symbol in list_all_stocks:
         i += 1
         str_msg = (
-            f"\rKline Update: [{i:4d}/{count:4d}] -- [{symbol}]"
+            f"Kline Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         )
         if symbol not in df_catalogue.index:
             df_catalogue.at[symbol, "count"] = 0
@@ -154,7 +153,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
             df_catalogue.loc[symbol, "count"] = len(df_data)
             str_msg = str_msg + f"-------------update"
         feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
-        print(str_msg, end="")
+        print(f'\r{str_msg}\033[K', end="")
     if i >= count:
         print("\n", end="")
         df_catalogue = df_catalogue[df_catalogue["count"] != 0]  # 删除无K线记录的股票
