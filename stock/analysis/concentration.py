@@ -21,9 +21,8 @@ def concentration_rate() -> str:
         amount_rate_top5 = 0
     amount_rate_tail95 = 100 - amount_rate_top5
     str_msg = (
-        f'amount[{amount_rate_top5:.2f}//{amount_rate_tail95:.2f}] - '
-        f'turnover[{turnover_top5:.2f}/{turnover_tail95:.2f}] - '
-        f'amplitude[{amplitude_top5:.2f}/{amplitude_tail95:.2f}]'
+        f"amount[{amount_rate_top5:.2f}//{amount_rate_tail95:.2f}] - "
+        f"turnover[{turnover_top5:.2f}/{turnover_tail95:.2f}] - "
+        f"amplitude[{amplitude_top5:.2f}/{amplitude_tail95:.2f}]"
     )
     return str_msg
-

@@ -52,9 +52,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
     logger.trace(f"for loop Begin")
     for symbol in list_all_stocks:
         i += 1
-        str_msg = (
-            f"Kline Update: [{i:4d}/{count:4d}] -- [{symbol}]"
-        )
+        str_msg = f"Kline Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol not in df_catalogue.index:
             df_catalogue.at[symbol, "count"] = 0
             df_catalogue.at[symbol, "start"] = dt_init
@@ -89,7 +87,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     feather.write_dataframe(
                         df=df_data, dest=file_name_feather
                     )  # 写入腌制数据 df_data
-                    df_catalogue.loc[symbol, "end"] = dt_latest_trading = df_data.index.max()
+                    df_catalogue.loc[
+                        symbol, "end"
+                    ] = dt_latest_trading = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
                     str_msg = str_msg + f" - [{dt_latest_trading}]-------------update"
@@ -114,7 +114,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     feather.write_dataframe(
                         df=df_data, dest=file_name_feather
                     )  # 写入腌制数据 df_data
-                    df_catalogue.loc[symbol, "end"] = dt_latest_trading = df_data.index.max()
+                    df_catalogue.loc[
+                        symbol, "end"
+                    ] = dt_latest_trading = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
                     str_msg = str_msg + f" - [{dt_latest_trading}]-------------Create"
@@ -153,7 +155,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
             df_catalogue.loc[symbol, "count"] = len(df_data)
             str_msg = str_msg + f"-------------update"
         feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
-        print(f'\r{str_msg}\033[K', end="")
+        print(f"\r{str_msg}\033[K", end="")
     if i >= count:
         print("\n", end="")
         df_catalogue = df_catalogue[df_catalogue["count"] != 0]  # 删除无K线记录的股票

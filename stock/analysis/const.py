@@ -6,12 +6,12 @@ import random
 import tushare as ts
 
 
-def latest_trading_day(days:int = None) -> datetime.datetime:
+def latest_trading_day(days: int = None) -> datetime.datetime:
     dt = datetime.datetime.now()
     if days is None:
         dt_pos = dt
     else:
-        dt_pos =  dt - datetime.timedelta(days=days)
+        dt_pos = dt - datetime.timedelta(days=days)
     str_dt_pos = dt.strftime("%Y%m%d")
     pro = ts.pro_api()
     df_trade = pro.trade_cal(exchange="", start_date="20230401", end_date=str_dt_pos)

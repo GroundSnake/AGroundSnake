@@ -71,26 +71,33 @@ def update_industry_index_ths() -> bool:
                 df_ths_daily["trade_date"] = pd.to_datetime(df_ths_daily["trade_date"])
                 df_ths_daily.set_index(keys=["trade_date"], inplace=True)
                 df_ths_daily.sort_index(ascending=True, inplace=True)
-                filename_ths_daily = os.path.join(
-                    path_industry, f"{symbol_index}.ftr"
-                )
+                filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
                 feather.write_dataframe(df=df_ths_daily, dest=filename_ths_daily)
-                dt_industry_index_temp = datetime.datetime.combine(df_ths_daily.index.max().date(), time_pm_end)
+                dt_industry_index_temp = datetime.datetime.combine(
+                    df_ths_daily.index.max().date(), time_pm_end
+                )
                 dt_now = datetime.datetime.now()
                 if dt_now > dt_pm_end and dt_industry_index_temp != dt_pm_end:
-                    str_msg_bar += f' - [{dt_industry_index_temp}]'
-                    print(f'\r{str_msg_bar} is not new\033[K')
+                    str_msg_bar += f" - [{dt_industry_index_temp}]"
+                    print(f"\r{str_msg_bar} is not new\033[K")
                     sys.exit()
-                str_msg_bar += f' - [{dt_industry_index_temp}]'
-                if dt_index_kline_industry is None or dt_index_kline_industry < dt_industry_index_temp:
+                str_msg_bar += f" - [{dt_industry_index_temp}]"
+                if (
+                    dt_index_kline_industry is None
+                    or dt_index_kline_industry < dt_industry_index_temp
+                ):
                     dt_index_kline_industry = dt_industry_index_temp
                 break
             if i_times_ths_daily >= 2:
-                print(f"[{ts_code_index}] Request ConnectionError - [daily] - [{i_times_ths_daily}]times")
-                logger.trace(f"[{ts_code_index}] Request ConnectionError - [{i_times_ths_daily}]times")
+                print(
+                    f"[{ts_code_index}] Request ConnectionError - [daily] - [{i_times_ths_daily}]times"
+                )
+                logger.trace(
+                    f"[{ts_code_index}] Request ConnectionError - [{i_times_ths_daily}]times"
+                )
                 sys.exit()
             i_times_ths_daily += 1
-        print(f'\r{str_msg_bar}\033[K', end='')
+        print(f"\r{str_msg_bar}\033[K", end="")
     if i >= len_list_index_codes:
         print("\n", end="")  # 格式处理
         analysis.base.set_version(key=name, dt=dt_index_kline_industry)
@@ -100,6 +107,7 @@ def update_industry_index_ths() -> bool:
     print(f"Industry analysis [{name}] takes {str_gm}")
     logger.trace(f"{name} End")
     return True
+
 
 def industry_pct() -> bool:
     name: str = f"df_industry_pct"
@@ -138,28 +146,22 @@ def industry_pct() -> bool:
         symbol_index = analysis.base.code_ts_to_ths(ts_code_index)
         str_msg_bar = f"\r{name}:[{i:04d}/{len_list_index_codes:4d}] - [{symbol_index}]"
         if ts_code_index in list_industry_pct_exist:
-            print(f'{str_msg_bar} - exist', end='')
+            print(f"{str_msg_bar} - exist", end="")
             continue
-        filename_ths_daily = os.path.join(
-            path_industry, f"{symbol_index}.ftr"
-        )
+        filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
         df_ths_daily = feather.read_dataframe(source=filename_ths_daily)
         df_ths_daily_pct = df_ths_daily[["pct_change"]].copy()
-        df_ths_daily_pct.rename(
-            columns={"pct_change": ts_code_index}, inplace=True
-        )
+        df_ths_daily_pct.rename(columns={"pct_change": ts_code_index}, inplace=True)
         df_industry_pct = pd.concat(
             objs=[df_industry_pct, df_ths_daily_pct],
             axis=1,
             join="outer",
         )
-        feather.write_dataframe(
-            df=df_industry_pct, dest=filename_industry_pct
-        )
+        feather.write_dataframe(df=df_industry_pct, dest=filename_industry_pct)
         dt_ths_daily = datetime.datetime.combine(
             df_ths_daily.index.max().date(), time_pm_end
         )
-        print(f'{str_msg_bar} - {dt_ths_daily}', end='')
+        print(f"{str_msg_bar} - {dt_ths_daily}", end="")
     df_industry_pct = df_industry_pct.applymap(func=lambda x: x + 100)
     len_df_industry_pct = len(df_industry_pct)
     i = 0
@@ -190,9 +192,11 @@ def industry_pct() -> bool:
     print(f"Industry analysis [{name}] takes {str_gm}")
     logger.trace(f"{name} End")
     return True
+
+
 def industry_rank():
     name: str = f"df_industry_rank"
-    kdata:str = 'df_industry_pct'
+    kdata: str = "df_industry_pct"
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
@@ -272,11 +276,11 @@ def industry_rank():
         axis=0, method="min", ascending=False
     )
     df_industry_rank["rank"] = (
-            df_industry_rank["T5_rank"]
-            + df_industry_rank["T20_rank"]
-            + df_industry_rank["T40_rank"]
-            + df_industry_rank["T60_rank"]
-            + df_industry_rank["T80_rank"]
+        df_industry_rank["T5_rank"]
+        + df_industry_rank["T20_rank"]
+        + df_industry_rank["T40_rank"]
+        + df_industry_rank["T60_rank"]
+        + df_industry_rank["T80_rank"]
     )
     pro = ts.pro_api()
     df_ths_index = pro.ths_index()
@@ -308,16 +312,16 @@ def industry_rank():
     df_industry_rank_pool = df_industry_rank_pool[
         (df_industry_rank_pool["T5_rank"] >= 66)
         | (df_industry_rank_pool["T5_rank"] <= 10)
-        ]
+    ]
     df_industry_rank_pool = df_industry_rank_pool[
         (df_industry_rank_pool["T20_rank"] >= 66)
         | (df_industry_rank_pool["T20_rank"] <= 10)
-        ]
+    ]
     df_industry_rank_pool = df_industry_rank_pool[
         (df_industry_rank_pool["T40_rank"] >= 56)
         | (df_industry_rank_pool["T40_rank"] <= 20)
-        ]
-    if  not df_industry_rank_pool.empty:
+    ]
+    if not df_industry_rank_pool.empty:
         df_industry_rank_pool.sort_values(
             by=["T5_rank"], axis=0, ascending=False, inplace=True
         )
@@ -326,7 +330,7 @@ def industry_rank():
             key="df_industry_rank_pool",
             filename=filename_chip_shelve,
         )
-        analysis.base.set_version(key='df_industry_rank_pool', dt=dt_industry_rank)
+        analysis.base.set_version(key="df_industry_rank_pool", dt=dt_industry_rank)
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -386,7 +390,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         i += 1
         str_msg_bar = f"{name}:[{i:04d}/{count_list_symbol:4d}] -- [{symbol}]"
         if symbol in list_exist:  # 己存在，断点继续
-            str_msg_bar += '- exist'
+            str_msg_bar += "- exist"
         else:
             if symbol in list_symbol_industry_class:
                 ts_code = analysis.base.code_ths_to_ts(symbol)
@@ -396,7 +400,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 while True:
                     try:
                         df_daily = pro.daily(
-                            ts_code=ts_code, start_date=str_delta, end_date=str_date_trading
+                            ts_code=ts_code,
+                            start_date=str_delta,
+                            end_date=str_date_trading,
                         )
                     except requests.exceptions.ConnectionError as e:
                         print("--", repr(e))
@@ -410,16 +416,18 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                         else:
                             break
                     if i_times_daily >= 2:
-                        print(f"[{symbol}] Request ConnectionError - [daily] - [{i_times_daily}]times")
-                        logger.trace(f"[{symbol}] Request ConnectionError - [{i_times_daily}]times")
+                        print(
+                            f"[{symbol}] Request ConnectionError - [daily] - [{i_times_daily}]times"
+                        )
+                        logger.trace(
+                            f"[{symbol}] Request ConnectionError - [{i_times_daily}]times"
+                        )
                         sys.exit()
                     i_times_daily += 1
                 df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
                 df_daily.set_index(keys=["trade_date"], inplace=True)
                 df_daily.sort_index(ascending=True, inplace=True)
-                filename_ths_daily = os.path.join(
-                    path_industry, f"{symbol_class}.ftr"
-                )
+                filename_ths_daily = os.path.join(path_industry, f"{symbol_class}.ftr")
                 if os.path.exists(filename_ths_daily):
                     df_ths_daily = feather.read_dataframe(source=filename_ths_daily)
                 else:
@@ -435,7 +443,9 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 len_record = len(list_index_df_data)
                 str_msg_bar += f" - [{len_record:3d}]"
                 dt_daily = datetime.datetime.combine(df_daily.index.max(), time_pm_end)
-                dt_ths_daily = datetime.datetime.combine(df_ths_daily.index.max(), time_pm_end)
+                dt_ths_daily = datetime.datetime.combine(
+                    df_ths_daily.index.max(), time_pm_end
+                )
                 if dt_daily_max is None or dt_daily_max < dt_daily:
                     dt_daily_max = dt_daily
                 if dt_daily == dt_ths_daily:
@@ -445,15 +455,15 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 for index in list_index_df_data:
                     if index in list_index_df_ths_daily:
                         if (
-                                df_daily.at[index, "pct_chg"]
-                                > df_ths_daily.at[index, "pct_change"]
+                            df_daily.at[index, "pct_chg"]
+                            > df_ths_daily.at[index, "pct_change"]
                         ):
                             up += 1
                             up_keep_days += 1
                             down_keep_days = 0
                         elif (
-                                df_daily.at[index, "pct_chg"]
-                                < df_ths_daily.at[index, "pct_change"]
+                            df_daily.at[index, "pct_chg"]
+                            < df_ths_daily.at[index, "pct_change"]
                         ):
                             down += 1
                             up_keep_days = 0
@@ -473,7 +483,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 df_industry.at[symbol, "up_keep_days_industry"] = up_keep_days
                 df_industry.at[symbol, "down_keep_days_industry"] = down_keep_days
             feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
-        print(f'\r{str_msg_bar}\033[K', end="")
+        print(f"\r{str_msg_bar}\033[K", end="")
     print("\n", end="")  # 格式处理
     if i >= count_list_symbol:
         analysis.base.write_obj_to_db(
@@ -492,6 +502,8 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     print(f"Industry analysis [{name}] takes {str_gm}")
     logger.trace(f"{name} End")
     return True
+
+
 """
     for file in os.listdir(path_industry):  # 删除临时文件
         if file.startswith('ti') and file.endswith('.ftr'):

@@ -129,9 +129,9 @@ def st_income(list_symbol: str | list = None) -> bool:
         i += 1
         str_msg_bar = f"ST Update:[{i:4d}/{all_record:4d}]--[{symbol}]"
         if symbol in list_df_st:
-            print(f'\r{str_msg_bar} - exist\033[K', end='')
+            print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
-        print(f'\r{str_msg_bar} - {dt_date_trading}\033[K', end='')
+        print(f"\r{str_msg_bar} - {dt_date_trading}\033[K", end="")
         zero_time = datetime.time()
         period_forecast = datetime.datetime.combine(dt_period_forecast, zero_time)
         period_income = datetime.datetime.combine(dt_period_income, zero_time)

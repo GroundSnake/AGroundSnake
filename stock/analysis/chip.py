@@ -22,9 +22,7 @@ def chip() -> object | DataFrame:
     start_loop_time = time.perf_counter_ns()
     dt_init = datetime.datetime(year=1989, month=1, day=1)
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        df_chip = analysis.base.read_df_from_db(
-            key=name, filename=filename_chip_shelve
-        )
+        df_chip = analysis.base.read_df_from_db(key=name, filename=filename_chip_shelve)
         logger.trace(f"{name} Break End")
         return df_chip
     logger.trace(f"Update {name}")
@@ -106,9 +104,7 @@ def chip() -> object | DataFrame:
     df_chip["turnover"] = df_chip["total_volume"] / (df_chip["circ_cap"] / 100)
     df_chip["turnover"] = df_chip["turnover"].apply(func=lambda x: round(x, 2))
     df_chip["turnover"].fillna(value=0, inplace=True)
-    df_chip.sort_values(
-        by=["T5_pct"], ascending=False, inplace=True
-    )
+    df_chip.sort_values(by=["T5_pct"], ascending=False, inplace=True)
     df_chip["dt"].fillna(value=dt_init, inplace=True)
     analysis.base.write_obj_to_db(obj=df_chip, key=name, filename=filename_chip_shelve)
     logger.trace(f"{name} save as [db_chip]")
@@ -208,7 +204,9 @@ def chip() -> object | DataFrame:
     analysis.base.write_obj_to_db(
         obj=df_stocks_pool, key="df_stocks_pool", filename=filename_chip_shelve
     )
-    df_config = analysis.base.read_df_from_db(key='df_config', filename=filename_chip_shelve)
+    df_config = analysis.base.read_df_from_db(
+        key="df_config", filename=filename_chip_shelve
+    )
     try:
         df_config_temp = df_config.drop(index=[name])
     except KeyError as e:

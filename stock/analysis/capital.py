@@ -155,7 +155,9 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
             str_list_date, "%Y%m%d"
         )
     df_return.set_index(keys="code", inplace=True)
-    df_return["total_mv_E"] = df_return["total_mv_E"].apply(func=lambda x: round(x / 100000000, 2))
+    df_return["total_mv_E"] = df_return["total_mv_E"].apply(
+        func=lambda x: round(x / 100000000, 2)
+    )
     df_return = df_return.reindex(
         columns=["name", "list_date", "total_cap", "circ_cap", "total_mv_E"]
     )
@@ -191,7 +193,7 @@ def capital() -> bool:
             print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
         else:
-            print(f'\r{str_msg_bar} - update\033[K', end="")
+            print(f"\r{str_msg_bar} - update\033[K", end="")
         code = symbol[2:]
         df_cap_temp = pd.DataFrame()
         i_times = 0

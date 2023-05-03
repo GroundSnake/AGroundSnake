@@ -201,7 +201,10 @@ def update_index_data(dt: datetime.datetime = None, dt_origin_year: int = 2023) 
                                 ] = df_pro_bar_symbol.at[max2_index_close, "trade_date"]
                                 break
                             else:
-                                print(f"\r{srr_msg_bar} - sleep[{i_pro_bar}]......\033[K", end="")
+                                print(
+                                    f"\r{srr_msg_bar} - sleep[{i_pro_bar}]......\033[K",
+                                    end="",
+                                )
                                 time.sleep(2)
                                 if i_pro_bar > 2:
                                     break
@@ -211,7 +214,7 @@ def update_index_data(dt: datetime.datetime = None, dt_origin_year: int = 2023) 
                     time.sleep(2)
                     if i_times > 2:
                         df_index_data.drop(index=symbol, inplace=True)
-                        print(' - drop')
+                        print(" - drop")
                         break
         else:
             srr_msg_bar += " - latest"
@@ -272,7 +275,7 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
         )
     else:
         logger.trace(f"{name_data} is not latest and update")
-        if update_index_data(dt = dt_pos):
+        if update_index_data(dt=dt_pos):
             df_index_data = analysis.base.read_df_from_db(
                 key=name_data, filename=filename_chip_shelve
             )
@@ -515,7 +518,7 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
         init_opts=opts.InitOpts(
             width="1800px",
             height="860px",
-            page_title='SSB index',
+            page_title="SSB index",
         )
     )
     line_index.add_xaxis(xaxis_data=x_axis)
@@ -564,10 +567,7 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
         title_opts=opts.TitleOpts(title="SSB Index", pos_left="center"),
         tooltip_opts=opts.TooltipOpts(trigger="axis"),
         toolbox_opts=opts.ToolboxOpts(),
-        legend_opts=opts.LegendOpts(
-            orient='vertical',
-            pos_right=0,
-            pos_top=60),
+        legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top=60),
         yaxis_opts=opts.AxisOpts(
             min_=y_min,
             max_=y_max,
@@ -575,10 +575,21 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
         datazoom_opts=opts.DataZoomOpts(
             range_start=0,
             range_end=100,
-
         ),
     )
-    line_index.set_colors(colors=['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'black', 'pink', 'brown'])
+    line_index.set_colors(
+        colors=[
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "blue",
+            "purple",
+            "black",
+            "pink",
+            "brown",
+        ]
+    )
     line_index.render(path=filename_index_charts)
     analysis.base.write_obj_to_db(
         obj=df_ssb_index,
