@@ -12,10 +12,49 @@ import analysis.base
 from analysis.const import (
     path_data,
     filename_chip_shelve,
+    dt_init,
+    dt_trading,
     dt_date_trading,
     dt_pm_end,
     list_all_stocks,
 )
+
+
+def non_standard_opinions():
+    dt_end = dt_trading
+    dt_start = dt_trading - datetime.timedelta(days=6 * 365)
+    stt_dt_end = dt_end.strftime("%Y%m%d")
+    stt_dt_start = dt_start.strftime("%Y%m%d")
+    print(stt_dt_end)
+    print(stt_dt_start)
+    filename_df_balance_sheet = os.path.join(
+        path_data, f"df_balance_sheet_{stt_dt_end}.ftr"
+    )
+    pro = ts.pro_api()
+    if os.path.exists(filename_df_balance_sheet):
+        df_balance_sheet_vip = feather.read_dataframe(source=filename_df_balance_sheet)
+    else:
+        df_balance_sheet_vip = pro.balancesheet_vip(
+            period="20230331",
+            fields="ts_code,ann_date,f_ann_date,end_date,total_hldr_eqy_exc_min_int",
+        )
+        df_balance_sheet_vip.drop_duplicates(
+            subset="ts_code", keep="first", inplace=True
+        )
+        df_balance_sheet_vip["symbol"] = df_balance_sheet_vip["ts_code"].apply(
+            func=lambda x: x[-2:].lower() + x[:6]
+        )
+        df_balance_sheet_vip.set_index(keys=["symbol"], inplace=True)
+        df_balance_sheet_vip["end_date"] = pd.to_datetime(
+            df_balance_sheet_vip["end_date"]
+        )
+        # df_balance_sheet_vip["end_date"].fillna(method="ffill", inplace=True)
+        # df_balance_sheet_vip["end_type"].fillna(method="ffill", inplace=True)
+        # df_balance_sheet_vip["update_flag"].fillna(method="ffill", inplace=True)
+        # df_balance_sheet_vip.fillna(value=0, inplace=True)
+        feather.write_dataframe(df=df_balance_sheet_vip, dest=filename_df_balance_sheet)
+    df_balance_sheet_vip.to_csv("a.csv")
+    return df_balance_sheet_vip
 
 
 def st_income(list_symbol: str | list = None) -> bool:
@@ -56,6 +95,9 @@ def st_income(list_symbol: str | list = None) -> bool:
     filename_df_income = os.path.join(
         path_data, f"df_income_{str_date_path_income}.ftr"
     )
+    filename_df_balance_sheet = os.path.join(
+        path_data, f"df_balance_sheet_{str_date_path_income}.ftr"
+    )
     filename_df_income_next_temp = os.path.join(
         path_data, f"df_income_next_temp_{str_date_path}.ftr"
     )
@@ -81,6 +123,27 @@ def st_income(list_symbol: str | list = None) -> bool:
         df_income["update_flag"].fillna(method="ffill", inplace=True)
         df_income.fillna(value=0, inplace=True)
         feather.write_dataframe(df=df_income, dest=filename_df_income)
+    if os.path.exists(filename_df_balance_sheet):
+        df_balance_sheet_vip = feather.read_dataframe(source=filename_df_balance_sheet)
+    else:
+        df_balance_sheet_vip = pro.balancesheet_vip(
+            period=str_dt_period_income,
+            fields="ts_code,ann_date,f_ann_date,end_date,report_type,comp_type,total_hldr_eqy_exc_min_int",
+        )
+        df_balance_sheet_vip["symbol"] = df_balance_sheet_vip["ts_code"].apply(
+            func=lambda x: x[-2:].lower() + x[:6]
+        )
+        df_balance_sheet_vip.drop_duplicates(
+            subset="ts_code", keep="first", inplace=True
+        )
+        df_balance_sheet_vip["symbol"] = df_balance_sheet_vip["ts_code"].apply(
+            func=lambda x: x[-2:].lower() + x[:6]
+        )
+        df_balance_sheet_vip.set_index(keys=["symbol"], inplace=True)
+        df_balance_sheet_vip["end_date"] = pd.to_datetime(
+            df_balance_sheet_vip["end_date"]
+        )
+        feather.write_dataframe(df=df_balance_sheet_vip, dest=filename_df_balance_sheet)
     if os.path.exists(filename_df_income_next_temp):
         df_income_next = feather.read_dataframe(source=filename_df_income_next_temp)
     else:
@@ -142,6 +205,14 @@ def st_income(list_symbol: str | list = None) -> bool:
         net_profit_min = 0
         net_profit_max = 0
         grade = ""
+        if symbol in df_balance_sheet_vip.index:
+            df_st.at[symbol, "end_date"] = df_balance_sheet_vip.at[symbol, "end_date"]
+            df_st.at[symbol, "total_hldr_eqy_exc_min_int"] = df_balance_sheet_vip.at[
+                symbol, "total_hldr_eqy_exc_min_int"
+            ]
+        else:
+            df_st.at[symbol, "end_date"] = dt_init
+            df_st.at[symbol, "total_hldr_eqy_exc_min_int"] = 0
         if symbol in list_df_income_next:
             period_income = df_income_next.at[symbol, "end_date"]
             revenue = df_income_next.at[symbol, "revenue"] / 100000000
@@ -217,7 +288,10 @@ def st_income(list_symbol: str | list = None) -> bool:
         df_st.at[symbol, "net_profit"] = net_profit
         df_st.at[symbol, "net_profit_min"] = net_profit_min
         df_st.at[symbol, "net_profit_max"] = net_profit_max
-        df_st.at[symbol, "ST"] = grade
+        if df_st.at[symbol, "total_hldr_eqy_exc_min_int"] < 0:
+            df_st.at[symbol, "ST"] = "ST++"
+        else:
+            df_st.at[symbol, "ST"] = grade
         if random.randint(0, 2) == 1:
             feather.write_dataframe(df=df_st, dest=filename_df_st_temp)
     if i >= all_record:
@@ -237,6 +311,9 @@ def st_income(list_symbol: str | list = None) -> bool:
         if os.path.exists(filename_df_income_next_temp):
             os.remove(path=filename_df_income_next_temp)
             logger.trace(f"[{filename_df_income_next_temp}] remove")
+        if os.path.exists(filename_df_income):
+            os.remove(path=filename_df_income)
+            logger.trace(f"[{filename_df_income}] remove")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

@@ -150,6 +150,8 @@ if __name__ == "__main__":
             "pct_chg",
             "rise",
             "fall",
+            "total_mv_E",
+            "ssb_index",
             "stock_index",
             "grade",
             "recent_trading",
@@ -169,10 +171,9 @@ if __name__ == "__main__":
     df_stocks_pool = analysis.read_df_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
-    list_trader = df_trader.index.to_list()
     list_stocks_pool = df_stocks_pool.index.to_list()
     for code in list_stocks_pool:
-        if code not in list_trader:
+        if code not in df_trader.index:
             df_trader.loc[code] = pd.Series(index=df_trader.columns, dtype="object")
         if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):
             df_trader.at[code, "date_of_inclusion_first"] = dt_date_trading
@@ -199,10 +200,8 @@ if __name__ == "__main__":
     df_trader["recent_trading"].fillna(dt_now, inplace=True)
     logger.trace("Create df_trader End")
     # 加载df_trader End
-    # 用df_chip初始化df_trader----Begin
     logger.trace("initialization df_index")
-    list_trader = df_trader.index.to_list()
-    for code in list_trader:
+    for code in df_trader.index:
         if code in df_industry_index.index:
             df_trader.at[code, "industry_code"] = df_industry_index.at[
                 code, "industry_code"
@@ -210,7 +209,21 @@ if __name__ == "__main__":
             df_trader.at[code, "industry_name"] = df_industry_index.at[
                 code, "industry_name"
             ]
-        if code in df_chip.index:
+        # 删除df_trader中标的----Begin
+        if df_trader.at[code, "position"] == 0:
+            dt_inclusion_latest = df_trader.at[
+                code, "date_of_inclusion_latest"
+            ] - datetime.timedelta(days=30)
+            days_inclusion = (
+                dt_inclusion_latest - df_trader.at[code, "date_of_inclusion_first"]
+            ).days
+            if days_inclusion > 30 and df_trader.at[code, "times_of_inclusion"] < 10:
+                df_trader.drop(index=code, inplace=True)
+        # 删除df_trader中标的----End
+        # 用df_chip初始化df_trader----Begin
+        if code in df_chip.index and code in df_trader.index:
+            df_trader.at[code, "total_mv_E"] = df_chip.at[code, "total_mv_E"]
+            df_trader.at[code, "ssb_index"] = df_chip.at[code, "ssb_index"]
             now_price = df_trader.at[code, "now_price"]
             now_price_ratio = round(df_chip.at[code, "now_price_ratio"], 1)
             G_price = df_chip.at[code, "G_price"]
@@ -301,13 +314,41 @@ if __name__ == "__main__":
                 ]
             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
                 df_trader.at[code, "price_of_inclusion"] = G_price
-    # 用df_chip初始化df_trader-----End
-    # 保存df_trader Begin
+        # 用df_chip初始化df_trader-----End
+    # 保存df_trader----Begin
+    """
+    list_trader_columns = [
+        "name",
+        "recent_price",
+        "position",
+        "position_unit",
+        "trx_unit_share",
+        "now_price",
+        "pct_chg",
+        "rise",
+        "fall",
+        "total_mv_E",
+        "ssb_index",
+        "stock_index",
+        "grade",
+        "recent_trading",
+        "ST",
+        "industry_code",
+        "industry_name",
+        "date_of_inclusion_first",
+        "date_of_inclusion_latest",
+        "times_of_inclusion",
+        "price_of_inclusion",
+        "pct_of_inclusion",
+        "remark",
+    ]
+    df_trader = df_trader.reindex(columns = list_trader_columns)
+    """
     analysis.write_obj_to_db(
         obj=df_trader, key="df_trader", filename=filename_chip_shelve
     )
-    # 保存df_trader End
-    # 创建df_signal Begin
+    # 保存df_trader----End
+    # 创建df_signal----Begin
     logger.trace("Create df_signal")
     if os.access(path=filename_signal, mode=os.F_OK):
         logger.trace(f"load df_signal from [{filename_signal}]")
@@ -369,8 +410,8 @@ if __name__ == "__main__":
             str_msg_concentration_rate = analysis.concentration_rate()
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
-            logger.trace(f"The exchange will open ar {dt_am_start}")
-            print(f"The exchange will open ar {dt_am_start}")
+            logger.trace(f"The exchange will open at {dt_am_start}")
+            print(f"The exchange will open at {dt_am_start}")
             sleep_to_time(dt_am_start)
         # 盘中 9:30 -- 11:30 and 13:00 -- 15:00
         elif (dt_am_start <= dt_now <= dt_am_end) or (
@@ -401,7 +442,6 @@ if __name__ == "__main__":
                 df_in_add.index = df_in_add.index.str.lower()
                 df_in_del.index = df_in_del.index.str.lower()
                 # 索引转为小写字母 End
-                list_trader = df_trader.index.to_list()
                 df_in_modified = df_in_modified[
                     ~df_in_modified.index.duplicated(keep="first")
                 ]  # 去重
@@ -413,7 +453,7 @@ if __name__ == "__main__":
                 if len(list_in_modified) > 0:
                     df_in_modified["recent_trading"] = dt_now
                     for code in list_in_modified:
-                        if code in list_trader:
+                        if code in df_trader.index:
                             series_add_index = df_in_modified.loc[code].index
                             for item in series_add_index:
                                 if pd.notnull(df_in_modified.at[code, item]):
@@ -462,7 +502,7 @@ if __name__ == "__main__":
                 if len(list_in_del) > 0:
                     df_in_del["recent_trading"] = dt_now
                     for code in list_in_del:
-                        if code in list_trader:
+                        if code in df_trader.index:
                             if df_trader.at[code, "position"] <= 0:
                                 df_trader.drop(index=code, inplace=True)
                             else:
@@ -488,8 +528,9 @@ if __name__ == "__main__":
                 logger.trace(f"[{filename_input}] is not exist")
             # 增加修改删除df_data中的项目 End
             # 调用实时数据接口，更新df_realtime Begin
-            list_trader = df_trader.index.to_list()
-            df_realtime = realtime_quotations(stock_codes=list_trader)  # 调用实时数据接口
+            df_realtime = realtime_quotations(
+                stock_codes=df_trader.index.to_list()
+            )  # 调用实时数据接口
             if df_realtime.empty:
                 logger.trace(f"[df_realtime] is empty, the program ends")
                 sys.exit()
@@ -538,8 +579,8 @@ if __name__ == "__main__":
             str_msg_fall = ""
             count_fall = 0
             i = 0
-            count_trader = len(list_trader)
-            for code in list_trader:
+            count_trader = len(df_trader.index)
+            for code in df_trader.index:
                 i += 1
                 dt_now = datetime.datetime.now()
                 str_msg = f"\r{dt_now}----"
@@ -642,8 +683,6 @@ if __name__ == "__main__":
                     str_msg_rise_industry = (
                         f"\n ---- [{df_trader.at[code, 'name']}]"
                         f" - [{industry_code}]"
-                        f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
-                        f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
                     if industry_code in list_industry_selling_code:
                         str_msg_rise_industry = fg.lightred(str_msg_rise_industry)
@@ -673,7 +712,11 @@ if __name__ == "__main__":
                             df_trader.at[code, "recent_trading"], datetime.datetime
                         ):
                             dt_trading = df_trader.at[code, "recent_trading"].date()
-                            str_msg_rise += f"\n ---- [{dt_trading}]"
+                            str_msg_rise += (
+                                f"\n ---- [trading:{dt_trading}]"
+                                f"-[{df_trader.at[code, 'times_of_inclusion']:02.0f}]"
+                                f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
+                            )
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
                     str_msg_rise += "\n"
@@ -722,8 +765,6 @@ if __name__ == "__main__":
                     str_msg_fall_industry = (
                         f"\n ---- [{df_trader.at[code, 'industry_name']}]"
                         f" - [{industry_code}]"
-                        f"-[{df_trader.at[code, 'times_of_inclusion']:2.0f}]"
-                        f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
                     )
                     if industry_code in list_industry_buying_code:
                         str_msg_fall_industry = fg.red(str_msg_fall_industry)
@@ -751,7 +792,11 @@ if __name__ == "__main__":
                             df_trader.at[code, "recent_trading"], datetime.datetime
                         ):
                             dt_trading = df_trader.at[code, "recent_trading"].date()
-                            str_msg_fall += f"\n ---- [{dt_trading}]"
+                            str_msg_fall += (
+                                f"\n ---- [trading: {dt_trading}]"
+                                f"-[{df_trader.at[code, 'times_of_inclusion']:02.0f}]"
+                                f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
+                            )
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
                     str_msg_fall += "\n"
@@ -759,7 +804,11 @@ if __name__ == "__main__":
                     pass
                 # df_trader End
             # 更新df_data，str_msg_rise，str_msg_fall------End
-            df_trader.sort_values(by=["pct_chg"], ascending=False, inplace=True)
+            df_trader.sort_values(
+                by=["date_of_inclusion_latest", "pct_chg"],
+                ascending=[True, False],
+                inplace=True,
+            )
             analysis.write_obj_to_db(
                 obj=df_trader, key="df_trader", filename=filename_chip_shelve
             )
@@ -787,19 +836,20 @@ if __name__ == "__main__":
                 list_signal_buy = list_signal_buy_temp.copy()
             if list_signal_sell != list_signal_sell_temp:
                 list_signal_sell = list_signal_sell_temp.copy()
-            print(
-                f"===={fg.green('<Suggest Buying>')}=================================================="
-            )
             if str_msg_fall != "":
+                print(
+                    f"===={fg.green('<Suggest Buying>')}=================================================="
+                )
                 print(str_msg_fall)
-            print(
-                f"===={fg.red('<Suggest Selling>')}================================================="
-            )
             if str_msg_rise != "":
+                print(
+                    f"===={fg.red('<Suggest Selling>')}================================================="
+                )
                 print(str_msg_rise, "\a")  # 加上“\a”，铃声提醒
-            print(
-                f"****{fg.yellow('<Suggest END>')}*****************************************************"
-            )
+            if str_msg_fall != "" or str_msg_rise != "":
+                print(
+                    f"****{fg.yellow('<Suggest END>')}*****************************************************"
+                )
             str_msg_temp = str_msg_modified + str_msg_add + str_msg_del
             if str_msg_temp != "":
                 str_msg_temp = fg.red(str_msg_temp)
