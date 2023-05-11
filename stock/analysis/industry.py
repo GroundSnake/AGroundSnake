@@ -286,8 +286,8 @@ def industry_rank():
     pro = ts.pro_api()
     df_ths_index = pro.ths_index()
     df_ths_index.set_index(keys="ts_code", inplace=True)
-    for ths_index_code in df_industry_rank.index.tolist():
-        if ths_index_code in df_ths_index.index.tolist():
+    for ths_index_code in df_industry_rank.index:
+        if ths_index_code in df_ths_index.index:
             df_industry_rank.at[ths_index_code, "name"] = df_ths_index.at[
                 ths_index_code, "name"
             ]
