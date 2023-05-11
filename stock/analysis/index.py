@@ -332,6 +332,9 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
     df_index_data_1000 = df_index_data.iloc[800:1800].copy()
     df_index_data_2000 = df_index_data.iloc[1800:3800].copy()
     df_index_data_tail = df_index_data.iloc[3800:].copy()
+    df_index_data_st = df_index_data[
+        df_index_data["name"].str.contains("ST").fillna(False)
+    ]
     ########----50---########
     base_mv_50 = df_index_data_50["base_mv"].sum()
     now_mv_50 = df_index_data_50["now_mv"].sum()
@@ -501,6 +504,33 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
         else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x),
         na_action="ignore",
     )
+    ########----st---########
+    base_mv_st = df_index_data_st["base_mv"].sum()
+    now_mv_st = df_index_data_st["now_mv"].sum()
+    df_ssb_index.at[dt_date_index, "base_mv_st"] = round(base_mv_st / 100000000, 2)
+    df_ssb_index.at[dt_date_index, "now_mv_st"] = round(now_mv_st / 100000000, 2)
+    stocks_index_st = now_mv_st / base_mv_st * 1000
+    stocks_index_st = round(stocks_index_st, 2)
+    df_ssb_index.at[dt_date_index, "stocks_index_st"] = stocks_index_st
+    df_index_data_st["contribution_points_index_st"] = (
+        (df_index_data_st["now_mv"] - df_index_data_st["base_mv"]) / base_mv_50 * 1000
+    )
+    df_index_data_st["t1_contribution_points_index_st"] = (
+        (df_index_data_st["t1_mv"] - df_index_data_st["base_mv"]) / base_mv_50 * 1000
+    )
+    df_index_data_st["now_t1_contribution_points_index_st"] = (
+        df_index_data_st["contribution_points_index_st"]
+        - df_index_data_st["t1_contribution_points_index_st"]
+    )
+    df_index_data_st.sort_values(
+        by=["now_t1_contribution_points"], ascending=False, inplace=True
+    )
+    df_index_data_st = df_index_data_st.applymap(
+        func=lambda x: round(x / 10000, 2)
+        if (isinstance(x, (int, float)) and x > 100)
+        else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x),
+        na_action="ignore",
+    )
     ###################################################################
     df_ssb_index.sort_index(ascending=True, inplace=True)
     x_axis = df_ssb_index.index.tolist()
@@ -511,7 +541,8 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
     v_1000 = df_ssb_index["stocks_index_1000"].tolist()
     v_2000 = df_ssb_index["stocks_index_2000"].tolist()
     v_tail = df_ssb_index["stocks_index_tail"].tolist()
-    list_values = v_all + v_50 + v_300 + v_500 + v_1000 + v_2000 + v_tail
+    v_st = df_ssb_index["stocks_index_st"].tolist()
+    list_values = v_all + v_50 + v_300 + v_500 + v_1000 + v_2000 + v_tail + v_st
     y_min = min(list_values)
     y_max = max(list_values)
     line_index = Line(
@@ -561,6 +592,11 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
     line_index.add_yaxis(
         series_name="index_tail",
         y_axis=v_tail,
+        is_symbol_show=False,
+    )
+    line_index.add_yaxis(
+        series_name="index_st",
+        y_axis=v_st,
         is_symbol_show=False,
     )
     line_index.set_global_opts(
@@ -624,6 +660,11 @@ def make_ssb_index(dt: datetime.datetime = None) -> bool:
     analysis.base.write_obj_to_db(
         obj=df_index_data_tail,
         key="df_index_data_tail",
+        filename=filename_chip_shelve,
+    )
+    analysis.base.write_obj_to_db(
+        obj=df_index_data_st,
+        key="df_index_data_st",
         filename=filename_chip_shelve,
     )
     dt_ssb_index = datetime.datetime.combine(dt_date_index, time_pm_end)

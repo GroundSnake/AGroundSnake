@@ -39,7 +39,8 @@ def sleep_to_time(dt_time: datetime.datetime):
         str_sleep_gm = time.strftime("%H:%M:%S", time.gmtime(int_delay))
         str_sleep_msg = f"Waiting: {str_sleep_gm}"
         str_sleep_msg = fg.cyan(str_sleep_msg)
-        str_sleep_msg = f"{dt_now_sleep}----" + str_sleep_msg
+        str_dt_now_sleep = dt_now_sleep.strftime("<%H:%M:%S>")
+        str_sleep_msg = f"{str_dt_now_sleep}----" + str_sleep_msg
         print(f"\r{str_sleep_msg}\033[K", end="")  # 进度条
         time.sleep(1)
         dt_now_sleep = datetime.datetime.now()
@@ -130,9 +131,7 @@ if __name__ == "__main__":
         df_industry_rank_pool["T5_rank"] <= 10
     ]
     list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
-    list_industry_buying_code = df_industry_rank_pool_buying.index.tolist()
     list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
-    list_industry_selling_code = df_industry_rank_pool_selling.index.tolist()
     # 加载df_industry_rank_pool End
     # 加载df_trader Begin
     logger.trace("Create df_trader Begin")
@@ -161,6 +160,7 @@ if __name__ == "__main__":
             "date_of_inclusion_first",
             "date_of_inclusion_latest",
             "times_of_inclusion",
+            "rate_of_inclusion",
             "price_of_inclusion",
             "pct_of_inclusion",
             "remark",
@@ -312,6 +312,15 @@ if __name__ == "__main__":
                 df_trader.at[code, "date_of_inclusion_latest"] = df_trader.at[
                     code, "date_of_inclusion_first"
                 ]
+            if pd.notnull(df_trader.at[code, "date_of_inclusion_first"]):
+                days_inclusion = (
+                    dt_date_trading - df_trader.at[code, "date_of_inclusion_first"]
+                )
+                days_inclusion = days_inclusion.days + 1
+                days_inclusion = days_inclusion // 7 * 5 + days_inclusion % 7  # 修正除数，尽可能趋近交易日
+                df_trader.at[code, "rate_of_inclusion"] = round(
+                    df_trader.at[code, "times_of_inclusion"] / days_inclusion * 100, 2
+                )
             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
                 df_trader.at[code, "price_of_inclusion"] = G_price
         # 用df_chip初始化df_trader-----End
@@ -338,6 +347,7 @@ if __name__ == "__main__":
         "date_of_inclusion_first",
         "date_of_inclusion_latest",
         "times_of_inclusion",
+        "rate_of_inclusion",
         "price_of_inclusion",
         "pct_of_inclusion",
         "remark",
@@ -583,7 +593,8 @@ if __name__ == "__main__":
             for code in df_trader.index:
                 i += 1
                 dt_now = datetime.datetime.now()
-                str_msg = f"\r{dt_now}----"
+                str_dt_now_time = dt_now.strftime("<%H:%M:%S>")
+                str_msg = f"\r{str_dt_now_time}----"
                 str_msg += fg.blue(f"[{i:3d}/{count_trader:3d}]")
                 print(f"\r{str_msg}\033[K", end="")
                 if i >= count_trader:
@@ -684,7 +695,7 @@ if __name__ == "__main__":
                         f"\n ---- [{df_trader.at[code, 'name']}]"
                         f" - [{industry_code}]"
                     )
-                    if industry_code in list_industry_selling_code:
+                    if industry_code in df_industry_rank_pool_selling.index:
                         str_msg_rise_industry = fg.lightred(str_msg_rise_industry)
                         str_msg_rise += str_msg_rise_industry + fg.blue(
                             f"\n ---- [{df_industry_rank_pool.at[industry_code, 'name']}]"
@@ -713,9 +724,9 @@ if __name__ == "__main__":
                         ):
                             dt_trading = df_trader.at[code, "recent_trading"].date()
                             str_msg_rise += (
-                                f"\n ---- [trading:{dt_trading}]"
-                                f"-[{df_trader.at[code, 'times_of_inclusion']:02.0f}]"
-                                f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
+                                f"\n ---- [Trading: {dt_trading}]"
+                                f" - [{df_trader.at[code, 'times_of_inclusion']:3.0f}/{df_trader.at[code, 'rate_of_inclusion']:6.2f}]"
+                                f" - [{df_trader.at[code, 'date_of_inclusion_first']}] - [{df_trader.at[code, 'date_of_inclusion_latest']}]"
                             )
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
@@ -766,7 +777,7 @@ if __name__ == "__main__":
                         f"\n ---- [{df_trader.at[code, 'industry_name']}]"
                         f" - [{industry_code}]"
                     )
-                    if industry_code in list_industry_buying_code:
+                    if industry_code in df_industry_rank_pool_buying.index:
                         str_msg_fall_industry = fg.red(str_msg_fall_industry)
                         str_msg_fall += str_msg_fall_industry + fg.blue(
                             f" - [{df_industry_rank_pool.at[industry_code, 'T5_rank']:2.0f} - "
@@ -793,9 +804,9 @@ if __name__ == "__main__":
                         ):
                             dt_trading = df_trader.at[code, "recent_trading"].date()
                             str_msg_fall += (
-                                f"\n ---- [trading: {dt_trading}]"
-                                f"-[{df_trader.at[code, 'times_of_inclusion']:02.0f}]"
-                                f"-[{df_trader.at[code, 'date_of_inclusion_latest']}]"
+                                f"\n ---- [Trading: {dt_trading}]"
+                                f" - [{df_trader.at[code, 'times_of_inclusion']:3.0f}/{df_trader.at[code, 'rate_of_inclusion']:6.2f}]"
+                                f" - [{df_trader.at[code, 'date_of_inclusion_first']}] - [{df_trader.at[code, 'date_of_inclusion_latest']}]"
                             )
                     if pd.notnull(df_trader.at[code, "remark"]):
                         str_msg_rise += f" - {df_trader.at[code, 'remark']}"
@@ -805,8 +816,8 @@ if __name__ == "__main__":
                 # df_trader End
             # 更新df_data，str_msg_rise，str_msg_fall------End
             df_trader.sort_values(
-                by=["date_of_inclusion_latest", "pct_chg"],
-                ascending=[True, False],
+                by=["date_of_inclusion_latest", "rate_of_inclusion", "pct_chg"],
+                ascending=[True, True, False],
                 inplace=True,
             )
             analysis.write_obj_to_db(
@@ -836,6 +847,8 @@ if __name__ == "__main__":
                 list_signal_buy = list_signal_buy_temp.copy()
             if list_signal_sell != list_signal_sell_temp:
                 list_signal_sell = list_signal_sell_temp.copy()
+            dt_now = datetime.datetime.now()
+            str_dt_now_time = dt_now.strftime("<%H:%M:%S>")
             if str_msg_fall != "":
                 print(
                     f"===={fg.green('<Suggest Buying>')}=================================================="
@@ -853,9 +866,9 @@ if __name__ == "__main__":
             str_msg_temp = str_msg_modified + str_msg_add + str_msg_del
             if str_msg_temp != "":
                 str_msg_temp = fg.red(str_msg_temp)
-                print(dt_now, str_msg_temp)
+                print(str_dt_now_time, str_msg_temp)
             if len(list_signal_chg) > 0:
-                print(dt_now, ":", list_signal_chg, " --- New Signal\a")
+                print(str_dt_now_time, ":", list_signal_chg, " --- New Signal\a")
             if list_industry_buying:
                 print(f"{fg.green(f'Buying: {list_industry_buying}')}")
                 print("*" * 108)
@@ -869,14 +882,16 @@ if __name__ == "__main__":
 
             end_loop_time = time.perf_counter_ns()
             logger.trace(f"end_loop_time = {end_loop_time}")
-            interval_time = (end_loop_time - start_loop_time) / 100000
+            interval_time = (end_loop_time - start_loop_time) / 1000000000
             str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
             logger.trace(f"This cycle takes {str_gm}---[{frq:2d}]")
-            dt_now = datetime.datetime.now()
             str_msg_loop_end = f"{dt_now}----[{str_gm}]"
-            str_msg_loop_ctl_zh = f"{dt_now}----{fg.red(str_pos_ctl_zh)}"
-            str_msg_loop_ctl_csi1000 = f"{dt_now}----{fg.red(str_pos_ctl_csi1000)}"
-            print(f"{str_msg_loop_end} - {str_msg_concentration_rate}")
+            logger.trace(f"{str_msg_loop_end}")
+            str_msg_loop_ctl_zh = f"{str_dt_now_time}----{fg.red(str_pos_ctl_zh)}"
+            str_msg_loop_ctl_csi1000 = (
+                f"{str_dt_now_time}----{fg.red(str_pos_ctl_csi1000)}"
+            )
+            print(f"{str_dt_now_time}----{str_msg_concentration_rate}")
             print(str_msg_loop_ctl_zh)
             print(str_msg_loop_ctl_csi1000)
             # 收盘前集合竟价：14:57 -- 15:00 响玲

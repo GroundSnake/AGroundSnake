@@ -92,8 +92,16 @@ def chip() -> object | DataFrame:
     else:
         df_stocks_in_ssb = pd.DataFrame()
         logger.trace("load df_stocks_in_ssb fail")
+    if analysis.concentration.concentration():
+        df_concentration = analysis.base.read_df_from_db(
+            key="df_concentration", filename=filename_chip_shelve
+        )
+        logger.trace("load df_concentration success")
+    else:
+        df_concentration = pd.DataFrame()
+        logger.trace("load df_concentration fail")
     df_chip = pd.concat(
-        objs=[df_cap, df_stocks_in_ssb, df_industry, df_golden, df_limit, df_st],
+        objs=[df_cap, df_stocks_in_ssb, df_industry, df_golden, df_limit, df_concentration, df_st],
         axis=1,
         join="outer",
     )
