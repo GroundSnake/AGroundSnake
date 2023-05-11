@@ -54,7 +54,7 @@ def update_industry_index_ths() -> bool:
     for ts_code_index in list_industry_index_code:
         i += 1
         symbol_index = analysis.base.code_ts_to_ths(ts_code_index)
-        str_msg_bar = f"{name}:[{i:4d}/{len_list_index_codes:4d}] - [{symbol_index}]"
+        str_msg_bar = f"{name}:[{i:3d}/{len_list_index_codes:3d}] - [{symbol_index}]"
         i_times_ths_daily = 0
         while True:
             try:
@@ -64,7 +64,7 @@ def update_industry_index_ths() -> bool:
                     end_date=str_date_trading,
                 )
             except requests.exceptions.ConnectionError as e:
-                print("--", repr(e))
+                str_msg_bar += f' - {repr(e)}'
                 logger.trace(repr(e))
                 time.sleep(2)
             else:
@@ -76,12 +76,13 @@ def update_industry_index_ths() -> bool:
                 dt_industry_index_temp = datetime.datetime.combine(
                     df_ths_daily.index.max().date(), time_pm_end
                 )
+                str_msg_bar += f" - [{dt_industry_index_temp}]"
                 dt_now = datetime.datetime.now()
                 if dt_now > dt_pm_end and dt_industry_index_temp != dt_pm_end:
-                    str_msg_bar += f" - [{dt_industry_index_temp}]"
-                    print(f"\r{str_msg_bar} is not new\033[K")
+                    str_msg_bar += f" - Not the latest"
+                    print(f"\r{str_msg_bar}\033[K")  # Program End
                     sys.exit()
-                str_msg_bar += f" - [{dt_industry_index_temp}]"
+
                 if (
                     dt_index_kline_industry is None
                     or dt_index_kline_industry < dt_industry_index_temp
@@ -97,7 +98,7 @@ def update_industry_index_ths() -> bool:
                 )
                 sys.exit()
             i_times_ths_daily += 1
-        print(f"\r{str_msg_bar}\033[K", end="")
+        print(f"\r{str_msg_bar}\033[K", end="")  # End of this cycle, print progress bar
     if i >= len_list_index_codes:
         print("\n", end="")  # 格式处理
         analysis.base.set_version(key=name, dt=dt_index_kline_industry)
@@ -144,7 +145,7 @@ def industry_pct() -> bool:
     for ts_code_index in list_industry_index_code:
         i += 1
         symbol_index = analysis.base.code_ts_to_ths(ts_code_index)
-        str_msg_bar = f"\r{name}:[{i:04d}/{len_list_index_codes:4d}] - [{symbol_index}]"
+        str_msg_bar = f"\r{name}:[{i:3d}/{len_list_index_codes:3d}] - [{symbol_index}]"
         if ts_code_index in list_industry_pct_exist:
             print(f"{str_msg_bar} - exist", end="")
             continue
@@ -450,8 +451,10 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                     dt_daily_max = dt_daily
                 if dt_daily == dt_ths_daily:
                     str_msg_bar += f" - [{dt_daily}]"
+                    print(f"\r{str_msg_bar}\033[K", end="")
                 else:
-                    str_msg_bar += f" - is not latest - [{dt_daily}] - [{dt_ths_daily}]"
+                    str_msg_bar += f" - [{dt_daily}] - [{dt_ths_daily}] - is not latest"
+                    print(f"\r{str_msg_bar}\033[K")
                 for index in list_index_df_data:
                     if index in list_index_df_ths_daily:
                         if (
@@ -483,7 +486,6 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 df_industry.at[symbol, "up_keep_days_industry"] = up_keep_days
                 df_industry.at[symbol, "down_keep_days_industry"] = down_keep_days
             feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
-        print(f"\r{str_msg_bar}\033[K", end="")
     print("\n", end="")  # 格式处理
     if i >= count_list_symbol:
         analysis.base.write_obj_to_db(
@@ -502,11 +504,3 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     print(f"Industry analysis [{name}] takes {str_gm}")
     logger.trace(f"{name} End")
     return True
-
-
-"""
-    for file in os.listdir(path_industry):  # 删除临时文件
-        if file.startswith('ti') and file.endswith('.ftr'):
-            filename_ths_daily = os.path.join(path_industry, file)
-            os.remove(path=filename_ths_daily)
-"""

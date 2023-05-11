@@ -52,6 +52,8 @@ def position(index: str = "sh000001") -> str:
     )
     df_pos_ctl.rename(columns={"close": "count"}, inplace=True)  # _descending
     df_pos_ctl.sort_index(ascending=False, inplace=True)
+    count_all = df_pos_ctl["count"].sum()
+    df_pos_ctl["count_rate"] = round(df_pos_ctl["count"] / count_all * 100, 2)
     df_pos_ctl.reset_index(inplace=True)
     descending_volume = 0
     total_volume = df_pos_ctl["volume"].sum()
