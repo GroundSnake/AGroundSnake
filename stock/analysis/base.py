@@ -170,6 +170,23 @@ def set_version(key: str, dt: datetime.datetime) -> bool:
     return True
 
 
+def is_exist(date_index:datetime.date, columns:str, filename:str) -> bool:
+    df_date_exist = read_df_from_db(key="df_index_exist", filename=filename)
+    try:
+        if df_date_exist.at[date_index, columns] == 1:
+            return True
+        else:
+            return False
+    except KeyError:
+        return False
+
+def set_exist(date_index:datetime.date, columns:str, filename:str) -> bool:
+    df_date_exist = read_df_from_db(key="df_index_exist", filename=filename)
+    df_date_exist.at[date_index, columns] = 1
+    write_obj_to_db(obj=df_date_exist, key="df_index_exist", filename=filename)
+    return True
+
+
 def is_open(filename) -> bool:
     if not os.access(path=filename, mode=os.F_OK):
         logger.trace(f"[{filename}] is not exist")

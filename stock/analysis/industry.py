@@ -82,7 +82,6 @@ def update_industry_index_ths() -> bool:
                     str_msg_bar += f" - Not the latest"
                     print(f"\r{str_msg_bar}\033[K")  # Program End
                     sys.exit()
-
                 if (
                     dt_index_kline_industry is None
                     or dt_index_kline_industry < dt_industry_index_temp
@@ -92,9 +91,6 @@ def update_industry_index_ths() -> bool:
             if i_times_ths_daily >= 2:
                 print(
                     f"[{ts_code_index}] Request ConnectionError - [daily] - [{i_times_ths_daily}]times"
-                )
-                logger.trace(
-                    f"[{ts_code_index}] Request ConnectionError - [{i_times_ths_daily}]times"
                 )
                 sys.exit()
             i_times_ths_daily += 1
@@ -118,12 +114,10 @@ def industry_pct() -> bool:
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"{name},Break and End")
         return True
-    if analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
-        logger.trace(f"{kdata} is latest")
-    else:
+    if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
         logger.trace(f"Update the {kdata}")
         if update_industry_index_ths():
-            logger.trace(f"{kdata} Update finish")
+            pass
     df_industry_index = analysis.base.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
@@ -134,8 +128,6 @@ def industry_pct() -> bool:
         df_industry_pct = feather.read_dataframe(source=filename_industry_pct)
         if df_industry_pct.empty:
             logger.trace(f"df_industry_pct cache is empty")
-        else:
-            logger.trace(f"df_industry_pct cache is not empty")
     else:
         df_industry_pct = pd.DataFrame()
     list_industry_pct_exist = set(df_industry_pct.columns.tolist())
@@ -183,10 +175,8 @@ def industry_pct() -> bool:
             df_industry_pct.index.max().date(), time_pm_end
         )
         analysis.base.set_version(key=name, dt=dt_industry_pct)
-        logger.trace(f"feather df_industry_pct success")
     if os.path.exists(filename_industry_pct):  # 删除临时文件
         os.remove(path=filename_industry_pct)
-        logger.trace(f"remove {filename_industry_pct} success")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -201,13 +191,12 @@ def industry_rank():
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        logger.trace(f"{name} is latest")
         return True
     if analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
-        logger.trace(f"{kdata} is latest")
+        pass
     else:
         if industry_pct():
-            logger.trace(f"{kdata} is latest")
+            pass
     df_industry_rank = pd.DataFrame(
         columns=[
             "name",
@@ -351,7 +340,6 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     dt_daily_max = None
     dt_mow = datetime.datetime.now()
     if list_symbol is None:
-        logger.trace("list_code is None")
         list_symbol = list_all_stocks
     if isinstance(list_symbol, str):
         list_symbol = [list_symbol]
@@ -360,25 +348,22 @@ def ths_industry(list_symbol: list | str = None) -> bool:
     )
     list_exist = list()
     if analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
-        logger.trace(f"{kdata} is latest")
+        pass
     else:
-        logger.trace(f"Update the {kdata}")
         if update_industry_index_ths():
-            logger.trace("{kline} Update finish")
+            pass
         else:
             sys.exit()
     df_industry_index = analysis.base.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
     if df_industry_index.empty:
-        logger.error(f"df_industry_index is empty,return None DataFrame")
         return False
     if os.path.exists(filename_industry_temp):
         df_industry = feather.read_dataframe(source=filename_industry_temp)
         if df_industry.empty:
-            logger.trace(f"{name} cache is empty")
+            pass
         else:
-            logger.trace(f"{name} cache is not empty")
             df_industry = df_industry.sample(frac=1)
             list_exist = df_industry.index.tolist()
     else:
@@ -407,21 +392,16 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                         )
                     except requests.exceptions.ConnectionError as e:
                         print("--", repr(e))
-                        logger.trace(repr(e))
                         time.sleep(2)
                     else:
                         if df_daily.empty:
                             print(f"[df_daily] is empty.")
-                            logger.trace(f"[df_daily] is empty.")
                             time.sleep(2)
                         else:
                             break
                     if i_times_daily >= 2:
                         print(
                             f"[{symbol}] Request ConnectionError - [daily] - [{i_times_daily}]times"
-                        )
-                        logger.trace(
-                            f"[{symbol}] Request ConnectionError - [{i_times_daily}]times"
                         )
                         sys.exit()
                     i_times_daily += 1
@@ -432,8 +412,6 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 if os.path.exists(filename_ths_daily):
                     df_ths_daily = feather.read_dataframe(source=filename_ths_daily)
                 else:
-                    print(f"{symbol_class} is not exist")
-                    logger.trace(f"{symbol_class} is not exist")
                     return False
                 list_index_df_data = df_daily.index.tolist()
                 list_index_df_ths_daily = df_ths_daily.index.tolist()
@@ -493,8 +471,6 @@ def ths_industry(list_symbol: list | str = None) -> bool:
         )
         if os.path.exists(filename_industry_temp):  # 删除临时文件
             os.remove(path=filename_industry_temp)
-            logger.trace(f"remove {filename_industry_temp} success")
-    logger.trace(f"remove all ths_daily_industry ftr success")
     if dt_mow > dt_pm_end and dt_daily_max != dt_pm_end:
         print(f"{name} is not latest")
     analysis.base.set_version(key=name, dt=dt_daily_max)

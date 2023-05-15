@@ -128,15 +128,26 @@ def concentration() -> bool:
     df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
-    df_concentration = pd.DataFrame(
-        index=list_all_stocks,
-        columns=[
-            "first_concentration",
-            "latest_concentration",
-            "days_concentration",
-            "times_concentration",
-        ],
+    df_concentration_old = analysis.base.read_df_from_db(
+        key="df_concentration", filename=filename_chip_shelve
     )
+    if df_concentration_old.empty:
+        df_concentration = pd.DataFrame(
+            index=list_all_stocks,
+            columns=[
+                "first_concentration",
+                "latest_concentration",
+                "days_concentration",
+                "times_concentration",
+            ],
+        )
+    else:
+        df_concentration_empty = pd.DataFrame(index=list_all_stocks)
+        df_concentration = pd.concat(
+            objs=[df_concentration_old, df_concentration_empty],
+            axis=1,
+            join="outer",
+        )
     for symbol in df_concentration.index:
         if symbol in df_realtime_top5.index:
             df_concentration.at[symbol, "latest_concentration"] = dt_date_trading

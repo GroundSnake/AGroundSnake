@@ -65,6 +65,9 @@ if not os.path.exists(path_index):
 path_log = os.path.join(path_data, f"log")
 if not os.path.exists(path_log):
     os.mkdir(path_log)
+path_mv = os.path.join(path_data, f"mv")
+if not os.path.exists(path_mv):
+    os.mkdir(path_mv)
 dt_trading = latest_trading_day()
 dt_date_trading = dt_trading.date()
 str_date_trading = dt_date_trading.strftime("%Y%m%d")
@@ -93,6 +96,7 @@ filename_log = os.path.join(path_log, "log{time}.log")
 filename_input = os.path.join(path_main, f"input.xlsx")
 filename_trader_template = os.path.join(path_main, f"trader.xlsx")
 filename_chip_shelve = os.path.join(path_data, f"chip")
+filename_market_values_shelve = os.path.join(path_mv, f"mv")
 filename_chip_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
 filename_signal = os.path.join(path_check, f"signal_{str_trading_path}.xlsx")
 filename_data_csv = os.path.join(path_check, f"trader_{str_trading_path}.csv")
