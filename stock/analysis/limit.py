@@ -114,7 +114,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
         i += 1
         str_msg_bar = f"Limit Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_exist:  # 己存在，断点继续
-            str_msg_bar += f' - exist'
+            str_msg_bar += f" - exist"
             print(f"\r{str_msg_bar}\033[K", end="")
             continue
         df_stock = pd.DataFrame()
@@ -128,11 +128,11 @@ def limit_count(list_symbol: list | str = None) -> bool:
                     end_date=str_date_trading,
                 )
             except KeyError as e:
-                str_msg_bar += f' - {repr(e)}'
+                str_msg_bar += f" - {repr(e)}"
                 logger.trace(repr(e))
                 break
             except OSError as e:
-                str_msg_bar += f' - {repr(e)}'
+                str_msg_bar += f" - {repr(e)}"
                 logger.trace(repr(e))
                 time.sleep(2)
             else:
@@ -155,7 +155,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
             df_limit.at[symbol, "up_times_3pct"] = -1
             df_limit.at[symbol, "down_times_3pct"] = -1
             df_limit.at[symbol, "up_A_down_3pct"] = 0
-            str_msg_bar += f' - df_stock empty'
+            str_msg_bar += f" - df_stock empty"
             print(f"\r{str_msg_bar}\033[K")
             continue
         df_stock.rename(
@@ -178,7 +178,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
         df_stock.set_index(keys="date", inplace=True)
         df_stock.sort_index(ascending=True, inplace=True)
         dt_stock_latest = datetime.datetime.combine(df_stock.index.max(), time_pm_end)
-        str_msg_bar += f' - [{dt_stock_latest}]'
+        str_msg_bar += f" - [{dt_stock_latest}]"
         if dt_limit is None:
             dt_limit = dt_stock_latest
         elif dt_limit < dt_stock_latest:
@@ -348,7 +348,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
         # 写入腌制数据 df_limit
         if random.randint(0, 5) == 3:
             feather.write_dataframe(df=df_limit, dest=file_name_df_limit_temp)
-        print(f"\r{str_msg_bar}\033[K", end='')  # for loop end, progress bar
+        print(f"\r{str_msg_bar}\033[K", end="")  # for loop end, progress bar
     if i >= count:
         print("\n", end="")  # 格式处理
         logger.trace(f"For loop End")

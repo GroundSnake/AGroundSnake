@@ -1,4 +1,4 @@
-# modified at 2023/4/28 13:44
+# modified at 2023/05/18 21:45
 from __future__ import annotations
 import os
 import sys
@@ -74,17 +74,14 @@ if __name__ == "__main__":
     str_msg_concentration_rate = ""
     logger.trace(f"initialization Begin")
     # 加载df_industry_class Begin
-    logger.trace("load df_industry_index...")
     df_industry_index = analysis.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
     if df_industry_index.empty:
-        logger.trace(f"df_industry_index from filename_chip_shelve is empty")
         try:
             df_industry_index = pd.read_excel(io="df_industry_index.xlsx", index_col=0)
         except FileNotFoundError as e:
             print(f"[df_industry_index.xlsx] - {e.args[1]}")
-            logger.error(f"[df_industry_index.xlsx] - {e.args[1]}")
             sys.exit()
         else:
             if df_industry_index.empty:
@@ -98,30 +95,23 @@ if __name__ == "__main__":
                     key="df_industry_index",
                     filename=filename_chip_shelve,
                 )
-    logger.trace(f"df_industry_index create success")
     # 加载df_industry_class End
     # 加载df_chip Begin
-    logger.trace("load df_chip...")
     df_chip = analysis.read_df_from_db(key="df_chip", filename=filename_chip_shelve)
     if df_chip.empty:
-        logger.trace(f"df_chip from filename_chip_shelve is empty")
         df_chip = analysis.chip()
-        logger.trace(f"df_chip create success")
         if df_chip.empty:
             sys.exit()
     dt_chip_max = df_chip["dt"].max()
     str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
     str_chip_msg = fg.red(str_chip_msg)
     print(str_chip_msg)
-    logger.trace(f"load df_chip success")
     # 加载df_chip End
     # 加载df_industry_rank_pool Begin
-    logger.trace("load df_industry_rank_pool...")
     df_industry_rank_pool = analysis.read_df_from_db(
         key="df_industry_rank_pool", filename=filename_chip_shelve
     )
     if df_industry_rank_pool.empty:
-        logger.error(f"df_industry_rank_pool is empty")
         print("Please rerun df_ Chip function")
         sys.exit()
     df_industry_rank_pool_buying = df_industry_rank_pool[
@@ -134,10 +124,8 @@ if __name__ == "__main__":
     list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
     # 加载df_industry_rank_pool End
     # 加载df_trader Begin
-    logger.trace("Create df_trader Begin")
     df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
     if df_trader.empty:
-        logger.trace(f"Create a new df_trader")
         time.sleep(20)
         list_trader_columns = [
             "name",
@@ -198,9 +186,7 @@ if __name__ == "__main__":
     df_trader["fall"].fillna(fall, inplace=True)
     dt_now = datetime.datetime.now()
     df_trader["recent_trading"].fillna(dt_now, inplace=True)
-    logger.trace("Create df_trader End")
     # 加载df_trader End
-    logger.trace("initialization df_index")
     for code in df_trader.index:
         if code in df_industry_index.index:
             df_trader.at[code, "industry_code"] = df_industry_index.at[
@@ -317,7 +303,9 @@ if __name__ == "__main__":
                     dt_date_trading - df_trader.at[code, "date_of_inclusion_first"]
                 )
                 days_inclusion = days_inclusion.days + 1
-                days_inclusion = days_inclusion // 7 * 5 + days_inclusion % 7  # 修正除数，尽可能趋近交易日
+                days_inclusion = (
+                    days_inclusion // 7 * 5 + days_inclusion % 7
+                )  # 修正除数，尽可能趋近交易日
                 df_trader.at[code, "rate_of_inclusion"] = round(
                     df_trader.at[code, "times_of_inclusion"] / days_inclusion * 100, 2
                 )
@@ -359,9 +347,7 @@ if __name__ == "__main__":
     )
     # 保存df_trader----End
     # 创建df_signal----Begin
-    logger.trace("Create df_signal")
     if os.access(path=filename_signal, mode=os.F_OK):
-        logger.trace(f"load df_signal from [{filename_signal}]")
         df_signal_sell = pd.read_excel(
             io=filename_signal, sheet_name="sell", index_col=0
         )
@@ -402,32 +388,27 @@ if __name__ == "__main__":
             df_add.to_excel(excel_writer=writer, sheet_name="add")
             df_delete.to_excel(excel_writer=writer, sheet_name="delete")
     else:
-        logger.trace(f"[{filename_trader_template}] can be access")
+        pass
     # 创建空的交易员模板 file_name_trader End
     # 取得仓位控制提示
     str_pos_ctl_zh = analysis.position(index="sh000001")
     str_pos_ctl_csi1000 = analysis.position(index="sh000852")
-    logger.trace(f"initialization End")
     """init End"""
     """loop Begin"""
     while True:
         if frq > 2:
             os.system("cls")
-            logger.trace(f"clear screen")
-        logger.trace(f"loop Begin")
         dt_now = datetime.datetime.now()
         if frq % 3 == 0:
             str_msg_concentration_rate = analysis.concentration_rate()
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
-            logger.trace(f"The exchange will open at {dt_am_start}")
             print(f"The exchange will open at {dt_am_start}")
             sleep_to_time(dt_am_start)
         # 盘中 9:30 -- 11:30 and 13:00 -- 15:00
         elif (dt_am_start <= dt_now <= dt_am_end) or (
             dt_pm_start <= dt_now <= dt_pm_end
         ):
-            logger.trace(f"Start of this cycle.---[{frq:3d}]---<Start>")
             start_loop_time = time.perf_counter_ns()
             logger.trace(f"start_loop_time = {start_loop_time}")
 
@@ -446,7 +427,6 @@ if __name__ == "__main__":
                 df_in_del = pd.read_excel(
                     io=filename_input, sheet_name="delete", index_col=0
                 )
-                logger.trace(f"load [{filename_input}] success")
                 # 索引转为小写字母 Begin
                 df_in_modified.index = df_in_modified.index.str.lower()
                 df_in_add.index = df_in_add.index.str.lower()
@@ -472,12 +452,10 @@ if __name__ == "__main__":
                                     ]
                         else:
                             list_in_modified.remove(code)
-                            logger.trace(f"[{code}] does not exist,cannot be modified")
                     if list_in_modified:
-                        str_msg_modified = f"{list_in_modified} modified"
+                        str_msg_modified = f" {list_in_modified}"
                     else:
                         str_msg_modified = ""
-                    logger.trace("modified stock success")
                 if len(list_in_add) > 0:
                     df_in_add["recent_trading"] = dt_now
                     df_trader = pd.concat(
@@ -507,8 +485,7 @@ if __name__ == "__main__":
                     df_trader["rise"].fillna(rise, inplace=True)
                     df_trader["fall"].fillna(fall, inplace=True)
                     df_trader["recent_trading"].fillna(dt_now, inplace=True)
-                    str_msg_add = f"\n{list_in_add} add"
-                    logger.trace("add stock success")
+                    str_msg_add = f"{list_in_add}"
                 if len(list_in_del) > 0:
                     df_in_del["recent_trading"] = dt_now
                     for code in list_in_del:
@@ -517,8 +494,7 @@ if __name__ == "__main__":
                                 df_trader.drop(index=code, inplace=True)
                             else:
                                 list_in_del.remove(code)
-                    str_msg_del = f"\n{list_in_del} remove"
-                    logger.trace("del stock success")
+                    str_msg_del = f"{list_in_del}"
                 str_now_input = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 file_name_input_rename = os.path.join(
                     path_history, f"input_{str_now_input}.xlsx"
@@ -526,27 +502,22 @@ if __name__ == "__main__":
                 try:
                     os.rename(src=filename_input, dst=file_name_input_rename)
                 except Exception as e:
-                    logger.error(repr(e))
-                    logger.error(f"[{filename_input}] rename file fail")
-                else:
-                    logger.trace(f"[{file_name_input_rename}] rename file success")
+                    logger.error(f"[{filename_input}] rename file fail - {repr(e)}")
                 # df_trader["recent_price"].fillna(0, inplace=True)
                 df_trader["position"].fillna(0, inplace=True)
                 df_trader["rise"].fillna(rise, inplace=True)
                 df_trader["fall"].fillna(fall, inplace=True)
             else:
-                logger.trace(f"[{filename_input}] is not exist")
+                pass
             # 增加修改删除df_data中的项目 End
             # 调用实时数据接口，更新df_realtime Begin
             df_realtime = realtime_quotations(
                 stock_codes=df_trader.index.to_list()
             )  # 调用实时数据接口
             if df_realtime.empty:
-                logger.trace(f"[df_realtime] is empty, the program ends")
                 sys.exit()
             # 调用实时数据接口，更新df_realtime End
             df_stock_market_activity_legu = ak.stock_market_activity_legu()
-            logger.trace("stock_market_activity_legu load")
             df_stock_market_activity_legu.at[10, "value"] = (
                 df_stock_market_activity_legu.at[10, "value"]
                 .replace("\n", "")
@@ -604,18 +575,15 @@ if __name__ == "__main__":
                         df_trader.at[code, "industry_code"] = df_industry_index.at[
                             code, "industry_code"
                         ]
-                        logger.trace(f"{code} update industry_code")
                     if not pd.notnull(df_trader.at[code, "industry_name"]):
                         df_trader.at[code, "industry_name"] = df_industry_index.at[
                             code, "industry_name"
                         ]
-                        logger.trace(f"{code} update industry_name")
                 except KeyError as e:
                     logger.trace(f"df_industry_index KeyError [{repr(e)}]")
                     time.sleep(5)
                 industry_code = df_trader.at[code, "industry_code"]
                 if code not in df_realtime.index:
-                    logger.trace("code not in df_realtime")
                     continue
                 df_trader.at[code, "name"] = df_realtime.at[code, "name"]
                 now_price = df_realtime.at[code, "close"]
@@ -825,7 +793,6 @@ if __name__ == "__main__":
             )
             if frq % 3 == 0:
                 df_trader.to_csv(path_or_buf=filename_data_csv)
-                logger.trace(f"df_trader csv at [{filename_data_csv}]")
             list_signal_buy_temp = df_signal_sell.index.to_list()
             list_signal_sell_temp = df_signal_buy.index.to_list()
             list_signal_chg = list()
@@ -863,12 +830,19 @@ if __name__ == "__main__":
                 print(
                     f"****{fg.yellow('<Suggest END>')}*****************************************************"
                 )
-            str_msg_temp = str_msg_modified + str_msg_add + str_msg_del
-            if str_msg_temp != "":
-                str_msg_temp = fg.red(str_msg_temp)
-                print(str_dt_now_time, str_msg_temp)
+            if str_msg_modified != "":
+                str_msg_modified = (
+                    f"{str_dt_now_time}----modified: {fg.blue(str_msg_modified)}"
+                )
+                print(str_msg_modified)
+            if str_msg_add != "":
+                str_msg_add = f"{str_dt_now_time}----add: {fg.red(str_msg_add)}"
+                print(str_msg_add)
+            if str_msg_del != "":
+                str_msg_del = f"{str_dt_now_time}----remove: {fg.green(str_msg_del)}"
+                print(str_msg_del)
             if len(list_signal_chg) > 0:
-                print(str_dt_now_time, ":", list_signal_chg, " --- New Signal\a")
+                print(f"{str_dt_now_time}----New Signal: {list_signal_chg}\a")
             if list_industry_buying:
                 print(f"{fg.green(f'Buying: {list_industry_buying}')}")
                 print("*" * 108)
@@ -881,12 +855,9 @@ if __name__ == "__main__":
             # 主循环块---------End----End-----End----End------End----End------End------End-------End------
 
             end_loop_time = time.perf_counter_ns()
-            logger.trace(f"end_loop_time = {end_loop_time}")
             interval_time = (end_loop_time - start_loop_time) / 1000000000
             str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
-            logger.trace(f"This cycle takes {str_gm}---[{frq:2d}]")
             str_msg_loop_end = f"{dt_now}----[{str_gm}]"
-            logger.trace(f"{str_msg_loop_end}")
             str_msg_loop_ctl_zh = f"{str_dt_now_time}----{fg.red(str_pos_ctl_zh)}"
             str_msg_loop_ctl_csi1000 = (
                 f"{str_dt_now_time}----{fg.red(str_pos_ctl_csi1000)}"
@@ -898,13 +869,12 @@ if __name__ == "__main__":
             if dt_pm_1457 < dt_now <= dt_pm_end:
                 print("\a", end="")
                 scan_interval = 60
+            dt_now = datetime.datetime.now()
+            dt_now_delta = dt_now + datetime.timedelta(seconds=scan_interval)
+            sleep_to_time(dt_now_delta)
         # 中午体息时间： 11:30 -- 13:00
         elif dt_am_end < dt_now < dt_pm_start:
             # -----当前时间与当日指定时间的间隔时间计算-----
-            logger.trace(
-                f"The exchange is closed at noon and will open at {dt_pm_start}"
-            )
-            logger.trace(f"loop End")
             sleep_to_time(dt_pm_start)
             # -----当前时间与当日指定时间的间隔时间计算-----
         else:
@@ -918,16 +888,8 @@ if __name__ == "__main__":
             print(df_chip)
             if dt_now < dt_am_0910:
                 df_trader.to_csv(path_or_buf=filename_data_csv)
-                logger.trace(f"df_trader csv at [{filename_data_csv}]")
                 sleep_to_time(dt_am_start)
             elif dt_now > dt_pm_end:
                 logger.trace(f"Program End")
                 sys.exit()
         frq += 1
-        logger.trace(
-            f"The [No{frq:3d}] cycle will start in {scan_interval:2d} seconds."
-        )
-        logger.trace(f"loop End")
-        dt_now = datetime.datetime.now()
-        dt_now_delta = dt_now + datetime.timedelta(seconds=scan_interval)
-        sleep_to_time(dt_now_delta)

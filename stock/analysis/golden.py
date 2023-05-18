@@ -1,6 +1,7 @@
 # modified at 2023/4/28 13:44
 from __future__ import annotations
 import os
+import sys
 import time
 import random
 import feather
@@ -16,7 +17,7 @@ from analysis.const import (
     path_data,
     str_date_path,
     filename_chip_shelve,
-    dt_pm_end,
+    dt_init,
     list_all_stocks,
 )
 
@@ -30,7 +31,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
     logger.trace("Golden Price Analysis Begin")
     kline: str = f"update_kline_{frequency}"
     name: str = f"df_golden"
-    dt_golden = None
+    dt_golden = dt_init
     start_loop_time = time.perf_counter_ns()
     phi = 1 / golden  # extreme and mean ratio 黄金分割常数
     if list_code is None:
@@ -83,24 +84,23 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         i += 1
         str_msg_bar = f"{name}:[{i:4d}/{all_record:4d}] -- [{symbol}]"
         if symbol in list_golden_exist:
-            print(f"\r{str_msg_bar}-- exist\033[K", end="")
+            str_msg_bar += ' - exist'
+            print(f"\r{str_msg_bar}\033[K", end="")
             continue
-        print(f"\r{str_msg_bar}\033[K", end="")
         file_name_data_feather = os.path.join(path_kline, f"{symbol}.ftr")
         if os.path.exists(file_name_data_feather):
             # 找到kline，读取腌制数据 df_data
             df_data = feather.read_dataframe(source=file_name_data_feather)
         else:
-            # 无Kline，跳过本次[symbol]处理
+            str_msg_bar += ' - None'
+            print(f"\r{str_msg_bar}\033[K", end="")
             continue
         df_data = df_data.iloc[-57600:]  # 取得最近1个整年的交易记录，240x240=57600算头不算尾
         dt_max = df_data.index.max()
-        if dt_golden is None:
+        if dt_golden < dt_max:
             dt_golden = dt_max
-        elif dt_golden < dt_max:
-            dt_golden = dt_max
-        else:
-            dt_golden = dt_pm_end
+        str_msg_bar += f' - [{dt_golden}]'
+        print(f"\r{str_msg_bar}\033[K", end="")
         df_pivot = pd.pivot_table(
             df_data, index=["close"], aggfunc={"volume": np.sum, "close": len}
         )
