@@ -1,4 +1,4 @@
-# modified at 2023/4/28 13:44
+# modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
 import random
@@ -125,7 +125,7 @@ def is_latest_version(key: str, filename: str) -> bool:
     if key not in df_config.index:
         return False
     dt_latest = df_config.at[key, "date"]
-    if not isinstance(dt_latest,datetime.date):
+    if not isinstance(dt_latest, datetime.date):
         return False
     if dt_latest == dt_pm_end:
         return True

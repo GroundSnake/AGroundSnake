@@ -1,4 +1,4 @@
-# modified at 2023/4/28 13:44
+# modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
 import sys
@@ -84,7 +84,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
         i += 1
         str_msg_bar = f"{name}:[{i:4d}/{all_record:4d}] -- [{symbol}]"
         if symbol in list_golden_exist:
-            str_msg_bar += ' - exist'
+            str_msg_bar += " - exist"
             print(f"\r{str_msg_bar}\033[K", end="")
             continue
         file_name_data_feather = os.path.join(path_kline, f"{symbol}.ftr")
@@ -92,14 +92,14 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
             # 找到kline，读取腌制数据 df_data
             df_data = feather.read_dataframe(source=file_name_data_feather)
         else:
-            str_msg_bar += ' - None'
+            str_msg_bar += " - None"
             print(f"\r{str_msg_bar}\033[K", end="")
             continue
         df_data = df_data.iloc[-57600:]  # 取得最近1个整年的交易记录，240x240=57600算头不算尾
         dt_max = df_data.index.max()
         if dt_golden < dt_max:
             dt_golden = dt_max
-        str_msg_bar += f' - [{dt_golden}]'
+        str_msg_bar += f" - [{dt_golden}]"
         print(f"\r{str_msg_bar}\033[K", end="")
         df_pivot = pd.pivot_table(
             df_data, index=["close"], aggfunc={"volume": np.sum, "close": len}

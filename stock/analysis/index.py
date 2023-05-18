@@ -1,6 +1,5 @@
-# modified at 2023/5/14 10:08
+# modified at 2023/05/18 22::25
 import os
-import sys
 import time
 import feather
 import numpy as np
@@ -203,7 +202,7 @@ class IndexSSB(object):
                         str_msg_bar += f" - [{now_mv_date}]"
                         if now_mv_date != date_pos:
                             diff_date_pos += 1
-                            str_msg_bar = f'{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n'
+                            str_msg_bar = f"{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n"
                         else:
                             same_date_pos += 1
                     else:
@@ -280,14 +279,14 @@ class IndexSSB(object):
                             str_msg_bar += f" - [{now_mv_date}]"
                             if now_mv_date != date_pos:
                                 diff_date_pos += 1
-                                str_msg_bar = f'{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n'
+                                str_msg_bar = f"{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n"
                             else:
                                 same_date_pos += 1
             elif now_mv_date == date_pos:
-                str_msg_bar += f' - [{now_mv_date}] - [{date_pos}] - latest'
+                str_msg_bar += f" - [{now_mv_date}] - [{date_pos}] - latest"
             else:
-                str_msg_bar += f' - [{now_mv_date}] - None'
-            print(f"\r{str_msg_bar}\033[K",end='')
+                str_msg_bar += f" - [{now_mv_date}] - None"
+            print(f"\r{str_msg_bar}\033[K", end="")
         if i >= count:
             print("\n", end="")  # 格式处理
             df_mv.applymap(
@@ -413,7 +412,7 @@ class IndexSSB(object):
                 else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x)
             )
             self.py_dbm[df_mv_n_name] = df_mv_n
-            print(f"\r[{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K", end='')
+            print(f"\r[{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K", end="")
         self.df_index_exist.at[date_pos, name] = 1
         self.py_dbm["df_index_exist"] = self.df_index_exist
         self.py_dbm["df_index_ssb"] = df_index_ssb
@@ -634,7 +633,7 @@ class IndexSSB(object):
                 path=filename_excel, mode="a", if_sheet_exists="replace"
             )
         except FileNotFoundError as e:
-            logger.error(f'{repr(e)}')
+            logger.error(f"{repr(e)}")
             with pd.ExcelWriter(path=filename_excel, mode="w") as writer_e:
                 if isinstance(self.py_dbm[key_random], pd.DataFrame):
                     self.py_dbm[key_random].to_excel(

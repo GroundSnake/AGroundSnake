@@ -1,5 +1,4 @@
-# modified at 2023/4/28 13:44
-import sys
+# modified at 2023/05/18 22::25
 import datetime
 import pandas as pd
 from pyecharts.charts import Line
@@ -152,10 +151,10 @@ def concentration() -> bool:
             axis=1,
             join="outer",
         )
-    df_concentration['first_concentration'].fillna(value=dt_date_init, inplace=True)
-    df_concentration['latest_concentration'].fillna(value=dt_date_init, inplace=True)
-    df_concentration['days_concentration'].fillna(value=0, inplace=True)
-    df_concentration['times_concentration'].fillna(value=0, inplace=True)
+    df_concentration["first_concentration"].fillna(value=dt_date_init, inplace=True)
+    df_concentration["latest_concentration"].fillna(value=dt_date_init, inplace=True)
+    df_concentration["days_concentration"].fillna(value=0, inplace=True)
+    df_concentration["times_concentration"].fillna(value=0, inplace=True)
     if dt_pm_end_last_T1 < datetime.datetime.now() <= dt_pm_end:
         date_latest = dt_date_trading_last_T1
     else:
@@ -185,11 +184,11 @@ def concentration() -> bool:
         key="df_concentration",
         filename=filename_chip_shelve,
     )
-    dt_concentration_date = (
-        df_concentration["latest_concentration"].max(skipna=True)
-    )
+    dt_concentration_date = df_concentration["latest_concentration"].max(skipna=True)
     if dt_concentration_date > date_latest:
-        logger.error(f"Error - dt_concentration_date[{dt_concentration_date}] greater then date_latest")
+        logger.error(
+            f"Error - dt_concentration_date[{dt_concentration_date}] greater then date_latest"
+        )
         dt_concentration_date = date_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
