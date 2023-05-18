@@ -6,10 +6,7 @@ import sys
 import datetime
 import shelve
 import dbm
-import time
-
 import win32file
-import pywintypes
 import pandas as pd
 from pandas import DataFrame
 import tushare as ts
@@ -170,7 +167,7 @@ def set_version(key: str, dt: datetime.datetime) -> bool:
     return True
 
 
-def is_exist(date_index:datetime.date, columns:str, filename:str) -> bool:
+def is_exist(date_index: datetime.date, columns: str, filename: str) -> bool:
     df_date_exist = read_df_from_db(key="df_index_exist", filename=filename)
     try:
         if df_date_exist.at[date_index, columns] == 1:
@@ -180,41 +177,41 @@ def is_exist(date_index:datetime.date, columns:str, filename:str) -> bool:
     except KeyError:
         return False
 
-def set_exist(date_index:datetime.date, columns:str, filename:str) -> bool:
+
+def set_exist(date_index: datetime.date, columns: str, filename: str) -> bool:
     df_date_exist = read_df_from_db(key="df_index_exist", filename=filename)
     df_date_exist.at[date_index, columns] = 1
     write_obj_to_db(obj=df_date_exist, key="df_index_exist", filename=filename)
     return True
 
 
-def is_open(filename) -> bool:
-    if not os.access(path=filename, mode=os.F_OK):
-        logger.trace(f"[{filename}] is not exist")
-        return False
-    else:
-        logger.trace(f"[{filename}] is exist")
-    try:
-        v_handle = win32file.CreateFile(
-            filename,
-            win32file.GENERIC_READ,
-            0,
-            None,
-            win32file.OPEN_EXISTING,
-            win32file.FILE_ATTRIBUTE_NORMAL,
-            None,
-        )
-    except Exception as e:
-        print(f"{filename} - {repr(e)}")
-        logger.trace(f"{filename} - {repr(e)}")
-        return True
-    else:
-        v_handle.close()
-        logger.trace("close Handle")
-        logger.trace(f"[{filename}] not in use")
-        return False
-
-
 def shelve_to_excel(filename_shelve: str, filename_excel: str):
+    def is_open(filename) -> bool:
+        if not os.access(path=filename, mode=os.F_OK):
+            logger.trace(f"[{filename}] is not exist")
+            return False
+        else:
+            logger.trace(f"[{filename}] is exist")
+        try:
+            v_handle = win32file.CreateFile(
+                filename,
+                win32file.GENERIC_READ,
+                0,
+                None,
+                win32file.OPEN_EXISTING,
+                win32file.FILE_ATTRIBUTE_NORMAL,
+                None,
+            )
+        except Exception as e_in:
+            print(f"{filename} - {repr(e_in)}")
+            logger.trace(f"{filename} - {repr(e_in)}")
+            return True
+        else:
+            v_handle.close()
+            logger.trace("close Handle")
+            logger.trace(f"[{filename}] not in use")
+            return False
+
     i_file = 0
     while True:
         if is_open(filename=filename_excel):

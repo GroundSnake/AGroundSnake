@@ -168,13 +168,17 @@ def concentration() -> bool:
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )
-    df_concentration["latest_concentration"] = pd.to_datetime(df_concentration["latest_concentration"])
+    df_concentration["latest_concentration"] = pd.to_datetime(
+        df_concentration["latest_concentration"]
+    )
     analysis.base.write_obj_to_db(
         obj=df_concentration,
         key="df_concentration",
         filename=filename_chip_shelve,
     )
-    dt_concentration_date = df_concentration['latest_concentration'].max(skipna=True).date()
+    dt_concentration_date = (
+        df_concentration["latest_concentration"].max(skipna=True).date()
+    )
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
     return True

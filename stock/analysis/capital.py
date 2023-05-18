@@ -190,8 +190,10 @@ def capital() -> bool:
         i += 1
         str_msg_bar = f"Capital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_cap_exist:
-            str_msg_bar += ' - exist'
-            print(f"\r{str_msg_bar}\033[K", end="")  # End of this cycle, print progress bar
+            str_msg_bar += " - exist"
+            print(
+                f"\r{str_msg_bar}\033[K", end=""
+            )  # End of this cycle, print progress bar
             continue
         code = symbol[2:]
         df_cap_temp = pd.DataFrame()
@@ -200,11 +202,11 @@ def capital() -> bool:
             try:
                 df_cap_temp = stock_individual_info(code=code)
             except KeyError as e:
-                str_msg_bar += f' - {repr(e)}'
+                str_msg_bar += f" - {repr(e)}"
                 logger.trace(repr(e))
                 break
             except ConnectionError as e:
-                str_msg_bar += f' - {repr(e)}'
+                str_msg_bar += f" - {repr(e)}"
                 logger.trace(repr(e))
             else:
                 break

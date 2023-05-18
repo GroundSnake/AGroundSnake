@@ -64,7 +64,7 @@ def update_industry_index_ths() -> bool:
                     end_date=str_date_trading,
                 )
             except requests.exceptions.ConnectionError as e:
-                str_msg_bar += f' - {repr(e)}'
+                str_msg_bar += f" - {repr(e)}"
                 logger.trace(repr(e))
                 time.sleep(2)
             else:

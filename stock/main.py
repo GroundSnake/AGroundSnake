@@ -29,7 +29,7 @@ from analysis import (
 
 
 __version__ = "3.0.0"
-logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
 
 def sleep_to_time(dt_time: datetime.datetime):
@@ -303,7 +303,9 @@ if __name__ == "__main__":
                     dt_date_trading - df_trader.at[code, "date_of_inclusion_first"]
                 )
                 days_inclusion = days_inclusion.days + 1
-                days_inclusion = days_inclusion // 7 * 5 + days_inclusion % 7  # 修正除数，尽可能趋近交易日
+                days_inclusion = (
+                    days_inclusion // 7 * 5 + days_inclusion % 7
+                )  # 修正除数，尽可能趋近交易日
                 df_trader.at[code, "rate_of_inclusion"] = round(
                     df_trader.at[code, "times_of_inclusion"] / days_inclusion * 100, 2
                 )
@@ -829,16 +831,18 @@ if __name__ == "__main__":
                     f"****{fg.yellow('<Suggest END>')}*****************************************************"
                 )
             if str_msg_modified != "":
-                str_msg_modified = f'{str_dt_now_time}----modified: {fg.blue(str_msg_modified)}'
+                str_msg_modified = (
+                    f"{str_dt_now_time}----modified: {fg.blue(str_msg_modified)}"
+                )
                 print(str_msg_modified)
             if str_msg_add != "":
-                str_msg_add = f'{str_dt_now_time}----add: {fg.red(str_msg_add)}'
+                str_msg_add = f"{str_dt_now_time}----add: {fg.red(str_msg_add)}"
                 print(str_msg_add)
             if str_msg_del != "":
-                str_msg_del = f'{str_dt_now_time}----remove: {fg.green(str_msg_del)}'
+                str_msg_del = f"{str_dt_now_time}----remove: {fg.green(str_msg_del)}"
                 print(str_msg_del)
             if len(list_signal_chg) > 0:
-                print(f'{str_dt_now_time}----New Signal: {list_signal_chg}\a')
+                print(f"{str_dt_now_time}----New Signal: {list_signal_chg}\a")
             if list_industry_buying:
                 print(f"{fg.green(f'Buying: {list_industry_buying}')}")
                 print("*" * 108)
