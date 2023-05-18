@@ -12,9 +12,9 @@ from pandas import DataFrame
 import tushare as ts
 from loguru import logger
 from analysis.const import (
-    dt_am_0100,
     dt_am_0910,
     dt_pm_end,
+    dt_pm_end_last_T1,
     str_date_path,
     path_check,
     filename_chip_shelve,
@@ -121,49 +121,29 @@ def is_latest_version(key: str, filename: str) -> bool:
     dt_now = datetime.datetime.now()
     df_config = read_df_from_db(key="df_config", filename=filename)
     if df_config.empty:
-        logger.trace(f"df_config is empty")
         return False
+    if key not in df_config.index:
+        return False
+    dt_latest = df_config.at[key, "date"]
+    if not isinstance(dt_latest,datetime.date):
+        return False
+    if dt_latest == dt_pm_end:
+        return True
     else:
-        if key not in df_config.index:
-            logger.trace(f"df_config-[{key}] is not exist")
-            return False
-        else:
-            if dt_am_0910 < dt_now < dt_pm_end:
-                logger.trace(
-                    f"df_config-[{key}]-[{df_config.at[key, 'date']}] less than [{dt_pm_end}],but update df_config-[{key}] will at [{dt_pm_end}]"
-                )
+        if dt_am_0910 < dt_now < dt_pm_end:
+            return True
+        elif dt_pm_end_last_T1 < dt_now < dt_am_0910:
+            if dt_latest == dt_pm_end_last_T1:
                 return True
-            elif df_config.at[key, "date"] == dt_pm_end:
-                logger.trace(
-                    f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest"
-                )
-                return True
-            elif dt_am_0100 < dt_now < dt_am_0910:
-                dt_latest_trading = dt_pm_end - datetime.timedelta(days=1)
-                i = 1
-                while not is_trading_day(dt_latest_trading):
-                    i += 1
-                    dt_latest_trading = dt_pm_end - datetime.timedelta(days=i)
-                if df_config.at[key, "date"] == dt_latest_trading:
-                    logger.trace(
-                        f"df_config-[{key}]-[{df_config.at[key, 'date']}] is latest"
-                    )
-                    return True
-                else:
-                    logger.trace(
-                        f"df_config-[{key}]-[{df_config.at[key, 'date']}] is not latest"
-                    )
-                    return False
             else:
-                logger.trace(f"df_config-[{key}] update")
                 return False
 
 
 def set_version(key: str, dt: datetime.datetime) -> bool:
     df_config = read_df_from_db(key="df_config", filename=filename_chip_shelve)
     df_config.at[key, "date"] = dt
+    df_config.sort_values(by="date", ascending=False, inplace=True)
     write_obj_to_db(obj=df_config, key="df_config", filename=filename_chip_shelve)
-    logger.trace(f"{key} update - [{df_config.at[key, 'date']}]")
     return True
 
 

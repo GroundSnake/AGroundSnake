@@ -203,7 +203,7 @@ class IndexSSB(object):
                         str_msg_bar += f" - [{now_mv_date}]"
                         if now_mv_date != date_pos:
                             diff_date_pos += 1
-                            str_msg_bar = f'\n{str_msg_bar} - [{date_pos}] - #1 - [{diff_date_pos}/{same_date_pos}]\n'
+                            str_msg_bar = f'{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n'
                         else:
                             same_date_pos += 1
                     else:
@@ -280,7 +280,7 @@ class IndexSSB(object):
                             str_msg_bar += f" - [{now_mv_date}]"
                             if now_mv_date != date_pos:
                                 diff_date_pos += 1
-                                str_msg_bar = f'\n{str_msg_bar} - [{date_pos}] - #2 - [{diff_date_pos}/{same_date_pos}]\n'
+                                str_msg_bar = f'{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n'
                             else:
                                 same_date_pos += 1
             elif now_mv_date == date_pos:
@@ -360,7 +360,6 @@ class IndexSSB(object):
                     "now_mv_st",
                 ]
             )
-        # print(df_index_ssb)
         df_mv_non_st.sort_values(by=["base_mv"], ascending=False, inplace=True)
         df_mv_50 = df_mv_non_st.iloc[:50].copy()
         df_mv_300 = df_mv_non_st.iloc[:300].copy()
@@ -379,6 +378,8 @@ class IndexSSB(object):
             "2000": df_mv_2000,
             "tail": df_mv_tail,
         }
+        i = 0
+        count = len(dict_df_index_n)
         for key in dict_df_index_n:
             df_mv_n_name = f"df_mv_{key}"
             df_mv_n = dict_df_index_n[key]
@@ -412,7 +413,7 @@ class IndexSSB(object):
                 else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x)
             )
             self.py_dbm[df_mv_n_name] = df_mv_n
-            print(f"\r{df_mv_n_name} save\033[K")
+            print(f"\r[{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K", end='')
         self.df_index_exist.at[date_pos, name] = 1
         self.py_dbm["df_index_exist"] = self.df_index_exist
         self.py_dbm["df_index_ssb"] = df_index_ssb
@@ -431,11 +432,9 @@ class IndexSSB(object):
                 if time_now < time_pm_end:
                     break
             str_msg_bar = f"Current Date: {date} - [{i:03d}/{count:03d}]"
-            # print(f"\r{str_msg_bar}\033[K", end='')
             if self.df_index_exist.at[date, "is_open"] == 1:
                 if not self.__make_index(date):
-                    print(f"make_index_line: {date} is not trading day")
-                    logger.trace(f"{date} is not trading day")
+                    logger.error(f"make_index_line: {date} is not trading day")
                     str_msg_bar += " - [non trading day]"
                 else:
                     str_msg_bar += " - [trading day]"
@@ -627,17 +626,15 @@ class IndexSSB(object):
                 break
             i_file += 1
             filename_excel = os.path.join(self.path_check, f"chip_SSB_{i_file}.xlsx")
-        print(filename_excel)
         keys_df = list(self.py_dbm.keys())
         keys_df = [x for x in keys_df if "df" in x]
-        print(keys_df)
         key_random = random.choice(keys_df)
         try:
             writer = pd.ExcelWriter(
                 path=filename_excel, mode="a", if_sheet_exists="replace"
             )
         except FileNotFoundError as e:
-            print(repr(e))
+            logger.error(f'{repr(e)}')
             with pd.ExcelWriter(path=filename_excel, mode="w") as writer_e:
                 if isinstance(self.py_dbm[key_random], pd.DataFrame):
                     self.py_dbm[key_random].to_excel(
@@ -655,7 +652,6 @@ class IndexSSB(object):
             if key != key_random:
                 if isinstance(self.py_dbm[key], pd.DataFrame):
                     self.py_dbm[key].to_excel(excel_writer=writer, sheet_name=key)
-                    print(self.py_dbm[key])
         writer.close()
         if i >= count:
             print("\n", end="")  # 格式处理

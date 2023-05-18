@@ -1,4 +1,5 @@
 # modified at 2023/4/28 13:44
+import sys
 import datetime
 import pandas as pd
 from pyecharts.charts import Line
@@ -7,12 +8,15 @@ from loguru import logger
 from ashare import stock_zh_a_spot_em
 import analysis.base
 from analysis.const import (
+    dt_date_init,
     time_pm_end,
     dt_am_start,
     dt_am_end,
     dt_pm_start,
     dt_pm_end,
+    dt_pm_end_last_T1,
     dt_date_trading,
+    dt_date_trading_last_T1,
     list_all_stocks,
     filename_chip_shelve,
     filename_concentration_rate_charts,
@@ -148,10 +152,18 @@ def concentration() -> bool:
             axis=1,
             join="outer",
         )
+    df_concentration['first_concentration'].fillna(value=dt_date_init, inplace=True)
+    df_concentration['latest_concentration'].fillna(value=dt_date_init, inplace=True)
+    df_concentration['days_concentration'].fillna(value=0, inplace=True)
+    df_concentration['times_concentration'].fillna(value=0, inplace=True)
+    if dt_pm_end_last_T1 < datetime.datetime.now() <= dt_pm_end:
+        date_latest = dt_date_trading_last_T1
+    else:
+        date_latest = dt_date_trading
     for symbol in df_concentration.index:
         if symbol in df_realtime_top5.index:
-            df_concentration.at[symbol, "latest_concentration"] = dt_date_trading
-            if pd.isnull(df_concentration.at[symbol, "first_concentration"]):
+            df_concentration.at[symbol, "latest_concentration"] = date_latest
+            if df_concentration.at[symbol, "first_concentration"] == dt_date_init:
                 df_concentration.at[
                     symbol, "first_concentration"
                 ] = df_concentration.at[symbol, "latest_concentration"]
@@ -164,12 +176,9 @@ def concentration() -> bool:
                 )
                 days_concentration = days_concentration.days + 1
                 df_concentration.at[symbol, "days_concentration"] = days_concentration
-                df_concentration.at[symbol, "times_concentration"] += 1
+                df_concentration.at[symbol, "times_concentration"] -= 1
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
-    )
-    df_concentration["latest_concentration"] = pd.to_datetime(
-        df_concentration["latest_concentration"]
     )
     analysis.base.write_obj_to_db(
         obj=df_concentration,
@@ -177,8 +186,11 @@ def concentration() -> bool:
         filename=filename_chip_shelve,
     )
     dt_concentration_date = (
-        df_concentration["latest_concentration"].max(skipna=True).date()
+        df_concentration["latest_concentration"].max(skipna=True)
     )
+    if dt_concentration_date > date_latest:
+        logger.error(f"Error - dt_concentration_date[{dt_concentration_date}] greater then date_latest")
+        dt_concentration_date = date_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
     return True
