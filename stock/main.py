@@ -200,10 +200,10 @@ if __name__ == "__main__":
             dt_inclusion_latest = df_trader.at[
                 code, "date_of_inclusion_latest"
             ] - datetime.timedelta(days=30)
-            days_inclusion = (
+            days_of_inclusion = (
                 dt_inclusion_latest - df_trader.at[code, "date_of_inclusion_first"]
             ).days
-            if days_inclusion > 30 and df_trader.at[code, "times_of_inclusion"] < 10:
+            if days_of_inclusion > 30 and df_trader.at[code, "times_of_inclusion"] < 10:
                 df_trader.drop(index=code, inplace=True)
         # 删除df_trader中标的----End
         # 用df_chip初始化df_trader----Begin
@@ -299,15 +299,16 @@ if __name__ == "__main__":
                     code, "date_of_inclusion_first"
                 ]
             if pd.notnull(df_trader.at[code, "date_of_inclusion_first"]):
-                days_inclusion = (
+                days_of_inclusion = (
                     dt_date_trading - df_trader.at[code, "date_of_inclusion_first"]
                 )
-                days_inclusion = days_inclusion.days + 1
-                days_inclusion = (
-                    days_inclusion // 7 * 5 + days_inclusion % 7
+                days_of_inclusion = days_of_inclusion.days + 1
+                days_of_inclusion = (
+                    days_of_inclusion // 7 * 5 + days_of_inclusion % 7
                 )  # 修正除数，尽可能趋近交易日
                 df_trader.at[code, "rate_of_inclusion"] = round(
-                    df_trader.at[code, "times_of_inclusion"] / days_inclusion * 100, 2
+                    df_trader.at[code, "times_of_inclusion"] / days_of_inclusion * 100,
+                    2,
                 )
             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
                 df_trader.at[code, "price_of_inclusion"] = G_price
@@ -399,7 +400,7 @@ if __name__ == "__main__":
         if frq > 2:
             os.system("cls")
         dt_now = datetime.datetime.now()
-        if frq % 3 == 0:
+        if frq % 6 == 0:  # 3 = 1 minutes, 6 = 2 minutes
             str_msg_concentration_rate = analysis.concentration_rate()
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:

@@ -119,6 +119,7 @@ class IndexSSB(object):
                 df_mv = self.df_mv
         diff_date_pos = 0
         same_date_pos = 0
+        share_change = 0
         count = len(df_mv)
         df_mv.sort_values(by=["base_mv"], inplace=True)
         df_mv = df_mv.sample(frac=1)
@@ -199,13 +200,19 @@ class IndexSSB(object):
                         df_mv.at[symbol, "t1_mv_date"] = df_daily_basic_symbol.at[
                             max2_index, "trade_date"
                         ]
-                        str_msg_bar += f" - [{now_mv_date}]"
                         if now_mv_date != date_pos:
                             diff_date_pos += 1
-                            str_msg_bar = f"{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n"
+                            print(
+                                f"\r{str_msg_bar} - [diff = {diff_date_pos}/{same_date_pos}] - [<{now_mv_date}> / <{date_pos}>]\033[K"
+                            )
                         else:
                             same_date_pos += 1
-                    else:
+                        str_msg_bar += f" - [{now_mv_date}] - [{date_pos}]"
+                    elif now_total_share != base_total_share:
+                        share_change += 1
+                        print(
+                            f"\r{str_msg_bar} - [Change = {share_change:2d}] -[{base_total_share.round(2)}/{now_total_share.round(2)}]\033[K"
+                        )
                         i_pro_bar = 0
                         while True:
                             i_pro_bar += 1
@@ -276,16 +283,22 @@ class IndexSSB(object):
                             df_mv.at[symbol, "t1_mv_date"] = df_pro_bar_symbol.at[
                                 max2_index_close, "trade_date"
                             ]
-                            str_msg_bar += f" - [{now_mv_date}]"
                             if now_mv_date != date_pos:
                                 diff_date_pos += 1
-                                str_msg_bar = f"{str_msg_bar} - [{date_pos}] - [{diff_date_pos}/{same_date_pos}]\n"
+                                print(
+                                    f"\r{str_msg_bar} - [diff = {diff_date_pos}/{same_date_pos}] - [<{now_mv_date}> / <{date_pos}>]\033[K"
+                                )
                             else:
                                 same_date_pos += 1
+                            str_msg_bar += f" - [{now_mv_date}] - [{date_pos}]"
+                    else:
+                        logger.error(
+                            f"{symbol} - Unknow Error - now_total_share={now_total_share}, base_total_share={base_total_share}"
+                        )
             elif now_mv_date == date_pos:
                 str_msg_bar += f" - [{now_mv_date}] - [{date_pos}] - latest"
             else:
-                str_msg_bar += f" - [{now_mv_date}] - None"
+                str_msg_bar += f" - [{now_mv_date}] - [{date_pos}] - None"
             print(f"\r{str_msg_bar}\033[K", end="")
         if i >= count:
             print("\n", end="")  # 格式处理
@@ -455,7 +468,7 @@ class IndexSSB(object):
         x_axis = df_index_ssb.index.tolist()
         dict_list_index_n = {
             "all": df_index_ssb["stocks_index_all"].tolist(),
-            "not_st": df_index_ssb["stocks_index_not_st"].tolist(),
+            "non_st": df_index_ssb["stocks_index_non_st"].tolist(),
             "50": df_index_ssb["stocks_index_50"].tolist(),
             "300": df_index_ssb["stocks_index_300"].tolist(),
             "500": df_index_ssb["stocks_index_500"].tolist(),
@@ -656,8 +669,8 @@ class IndexSSB(object):
             print("\n", end="")  # 格式处理
 
     def test(self):
-        date_pos = datetime.date(2023, 1, 5)
-        self.__get_market_values(date_pos)
+        pass
+        self.shelve_to_excel()
 
     def __del__(self):
         self.py_dbm.close()

@@ -60,6 +60,8 @@ def chip() -> object | DataFrame:
     else:
         df_st = pd.DataFrame()
         logger.trace("load df_st fail")
+    index_ssb = analysis.index.IndexSSB(update=True)
+    df_stocks_in_ssb = index_ssb.stocks_in_ssb()
     if analysis.industry.industry_rank():
         df_industry_rank_pool = analysis.base.read_df_from_db(
             key="df_industry_rank_pool", filename=filename_chip_shelve
@@ -84,8 +86,6 @@ def chip() -> object | DataFrame:
         print(df_industry_rank)
     else:
         print(df_industry_rank_pool)
-    index_ssb = analysis.index.IndexSSB(update=True)
-    df_stocks_in_ssb = index_ssb.stocks_in_ssb()
     if analysis.concentration.concentration():
         df_concentration = analysis.base.read_df_from_db(
             key="df_concentration", filename=filename_chip_shelve
