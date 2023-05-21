@@ -112,7 +112,7 @@ if __name__ == "__main__":
         key="df_industry_rank_pool", filename=filename_chip_shelve
     )
     if df_industry_rank_pool.empty:
-        print("Please rerun df_ Chip function")
+        print("Please rerun df_industry_rank_pool function")
         sys.exit()
     df_industry_rank_pool_buying = df_industry_rank_pool[
         df_industry_rank_pool["T5_rank"] >= 66
@@ -159,8 +159,7 @@ if __name__ == "__main__":
     df_stocks_pool = analysis.read_df_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
-    list_stocks_pool = df_stocks_pool.index.to_list()
-    for code in list_stocks_pool:
+    for code in df_stocks_pool.index:
         if code not in df_trader.index:
             df_trader.loc[code] = pd.Series(index=df_trader.columns, dtype="object")
         if pd.isnull(df_trader.at[code, "date_of_inclusion_first"]):

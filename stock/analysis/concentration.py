@@ -203,10 +203,9 @@ def concentration() -> bool:
                 days_concentration = (
                     df_concentration.at[symbol, "latest_concentration"]
                     - df_concentration.at[symbol, "first_concentration"]
-                )
-                days_concentration = days_concentration.days + 1
+                ).days + 1
                 df_concentration.at[symbol, "days_concentration"] = days_concentration
-                df_concentration.at[symbol, "times_concentration"] -= 1
+                df_concentration.at[symbol, "times_concentration"] += 1
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )

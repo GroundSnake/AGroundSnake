@@ -2,7 +2,7 @@
 from analysis.chip import chip
 from analysis.position import position
 from analysis.unit_net import unit_net
-from analysis.concentration import concentration_rate
+from analysis.concentration import concentration_rate, concentration
 from analysis.st import non_standard_opinions, st_income
 from analysis.const import *
 from analysis.base import (

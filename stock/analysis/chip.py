@@ -13,7 +13,7 @@ import analysis.capital
 import analysis.st
 import analysis.industry
 import analysis.index
-from analysis.const import filename_chip_shelve, filename_chip_excel, dt_pm_end
+from analysis.const import filename_chip_shelve, filename_chip_excel, dt_date_trading
 
 
 def chip() -> object | DataFrame:
@@ -82,10 +82,6 @@ def chip() -> object | DataFrame:
     else:
         df_industry = pd.DataFrame()
         logger.trace("load df_industry fail")
-    if df_industry_rank_pool.empty:
-        print(df_industry_rank)
-    else:
-        print(df_industry_rank_pool)
     if analysis.concentration.concentration():
         df_concentration = analysis.base.read_df_from_db(
             key="df_concentration", filename=filename_chip_shelve
@@ -108,7 +104,7 @@ def chip() -> object | DataFrame:
         join="outer",
     )
     df_chip["list_date"] = df_chip["list_date"].apply(
-        func=lambda x: (dt_pm_end - x).days
+        func=lambda x: (dt_date_trading - x).days
     )
     df_chip.rename(columns={"list_date": "list_days"}, inplace=True)
     df_chip["turnover"] = df_chip["total_volume"] / (df_chip["circ_cap"] / 100)

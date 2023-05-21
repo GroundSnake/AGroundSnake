@@ -384,6 +384,7 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 symbol_class = analysis.base.code_ts_to_ths(ts_code_index)
                 i_times_daily = 0
                 while True:
+                    i_times_daily += 1
                     try:
                         df_daily = pro.daily(
                             ts_code=ts_code,
@@ -395,16 +396,17 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                         time.sleep(2)
                     else:
                         if df_daily.empty:
-                            print(f"[df_daily] is empty.")
+                            print(
+                                f"\r{str_msg_bar} - [df_daily] is empty - sleep({i_times_daily})"
+                            )
                             time.sleep(2)
                         else:
                             break
                     if i_times_daily >= 2:
-                        print(
+                        logger.error(
                             f"[{symbol}] Request ConnectionError - [daily] - [{i_times_daily}]times"
                         )
                         sys.exit()
-                    i_times_daily += 1
                 df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
                 df_daily.set_index(keys=["trade_date"], inplace=True)
                 df_daily.sort_index(ascending=True, inplace=True)
@@ -420,19 +422,16 @@ def ths_industry(list_symbol: list | str = None) -> bool:
                 up_keep_days = 0
                 down_keep_days = 0
                 len_record = len(list_index_df_data)
-                str_msg_bar += f" - [{len_record:3d}]"
                 dt_daily = datetime.datetime.combine(df_daily.index.max(), time_pm_end)
                 dt_ths_daily = datetime.datetime.combine(
                     df_ths_daily.index.max(), time_pm_end
                 )
                 if dt_daily_max is None or dt_daily_max < dt_daily:
                     dt_daily_max = dt_daily
-                if dt_daily == dt_ths_daily:
-                    str_msg_bar += f" - [{dt_daily}]"
-                    print(f"\r{str_msg_bar}\033[K", end="")
-                else:
-                    str_msg_bar += f" - [{dt_daily}] - [{dt_ths_daily}] - is not latest"
-                    print(f"\r{str_msg_bar}\033[K")
+                str_msg_bar += f" - [{len_record:3d}] - [{dt_daily}] - [{dt_ths_daily}]"
+                print(f"\r{str_msg_bar}\033[K", end="")
+                if dt_daily != dt_ths_daily:
+                    print(f" - is not latest\033[K")
                 for index in list_index_df_data:
                     if index in list_index_df_ths_daily:
                         if (
