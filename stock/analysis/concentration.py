@@ -1,10 +1,10 @@
 # modified at 2023/05/18 22::25
 import datetime
 import pandas as pd
-from pyecharts.charts import Line
+from pyecharts.charts import Line, Page
 import pyecharts.options as opts
 from loguru import logger
-from ashare import stock_zh_a_spot_em
+import analysis.ashare
 import analysis.base
 from analysis.const import (
     dt_date_init,
@@ -24,7 +24,7 @@ from analysis.const import (
 
 def concentration_rate() -> str:
     name: str = f"df_concentration_rate"
-    df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
+    df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
     df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
@@ -42,11 +42,13 @@ def concentration_rate() -> str:
         rate_amount_top5 = (amount_top5 / amount_all * 100).round(2)
     else:
         rate_amount_top5 = 0
-    rate_total_mv_top5 = round(total_mv_top5 / total_mv_all * 100, 2)
-    rate_total_mv_tail95 = round(total_mv_tail95 / total_mv_all * 100, 2)
     rate_amount_tail95 = 100 - rate_amount_top5
+    rate_total_mv_top5 = (total_mv_top5 / total_mv_all * 100).round(2)
+    rate_total_mv_tail95 = 100 - rate_total_mv_top5
+    index_concentration = (rate_amount_top5 - rate_total_mv_top5).round(2)
     str_msg = (
-        f"Amount[{rate_amount_top5:.2f}({rate_total_mv_top5:.2f})]"
+        f"{round(amount_all, 2)} - Index[{index_concentration:6.2f}]"
+        f" - Amount[{rate_amount_top5:.2f}({rate_total_mv_top5:.2f})]"
         f" - Turnover[{turnover_top5:.2f}/{turnover_tail95:.2f}]"
         f" - Amplitude[{amplitude_top5:.2f}/{amplitude_tail95:.2f}]"
     )
@@ -63,6 +65,7 @@ def concentration_rate() -> str:
         df_concentration_rate.at[dt_now, "turnover_tail95"] = turnover_tail95
         df_concentration_rate.at[dt_now, "amplitude_top5"] = amplitude_top5
         df_concentration_rate.at[dt_now, "amplitude_tail95"] = amplitude_tail95
+        df_concentration_rate.at[dt_now, "index_concentration"] = index_concentration
         analysis.base.write_obj_to_db(
             obj=df_concentration_rate,
             key=name,
@@ -72,8 +75,19 @@ def concentration_rate() -> str:
         x_axis = df_concentration_rate.index.tolist()
         y_axis_rate_amount_top5 = df_concentration_rate["rate_amount_top5"].tolist()
         y_axis_rate_total_mv_top5 = df_concentration_rate["rate_total_mv_top5"].tolist()
-        y_min = min(y_axis_rate_amount_top5 + y_axis_rate_total_mv_top5)
-        y_max = max(y_axis_rate_amount_top5 + y_axis_rate_total_mv_top5)
+        y_axis_index_concentration = df_concentration_rate[
+            "index_concentration"
+        ].tolist()
+        y_min = min(
+            y_axis_rate_amount_top5
+            + y_axis_rate_total_mv_top5
+            + y_axis_index_concentration
+        )
+        y_max = max(
+            y_axis_rate_amount_top5
+            + y_axis_rate_total_mv_top5
+            + y_axis_index_concentration
+        )
         line_concentration_rate = Line(
             init_opts=opts.InitOpts(
                 width="1800px",
@@ -104,11 +118,22 @@ def concentration_rate() -> str:
                 ]
             ),
         )
+        line_concentration_rate.add_yaxis(
+            series_name="index_concentration",
+            y_axis=y_axis_index_concentration,
+            is_symbol_show=False,
+            markpoint_opts=opts.MarkPointOpts(
+                data=[
+                    opts.MarkPointItem(name="最大值", type_="max"),
+                    opts.MarkPointItem(name="最小值", type_="min"),
+                ]
+            ),
+        )
         line_concentration_rate.set_global_opts(
             title_opts=opts.TitleOpts(title="Concentration Rate", pos_left="center"),
             tooltip_opts=opts.TooltipOpts(trigger="axis"),
             toolbox_opts=opts.ToolboxOpts(),
-            legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top=60),
+            legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top="48%"),
             yaxis_opts=opts.AxisOpts(
                 min_=y_min,
                 max_=y_max,
@@ -118,7 +143,12 @@ def concentration_rate() -> str:
                 range_end=100,
             ),
         )
-        line_concentration_rate.render(path=filename_concentration_rate_charts)
+        page = Page(
+            page_title="concentration",
+        )
+        page.add(line_concentration_rate)
+        page.render(path=filename_concentration_rate_charts)
+        logger.trace(f"{name} End")
     return str_msg
 
 
@@ -127,7 +157,7 @@ def concentration() -> bool:
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"{name},Break and End")
         return True
-    df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
+    df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
     df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
@@ -161,21 +191,20 @@ def concentration() -> bool:
         date_latest = dt_date_trading
     for symbol in df_concentration.index:
         if symbol in df_realtime_top5.index:
-            df_concentration.at[symbol, "latest_concentration"] = date_latest
             if df_concentration.at[symbol, "first_concentration"] == dt_date_init:
                 df_concentration.at[
                     symbol, "first_concentration"
-                ] = df_concentration.at[symbol, "latest_concentration"]
+                ] = df_concentration.at[symbol, "latest_concentration"] = date_latest
                 df_concentration.at[symbol, "days_concentration"] = 1
                 df_concentration.at[symbol, "times_concentration"] = 1
             else:
-                days_concentration = (
+                if df_concentration.at[symbol, "latest_concentration"] != date_latest:
+                    df_concentration.at[symbol, "latest_concentration"] = date_latest
+                    df_concentration.at[symbol, "times_concentration"] += 1
+                df_concentration.at[symbol, "days_concentration"] = (
                     df_concentration.at[symbol, "latest_concentration"]
                     - df_concentration.at[symbol, "first_concentration"]
-                )
-                days_concentration = days_concentration.days + 1
-                df_concentration.at[symbol, "days_concentration"] = days_concentration
-                df_concentration.at[symbol, "times_concentration"] -= 1
+                ).days + 1
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )
@@ -192,4 +221,5 @@ def concentration() -> bool:
         dt_concentration_date = date_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
+    print(df_concentration)
     return True

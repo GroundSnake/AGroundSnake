@@ -7,9 +7,9 @@ import requests
 import pandas as pd
 import feather
 from loguru import logger
-import ashare
 import akshare as ak
 import analysis.base
+import analysis.ashare
 from analysis.const import (
     path_data,
     path_index,
@@ -72,7 +72,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
                 else:
                     while True:
                         try:
-                            df_delta = ashare.get_history_n_min_tx(
+                            df_delta = analysis.ashare.get_history_n_min_tx(
                                 symbol=symbol, frequency=frequency, count=quantity
                             )
                         except requests.exceptions.Timeout as e:
@@ -96,7 +96,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
             else:
                 while True:
                     try:
-                        df_data = ashare.get_history_n_min_tx(
+                        df_data = analysis.ashare.get_history_n_min_tx(
                             symbol=symbol, frequency=frequency, count=quantity
                         )
                     except requests.exceptions.Timeout as e:
@@ -130,7 +130,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
             i_times = 0
             while i_times <= 2:
                 try:
-                    df_delta = ashare.get_history_n_min_tx(
+                    df_delta = analysis.ashare.get_history_n_min_tx(
                         symbol=symbol, frequency=frequency, count=quantity
                     )
                     # logger.trace(f"[{symbol}] get_history_n_min_tx success")

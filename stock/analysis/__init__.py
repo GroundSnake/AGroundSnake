@@ -1,8 +1,10 @@
 # modified at 2023/05/18 22::25
+from analysis.ashare import realtime_quotations, stock_zh_a_spot_em
 from analysis.chip import chip
 from analysis.position import position
 from analysis.unit_net import unit_net
-from analysis.concentration import concentration_rate
+from analysis.initialization import init_trader
+from analysis.concentration import concentration_rate, concentration
 from analysis.st import non_standard_opinions, st_income
 from analysis.const import *
 from analysis.base import (

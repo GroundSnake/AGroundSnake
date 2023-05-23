@@ -2,7 +2,6 @@
 import os
 import datetime
 import random
-
 import tushare as ts
 
 
@@ -108,3 +107,5 @@ filename_concentration_rate_charts = os.path.join(
     path_check, f"concentration_rate_charts.html"
 )
 list_all_stocks = all_chs_code()
+fall = -5
+rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683

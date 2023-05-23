@@ -1,6 +1,5 @@
 # modified at 2023/05/18 22::25
 import os
-import sys
 import time
 import datetime
 import feather
@@ -161,6 +160,7 @@ def stock_individual_info(code: str = "603777") -> pd.DataFrame:
     df_return = df_return.reindex(
         columns=["name", "list_date", "total_cap", "circ_cap", "total_mv_E"]
     )
+    df_return["list_date"] = df_return["list_date"].apply(func=lambda x: x.date())
     return df_return
 
 
@@ -190,36 +190,44 @@ def capital() -> bool:
         i += 1
         str_msg_bar = f"Capital Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_cap_exist:
-            str_msg_bar += " - exist"
-            print(
-                f"\r{str_msg_bar}\033[K", end=""
-            )  # End of this cycle, print progress bar
+            print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
         code = symbol[2:]
         df_cap_temp = pd.DataFrame()
         i_times = 0
-        while i_times <= 2:
+        while True:
+            i_times += 1
             try:
                 df_cap_temp = stock_individual_info(code=code)
             except KeyError as e:
-                str_msg_bar += f" - {repr(e)}"
-                logger.trace(repr(e))
+                print(f"\r{str_msg_bar} - {repr(e)}\033[K")
                 break
             except ConnectionError as e:
-                str_msg_bar += f" - {repr(e)}"
-                logger.trace(repr(e))
+                if i_times > 2:
+                    print(
+                        f"\r{str_msg_bar} - [Error={i_times}] - break - {repr(e)} \033[K"
+                    )
+                    break
+                else:
+                    print(f"\r{str_msg_bar} - [Error={i_times}] - {repr(e)}\033[K")
+                    time.sleep(2)
             else:
-                break
-            if i_times >= 2:
-                str_msg_bar += f" -  Request Error"
-                print(f"\r{str_msg_bar}\033[K")  # Program End
-                sys.exit()
-            i_times += 1
+                if df_cap_temp.empty:
+                    if i_times > 2:
+                        print(f"\r{str_msg_bar} - [Empty={i_times}] - break\033[K")
+                        break
+                    else:
+                        print(f"\r{str_msg_bar} - [Empty={i_times}]\033[K")
+                        time.sleep(2)
+                else:
+                    break  # normal
         if not df_cap_temp.empty:
             if df_cap.empty:
                 df_cap = pd.DataFrame(columns=df_cap_temp.columns)
             df_cap.loc[symbol] = df_cap_temp.loc[code]
             str_msg_bar += f" -  update"
+        else:
+            print(f"\r{str_msg_bar} - None\033[K")
         feather.write_dataframe(df=df_cap, dest=filename_cap_feather_temp)
         print(f"\r{str_msg_bar}\033[K", end="")  # End of this cycle, print progress bar
     if i >= count:

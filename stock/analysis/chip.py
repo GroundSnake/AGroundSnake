@@ -13,7 +13,8 @@ import analysis.capital
 import analysis.st
 import analysis.industry
 import analysis.index
-from analysis.const import filename_chip_shelve, filename_chip_excel, dt_pm_end
+import analysis.concentration
+from analysis.const import filename_chip_shelve, filename_chip_excel, dt_date_trading
 
 
 def chip() -> object | DataFrame:
@@ -51,7 +52,7 @@ def chip() -> object | DataFrame:
         logger.trace("load df_cap success")
     else:
         df_cap = pd.DataFrame()
-        logger.trace("load df_cap fail")
+        logger.error("load df_cap fail")
     if analysis.st.st_income():
         df_st = analysis.base.read_df_from_db(
             key="df_st", filename=filename_chip_shelve
@@ -60,18 +61,22 @@ def chip() -> object | DataFrame:
     else:
         df_st = pd.DataFrame()
         logger.trace("load df_st fail")
-    if analysis.industry.industry_rank():
-        df_industry_rank_pool = analysis.base.read_df_from_db(
-            key="df_industry_rank_pool", filename=filename_chip_shelve
+    index_ssb = analysis.index.IndexSSB(update=True)
+    df_stocks_in_ssb = index_ssb.stocks_in_ssb()
+    if analysis.concentration():
+        df_concentration = analysis.base.read_df_from_db(
+            key="df_concentration", filename=filename_chip_shelve
         )
-        logger.trace("load df_industry_rank_pool success")
-        df_industry_rank = analysis.base.read_df_from_db(
-            key="df_industry_rank", filename=filename_chip_shelve
-        )
+        logger.trace("load df_concentration success")
     else:
-        df_industry_rank_pool = pd.DataFrame()
-        df_industry_rank = pd.DataFrame()
-        logger.trace("load df_industry_rank fail")
+        df_concentration = pd.DataFrame()
+        logger.error("load df_concentration fail")
+    while True:
+        if analysis.industry.industry_rank():
+            break
+        else:
+            print("Sleep 1 hour")
+            time.sleep(3600)
     if analysis.industry.ths_industry():
         df_industry = analysis.base.read_df_from_db(
             key="df_industry", filename=filename_chip_shelve
@@ -80,20 +85,6 @@ def chip() -> object | DataFrame:
     else:
         df_industry = pd.DataFrame()
         logger.trace("load df_industry fail")
-    if df_industry_rank_pool.empty:
-        print(df_industry_rank)
-    else:
-        print(df_industry_rank_pool)
-    index_ssb = analysis.index.IndexSSB(update=True)
-    df_stocks_in_ssb = index_ssb.stocks_in_ssb()
-    if analysis.concentration.concentration():
-        df_concentration = analysis.base.read_df_from_db(
-            key="df_concentration", filename=filename_chip_shelve
-        )
-        logger.trace("load df_concentration success")
-    else:
-        df_concentration = pd.DataFrame()
-        logger.trace("load df_concentration fail")
     df_chip = pd.concat(
         objs=[
             df_cap,
@@ -107,8 +98,9 @@ def chip() -> object | DataFrame:
         axis=1,
         join="outer",
     )
+    df_chip["list_date"].fillna(value=dt_date_trading, inplace=True)
     df_chip["list_date"] = df_chip["list_date"].apply(
-        func=lambda x: (dt_pm_end - x).days
+        func=lambda x: (dt_date_trading - x).days
     )
     df_chip.rename(columns={"list_date": "list_days"}, inplace=True)
     df_chip["turnover"] = df_chip["total_volume"] / (df_chip["circ_cap"] / 100)

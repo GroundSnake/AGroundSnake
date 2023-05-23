@@ -1,7 +1,6 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
-import sys
 import time
 import random
 import feather
@@ -9,7 +8,6 @@ import pandas as pd
 import numpy as np
 from scipy.constants import golden
 from loguru import logger
-import ashare
 import analysis.update_data
 import analysis.base
 from analysis.const import (
@@ -76,7 +74,7 @@ def golden_price(list_code: list | str = None, frequency: str = "1m") -> bool:
             "G_price_volume",
         ]
         df_golden = pd.DataFrame(columns=list_columns)
-    df_now_price = ashare.stock_zh_a_spot_em()
+    df_now_price = analysis.ashare.stock_zh_a_spot_em()
     i = 0
     all_record = len(list_code)
     logger.trace(f"for loop Begin")
