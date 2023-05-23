@@ -1,11 +1,10 @@
 # modified at 2023/05/18 22::25
-import sys
 import datetime
 import pandas as pd
 from pyecharts.charts import Line, Page
 import pyecharts.options as opts
 from loguru import logger
-from ashare import stock_zh_a_spot_em
+import analysis.ashare
 import analysis.base
 from analysis.const import (
     dt_date_init,
@@ -25,7 +24,7 @@ from analysis.const import (
 
 def concentration_rate() -> str:
     name: str = f"df_concentration_rate"
-    df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
+    df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
     df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
@@ -158,7 +157,7 @@ def concentration() -> bool:
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"{name},Break and End")
         return True
-    df_realtime = stock_zh_a_spot_em()  # 调用实时数据接口
+    df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
     df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
@@ -192,20 +191,20 @@ def concentration() -> bool:
         date_latest = dt_date_trading
     for symbol in df_concentration.index:
         if symbol in df_realtime_top5.index:
-            df_concentration.at[symbol, "latest_concentration"] = date_latest
             if df_concentration.at[symbol, "first_concentration"] == dt_date_init:
                 df_concentration.at[
                     symbol, "first_concentration"
-                ] = df_concentration.at[symbol, "latest_concentration"]
+                ] = df_concentration.at[symbol, "latest_concentration"] = date_latest
                 df_concentration.at[symbol, "days_concentration"] = 1
                 df_concentration.at[symbol, "times_concentration"] = 1
             else:
-                days_concentration = (
+                if df_concentration.at[symbol, "latest_concentration"] != date_latest:
+                    df_concentration.at[symbol, "latest_concentration"] = date_latest
+                    df_concentration.at[symbol, "times_concentration"] += 1
+                df_concentration.at[symbol, "days_concentration"] = (
                     df_concentration.at[symbol, "latest_concentration"]
                     - df_concentration.at[symbol, "first_concentration"]
                 ).days + 1
-                df_concentration.at[symbol, "days_concentration"] = days_concentration
-                df_concentration.at[symbol, "times_concentration"] += 1
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )
@@ -222,4 +221,5 @@ def concentration() -> bool:
         dt_concentration_date = date_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
+    print(df_concentration)
     return True

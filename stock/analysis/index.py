@@ -1,5 +1,6 @@
 # modified at 2023/05/18 22::25
 import os
+import sys
 import time
 import feather
 import numpy as np
@@ -129,7 +130,7 @@ class IndexSSB(object):
             ts_code = symbol[2:] + "." + symbol[:2]
             feather.write_dataframe(df=df_mv, dest=filename_df_mv_temp)
             i += 1
-            str_msg_bar = f"{str_df_mv}: [{i:04d}/{count}] - [{symbol}]"
+            str_msg_bar = f"{name} - {str_df_mv}: [{i:04d}/{count}] - [{symbol}]"
             now_mv_date = df_mv.at[symbol, "now_mv_date"]
             if now_mv_date != date_pos:
                 i_times = 0
@@ -203,7 +204,8 @@ class IndexSSB(object):
                         if now_mv_date != date_pos:
                             diff_date_pos += 1
                             print(
-                                f"\r{str_msg_bar} - [diff = {diff_date_pos}/{same_date_pos}] - [<{now_mv_date}> / <{date_pos}>]\033[K"
+                                f"\r{str_msg_bar} - [diff = {diff_date_pos}/{same_date_pos}]"
+                                f" - [<{now_mv_date}> / <{date_pos}>]\033[K"
                             )
                         else:
                             same_date_pos += 1
@@ -211,7 +213,8 @@ class IndexSSB(object):
                     elif now_total_share != base_total_share:
                         share_change += 1
                         print(
-                            f"\r{str_msg_bar} - [Change = {share_change:2d}] -[{base_total_share.round(2)}/{now_total_share.round(2)}]\033[K"
+                            f"\r{str_msg_bar} - [Change = {share_change:2d}]"
+                            f" - [{base_total_share.round(2)} - {now_total_share.round(2)}]\033[K"
                         )
                         i_pro_bar = 0
                         while True:
@@ -286,20 +289,30 @@ class IndexSSB(object):
                             if now_mv_date != date_pos:
                                 diff_date_pos += 1
                                 print(
-                                    f"\r{str_msg_bar} - [diff = {diff_date_pos}/{same_date_pos}] - [<{now_mv_date}> / <{date_pos}>]\033[K"
+                                    f"\r{str_msg_bar} - [diff = {diff_date_pos}/{same_date_pos}]"
+                                    f" - [<{now_mv_date}> / <{date_pos}>]\033[K"
                                 )
                             else:
                                 same_date_pos += 1
                             str_msg_bar += f" - [{now_mv_date}] - [{date_pos}]"
                     else:
                         logger.error(
-                            f"{symbol} - Unknow Error - now_total_share={now_total_share}, base_total_share={base_total_share}"
+                            f"{symbol} - Unknow Error"
+                            f" - now_total_share={now_total_share}, base_total_share={base_total_share}"
                         )
             elif now_mv_date == date_pos:
-                str_msg_bar += f" - [{now_mv_date}] - [{date_pos}] - latest"
+                same_date_pos += 1
+                print(
+                    f"\r{str_msg_bar} - [{now_mv_date}] - [{date_pos}] - latest\033[K",
+                    end="",
+                )
             else:
-                str_msg_bar += f" - [{now_mv_date}] - [{date_pos}] - None"
-            print(f"\r{str_msg_bar}\033[K", end="")
+                diff_date_pos += 1
+                print(f"\r{str_msg_bar} - [{now_mv_date}] - [{date_pos}] - None\033[K")
+            if diff_date_pos >= 50:
+                print("\n", end="")
+                logger.error("diff_date_pos >= 50")
+                sys.exit()
         if i >= count:
             print("\n", end="")  # 格式处理
             df_mv.applymap(
@@ -329,8 +342,13 @@ class IndexSSB(object):
         ):
             logger.trace(f"{name} Break, and End")
             return True
-        if self.__get_market_values(date_pos=date_pos):
-            df_mv = self.py_dbm[str_df_mv]
+        bool_get_mv = self.__get_market_values(date_pos=date_pos)
+        if bool_get_mv:
+            try:
+                df_mv = self.py_dbm[str_df_mv]
+            except KeyError as e:
+                logger.error(f"{date_pos} - {repr(e)}, sys exit")
+                sys.exit()
         else:
             print(f"make_index: {date_pos} is not trading day")
             logger.trace(f"{date_pos} is not trading day")
