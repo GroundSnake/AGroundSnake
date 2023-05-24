@@ -184,9 +184,6 @@ if __name__ == "__main__":
     analysis.write_obj_to_db(
         obj=df_trader, key="df_trader", filename=filename_chip_shelve
     )
-
-
-
     # 保存df_trader----End
     # 创建df_signal----Begin
     if os.access(path=filename_signal, mode=os.F_OK):
