@@ -44,14 +44,12 @@ class IndexSSB(object):
         df_trade_cal.set_index(keys=["cal_date"], inplace=True)
         try:
             self.df_index_exist = self.py_dbm["df_index_exist"]
-            logger.trace(f"load self.df_index_exist from py_dbm")
             self.df_index_exist = self.df_index_exist.reindex(index=df_trade_cal.index)
             self.df_index_exist["is_open"] = df_trade_cal["is_open"]
         except KeyError as e:
             key_df_x = e.args[0].decode()
             if "df_index_exist" in key_df_x:
                 self.df_index_exist = df_trade_cal
-                logger.trace(f"load self.df_index_exist from [API]")
                 self.df_index_exist = self.df_index_exist.reindex(
                     columns=["is_open", "market_value", "index_ssb"]
                 )
@@ -103,7 +101,6 @@ class IndexSSB(object):
                 return True
         else:
             print(f"get_market_values: {date_pos} is not trading day")
-            logger.trace(f"{date_pos} is not trading day")
             return False
         str_date_pos_ul = date_pos.strftime("%Y_%m_%d")
         str_df_mv = f"mv_{str_date_pos_ul}"
@@ -145,7 +142,7 @@ class IndexSSB(object):
                         )
                     except requests.exceptions.ConnectionError as e:
                         print(f"\r{str_msg_bar} - {repr(e)}\033[K")
-                        logger.trace(repr(e))
+                        logger.error(repr(e))
                         time.sleep(2)
                         if i_times > times_try:
                             df_daily_basic_symbol = pd.DataFrame()
@@ -228,7 +225,7 @@ class IndexSSB(object):
                                 )
                             except requests.exceptions.ConnectionError as e:
                                 print(f"\r{str_msg_bar} - {repr(e)}\033[K")
-                                logger.trace(repr(e))
+                                logger.error(repr(e))
                                 time.sleep(2)
                                 if i_pro_bar > times_try:
                                     df_pro_bar_symbol = pd.DataFrame()
@@ -351,20 +348,19 @@ class IndexSSB(object):
                 sys.exit()
         else:
             print(f"make_index: {date_pos} is not trading day")
-            logger.trace(f"{date_pos} is not trading day")
             return False
         df_mv_non_st = df_mv[~df_mv["name"].str.contains("ST").fillna(False)].copy()
         df_mv_st = df_mv[df_mv["name"].str.contains("ST").fillna(False)].copy()
         try:
             df_index_ssb = self.py_dbm["df_index_ssb"]
-            logger.trace(f"load df_index_ssb from py_dbm")
         except KeyError as e:
-            logger.trace(f"load df_index_ssb from py_dbm fail - Error[{repr(e)}]")
+            logger.error(f"load df_index_ssb from py_dbm fail - Error[{repr(e)}]")
             df_index_ssb = pd.DataFrame(
                 columns=[
                     "base_mv_all",
                     "now_mv_all",
-                    "stocks_index_not_st",
+                    "stocks_index_all",
+                    "stocks_index_non_st",
                     "stocks_index_50",
                     "stocks_index_300",
                     "stocks_index_500",
@@ -411,6 +407,7 @@ class IndexSSB(object):
         i = 0
         count = len(dict_df_index_n)
         for key in dict_df_index_n:
+            i += 1
             df_mv_n_name = f"df_mv_{key}"
             df_mv_n = dict_df_index_n[key]
             base_mv_n = df_mv_n["base_mv"].sum()
@@ -443,7 +440,9 @@ class IndexSSB(object):
                 else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x)
             )
             self.py_dbm[df_mv_n_name] = df_mv_n
-            print(f"\r[{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K", end="")
+            print(f"\r{name} - {date_pos} - [{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K", end="")
+        if i >= count:
+            print("\n", end="")
         self.df_index_exist.at[date_pos, name] = 1
         self.py_dbm["df_index_exist"] = self.df_index_exist
         self.py_dbm["df_index_ssb"] = df_index_ssb
@@ -480,7 +479,7 @@ class IndexSSB(object):
         try:
             df_index_ssb = self.py_dbm["df_index_ssb"]
         except KeyError as e:
-            logger.trace(f"df_index_ssb is not exist - {repr(e)}")
+            logger.error(f"df_index_ssb is not exist - {repr(e)}")
             raise KeyError("df_index_ssb is not exist")
         df_index_ssb.sort_index(inplace=True)
         x_axis = df_index_ssb.index.tolist()
@@ -620,9 +619,10 @@ class IndexSSB(object):
         return self.py_dbm["df_stocks_in_ssb"]
 
     def shelve_to_excel(self):
+        logger.trace("shelve_to_excel Begin")
         def is_open(filename) -> bool:
             if not os.access(path=filename, mode=os.F_OK):
-                logger.trace(f"[{filename}] is not exist")
+                logger.error(f"[{filename}] is not exist")
                 return False
             else:
                 logger.trace(f"[{filename}] is exist")
@@ -685,9 +685,13 @@ class IndexSSB(object):
         writer.close()
         if i >= count:
             print("\n", end="")  # 格式处理
+        logger.trace("shelve_to_excel End")
 
-    def test(self):
-        pass
+    def reset_index_ssb(self):
+        self.df_index_exist['index_ssb'] = 0
+        del self.py_dbm["df_index_ssb"]
+        self.make()
+        self.stocks_in_ssb()
         self.shelve_to_excel()
 
     def __del__(self):
