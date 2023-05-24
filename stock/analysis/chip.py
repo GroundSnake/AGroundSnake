@@ -71,10 +71,12 @@ def chip() -> object | DataFrame:
     else:
         df_concentration = pd.DataFrame()
         logger.error("load df_concentration fail")
-    if analysis.industry.industry_rank():
-        logger.trace("save df_industry_rank_pool success")
-    else:
-        logger.error("save df_industry_rank_pool fail")
+    while True:
+        if analysis.industry.industry_rank():
+            break
+        else:
+            print("Sleep 1 hour")
+            time.sleep(3600)
     if analysis.industry.ths_industry():
         df_industry = analysis.base.read_df_from_db(
             key="df_industry", filename=filename_chip_shelve
