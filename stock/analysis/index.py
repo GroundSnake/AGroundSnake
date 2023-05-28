@@ -14,6 +14,13 @@ from loguru import logger
 from pyecharts.charts import Line, Page
 import pyecharts.options as opts
 import tushare as ts
+import analysis.ashare
+from analysis.const import (
+    dt_am_start,
+    dt_am_end,
+    dt_pm_start,
+    dt_pm_end,
+)
 
 
 class IndexSSB(object):
@@ -30,6 +37,9 @@ class IndexSSB(object):
         self.path_check = os.path.join(path_main, "check")
         self.filename_shelve = os.path.join(self.path_mv, f"mv")
         self.filename_index_charts = os.path.join(self.path_check, "index_charts.html")
+        self.filename_index_charts_min = os.path.join(
+            self.path_check, "index_charts_min.html"
+        )
         self.py_dbm = shelve.open(filename=self.filename_shelve, flag="c")
         df_trade_cal = self.__pro.trade_cal(
             exchange="", start_date=self.str_date_origin, end_date=self.str_date_now
@@ -359,15 +369,15 @@ class IndexSSB(object):
                 columns=[
                     "base_mv_all",
                     "now_mv_all",
-                    "stocks_index_all",
-                    "stocks_index_non_st",
-                    "stocks_index_50",
-                    "stocks_index_300",
-                    "stocks_index_500",
-                    "stocks_index_1000",
-                    "stocks_index_2000",
-                    "stocks_index_tail",
-                    "stocks_index_st",
+                    "ssb_all",
+                    "ssb_non_st",
+                    "ssb_50",
+                    "ssb_300",
+                    "ssb_500",
+                    "ssb_1000",
+                    "ssb_2000",
+                    "ssb_tail",
+                    "ssb_st",
                     "base_mv_non_st",
                     "base_mv_50",
                     "base_mv_300",
@@ -418,7 +428,7 @@ class IndexSSB(object):
             df_index_ssb.at[date_pos, f"now_mv_{key}"] = round(now_mv_n / 100000000, 2)
             stocks_index_n = now_mv_n / base_mv_n * 1000
             stocks_index_n = round(stocks_index_n, 2)
-            df_index_ssb.at[date_pos, f"stocks_index_{key}"] = stocks_index_n
+            df_index_ssb.at[date_pos, f"ssb_{key}"] = stocks_index_n
             df_mv_n[f"contribution_points_index_{key}"] = (
                 (df_mv_n["now_mv"] - df_mv_n["base_mv"]) / base_mv_n * 1000
             )
@@ -440,7 +450,10 @@ class IndexSSB(object):
                 else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x)
             )
             self.py_dbm[df_mv_n_name] = df_mv_n
-            print(f"\r{name} - {date_pos} - [{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K", end="")
+            print(
+                f"\r{name} - {date_pos} - [{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K",
+                end="",
+            )
         if i >= count:
             print("\n", end="")
         self.df_index_exist.at[date_pos, name] = 1
@@ -484,14 +497,14 @@ class IndexSSB(object):
         df_index_ssb.sort_index(inplace=True)
         x_axis = df_index_ssb.index.tolist()
         dict_list_index_n = {
-            "all": df_index_ssb["stocks_index_all"].tolist(),
-            "non_st": df_index_ssb["stocks_index_non_st"].tolist(),
-            "50": df_index_ssb["stocks_index_50"].tolist(),
-            "300": df_index_ssb["stocks_index_300"].tolist(),
-            "500": df_index_ssb["stocks_index_500"].tolist(),
-            "1000": df_index_ssb["stocks_index_1000"].tolist(),
-            "2000": df_index_ssb["stocks_index_2000"].tolist(),
-            "tail": df_index_ssb["stocks_index_tail"].tolist(),
+            "all": df_index_ssb["ssb_all"].tolist(),
+            "non_st": df_index_ssb["ssb_non_st"].tolist(),
+            "50": df_index_ssb["ssb_50"].tolist(),
+            "300": df_index_ssb["ssb_300"].tolist(),
+            "500": df_index_ssb["ssb_500"].tolist(),
+            "1000": df_index_ssb["ssb_1000"].tolist(),
+            "2000": df_index_ssb["ssb_2000"].tolist(),
+            "tail": df_index_ssb["ssb_tail"].tolist(),
         }
         list_values = list()
         for key in dict_list_index_n:
@@ -508,7 +521,7 @@ class IndexSSB(object):
         line_index.add_xaxis(xaxis_data=x_axis)
         for key in dict_list_index_n:
             line_index.add_yaxis(
-                series_name=f"index_{key}",
+                series_name=f"ssb_{key}",
                 y_axis=dict_list_index_n[key],
                 is_symbol_show=False,
             )
@@ -543,11 +556,11 @@ class IndexSSB(object):
             ),
         )
         line_index_st.add_xaxis(xaxis_data=x_axis)
-        y_axis_st = df_index_ssb["stocks_index_st"].tolist()
+        y_axis_st = df_index_ssb["ssb_st"].tolist()
         y_min_st = min(y_axis_st)
         y_max_st = max(y_axis_st)
         line_index_st.add_yaxis(
-            series_name=f"index_st",
+            series_name=f"ssb_st",
             y_axis=y_axis_st,
             is_symbol_show=False,
         )
@@ -618,8 +631,192 @@ class IndexSSB(object):
         logger.trace(f"{name} End")
         return self.py_dbm["df_stocks_in_ssb"]
 
+    def realtime_index(self):
+        df_stocks_in_ssb = self.py_dbm["df_stocks_in_ssb"]
+        df_realtime = analysis.ashare.stock_zh_a_spot_em()[["total_mv"]]  # 调用实时数据接口
+        df_mv_all = self.py_dbm["df_mv_all"][["base_mv", "now_mv"]]
+        df_mv_now = pd.concat(
+            objs=[
+                df_stocks_in_ssb,
+                df_realtime,
+                df_mv_all,
+            ],
+            axis=1,
+            join="outer",
+        )
+        df_mv_now.dropna(subset=["ssb_index"], inplace=True)
+        df_mv_now.rename(
+            columns={
+                "total_mv": "now_mv",
+                "now_mv": "t1_mv",
+            },
+            inplace=True,
+        )
+        df_index_now = pd.pivot_table(
+            data=df_mv_now,
+            index=["ssb_index"],
+            aggfunc=np.sum,
+        )
+        if "NON" in df_index_now.index:
+            df_index_now.drop(index=["NON"], inplace=True)
+        df_index_now.at["ssb_all", "base_mv"] = df_index_now["base_mv"].sum()
+        df_index_now.at["ssb_all", "now_mv"] = df_index_now["now_mv"].sum()
+        df_index_now.at["ssb_all", "t1_mv"] = df_index_now["t1_mv"].sum()
+        df_index_now.at["ssb_300", "base_mv"] += df_index_now.at["ssb_50", "base_mv"]
+        df_index_now.at["ssb_300", "now_mv"] += df_index_now.at["ssb_50", "now_mv"]
+        df_index_now.at["ssb_300", "t1_mv"] += df_index_now.at["ssb_50", "t1_mv"]
+        df_index_now.at["ssb_non_st", "base_mv"] = (
+            df_index_now.at["ssb_all", "base_mv"] - df_index_now.at["ssb_st", "base_mv"]
+        )
+        df_index_now.at["ssb_non_st", "now_mv"] = (
+            df_index_now.at["ssb_all", "now_mv"] - df_index_now.at["ssb_st", "now_mv"]
+        )
+        df_index_now.at["ssb_non_st", "t1_mv"] = (
+            df_index_now.at["ssb_all", "t1_mv"] - df_index_now.at["ssb_st", "t1_mv"]
+        )
+        df_index_now["index_now"] = (
+            df_index_now["now_mv"] / df_index_now["base_mv"] * 1000
+        )
+        df_index_now["index_1t"] = (
+            df_index_now["t1_mv"] / df_index_now["base_mv"] * 1000
+        )
+        df_index_now["index_now"] = df_index_now["index_now"].apply(
+            func=lambda x: round(x, 2)
+        )
+        # df_index_now["index_1t"] = df_index_now["index_1t"].apply(func=lambda x: round(x, 2))
+        try:
+            df_index_ssb_min = self.py_dbm["df_index_ssb_min"]
+        except KeyError as e:
+            logger.error(f"df_index_ssb_min is not exist - {repr(e)}")
+            df_index_ssb_min = pd.DataFrame(columns=df_index_now.index)
+        dt_now = datetime.datetime.now()
+        df_index_ssb_min.loc[dt_now] = df_index_now["index_now"]
+        if len(df_index_ssb_min) < 2:
+            df_index_ssb_min = df_index_ssb_min.reindex(
+                columns=[
+                    "ssb_all",
+                    "ssb_non_st",
+                    "ssb_50",
+                    "ssb_300",
+                    "ssb_500",
+                    "ssb_1000",
+                    "ssb_2000",
+                    "ssb_tail",
+                    "ssb_st",
+                ]
+            )
+        if dt_am_start < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
+            self.py_dbm["df_index_ssb_min"] = df_index_ssb_min
+        if not self.py_dbm["df_index_ssb_min"].empty:
+            self.__make_charts_min()
+        dict_return = df_index_ssb_min.iloc[-1].to_dict()
+        return dict_return
+
+    def __make_charts_min(self):
+        name = "make_charts"
+        logger.trace(f"{name} Begin")
+        try:
+            df_index_ssb_min = self.py_dbm["df_index_ssb_min"]
+        except KeyError as e:
+            logger.error(f"df_index_ssb_min is not exist - {repr(e)}")
+            raise KeyError("df_index_ssb_min is not exist")
+        df_index_ssb_min.sort_index(inplace=True)
+        x_axis = df_index_ssb_min.index.tolist()
+        dict_list_index_n = {
+            "all": df_index_ssb_min["ssb_all"].tolist(),
+            "non_st": df_index_ssb_min["ssb_non_st"].tolist(),
+            "50": df_index_ssb_min["ssb_50"].tolist(),
+            "300": df_index_ssb_min["ssb_300"].tolist(),
+            "500": df_index_ssb_min["ssb_500"].tolist(),
+            "1000": df_index_ssb_min["ssb_1000"].tolist(),
+            "2000": df_index_ssb_min["ssb_2000"].tolist(),
+            "tail": df_index_ssb_min["ssb_tail"].tolist(),
+        }
+        list_values = list()
+        for key in dict_list_index_n:
+            list_values += dict_list_index_n[key]
+        list_values = [x for x in list_values if ~np.isnan(x)]
+        y_min = min(list_values)
+        y_max = max(list_values)
+        line_index = Line(
+            init_opts=opts.InitOpts(
+                width="1800px",
+                height="860px",
+            ),
+        )
+        line_index.add_xaxis(xaxis_data=x_axis)
+        for key in dict_list_index_n:
+            line_index.add_yaxis(
+                series_name=f"ssb_{key}",
+                y_axis=dict_list_index_n[key],
+                is_symbol_show=False,
+            )
+        line_index.set_global_opts(
+            title_opts=opts.TitleOpts(title="SSB Index", pos_top="0%", pos_left="50%"),
+            tooltip_opts=opts.TooltipOpts(trigger="axis"),
+            toolbox_opts=opts.ToolboxOpts(),
+            legend_opts=opts.LegendOpts(
+                orient="vertical", pos_right="0px", pos_top="60px"
+            ),
+            yaxis_opts=opts.AxisOpts(min_=y_min, max_=y_max),
+            datazoom_opts=opts.DataZoomOpts(range_start=0, range_end=100),
+        )
+        line_index.set_colors(
+            colors=[
+                "red",
+                "orange",
+                "olive",
+                "green",
+                "blue",
+                "purple",
+                "black",
+                "brown",
+                "deeppink",
+            ]
+        )
+        # st
+        line_index_st = Line(
+            init_opts=opts.InitOpts(
+                width="1800px",
+                height="860px",
+            ),
+        )
+        line_index_st.add_xaxis(xaxis_data=x_axis)
+        y_axis_st = df_index_ssb_min["ssb_st"].tolist()
+        y_min_st = min(y_axis_st)
+        y_max_st = max(y_axis_st)
+        line_index_st.add_yaxis(
+            series_name=f"ssb_st",
+            y_axis=y_axis_st,
+            is_symbol_show=False,
+        )
+        line_index_st.set_global_opts(
+            title_opts=opts.TitleOpts(
+                title="SSB Index ST", pos_top="0%", pos_left="50%"
+            ),
+            tooltip_opts=opts.TooltipOpts(trigger="axis"),
+            toolbox_opts=opts.ToolboxOpts(),
+            legend_opts=opts.LegendOpts(
+                orient="vertical", pos_right="0px", pos_top="60px"
+            ),
+            yaxis_opts=opts.AxisOpts(min_=y_min_st, max_=y_max_st),
+            datazoom_opts=opts.DataZoomOpts(range_start=0, range_end=100),
+        )
+        line_index_st.set_colors(
+            colors=[
+                "red",
+            ]
+        )
+        page = Page(
+            page_title="Stock Index",
+        )
+        page.add(line_index, line_index_st)
+        page.render(path=self.filename_index_charts_min)
+        logger.trace(f"{name} End")
+
     def shelve_to_excel(self):
         logger.trace("shelve_to_excel Begin")
+
         def is_open(filename) -> bool:
             if not os.access(path=filename, mode=os.F_OK):
                 logger.error(f"[{filename}] is not exist")
@@ -688,11 +885,14 @@ class IndexSSB(object):
         logger.trace("shelve_to_excel End")
 
     def reset_index_ssb(self):
-        self.df_index_exist['index_ssb'] = 0
+        self.df_index_exist["index_ssb"] = 0
         del self.py_dbm["df_index_ssb"]
         self.make()
         self.stocks_in_ssb()
         self.shelve_to_excel()
+
+    def test(self):
+        pass
 
     def __del__(self):
         self.py_dbm.close()

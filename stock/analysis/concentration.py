@@ -9,84 +9,134 @@ import analysis.base
 from analysis.const import (
     dt_date_init,
     time_pm_end,
-    dt_am_start,
+    dt_am_1015,
     dt_am_end,
     dt_pm_start,
     dt_pm_end,
-    dt_pm_end_last_T1,
+    dt_pm_end_last_1T,
     dt_date_trading,
-    dt_date_trading_last_T1,
+    dt_date_trading_last_1T,
     list_all_stocks,
     filename_chip_shelve,
     filename_concentration_rate_charts,
 )
 
 
-def concentration_rate() -> str:
+def concentration_rate() -> tuple:
     name: str = f"df_concentration_rate"
-    df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
-    df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
-    top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
-    df_realtime_top5 = df_realtime.iloc[:top5_stocks]
-    df_realtime_tail95 = df_realtime.iloc[top5_stocks:]
-    amount_all = df_realtime["amount"].sum() / 100000000
-    amount_top5 = df_realtime_top5["amount"].sum() / 100000000
-    turnover_top5 = df_realtime_top5["turnover"].mean().round(2)
-    turnover_tail95 = df_realtime_tail95["turnover"].mean().round(2)
-    amplitude_top5 = df_realtime_top5["amplitude"].mean().round(2)
-    amplitude_tail95 = df_realtime_tail95["amplitude"].mean().round(2)
-    total_mv_top5 = df_realtime_top5["total_mv"].sum()
-    total_mv_tail95 = df_realtime_tail95["total_mv"].sum()
-    total_mv_all = total_mv_top5 + total_mv_tail95
+    df_all = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
+    df_amount_sort = df_all.sort_values(by=["amount"], ascending=False)
+    df_mv_sort = df_all.sort_values(by=["total_mv"], ascending=False)
+    top5_stocks = int(round(len(df_all) * 0.05, 0))
+
+    df_amount_sort_top5 = df_amount_sort.iloc[:top5_stocks]
+    df_amount_sort_tail95 = df_amount_sort.iloc[top5_stocks:]
+    df_mv_sort_top5 = df_mv_sort.iloc[:top5_stocks]
+
+    amount_all = df_all["amount"].sum() / 100000000
+    mv_all = df_all["total_mv"].sum() / 100000000
+    mean_all = df_all["total_mv"].mean().round(2)
+
+    amount_amount_sort_top5 = df_amount_sort_top5["amount"].sum() / 100000000
+    mv_amount_sort_top5 = df_amount_sort_top5["total_mv"].sum() / 100000000
+    mean_amount_sort_top5 = df_amount_sort_top5["total_mv"].mean().round(2)
+
+    amount_mv_sort_top5 = df_mv_sort_top5["amount"].sum() / 100000000
+    mv_mv_sort_top5 = df_mv_sort_top5["total_mv"].sum() / 100000000
+    mean_mv_sort_top5 = df_mv_sort_top5["total_mv"].mean().round(2)
+
+    turnover_amount_sort_top5 = df_amount_sort_top5["turnover"].mean().round(2)
+    amplitude_amount_sort_top5 = df_amount_sort_top5["amplitude"].mean().round(2)
+    turnover_amount_sort_tail95 = df_amount_sort_tail95["turnover"].mean().round(2)
+    amplitude_amount_sort_tail95 = df_amount_sort_tail95["amplitude"].mean().round(2)
+
     if amount_all != 0:
-        rate_amount_top5 = (amount_top5 / amount_all * 100).round(2)
+        rate_amount_amount_sort_top5 = (
+            amount_amount_sort_top5 / amount_all * 100
+        ).round(2)
+        rate_amount_mv_sort_top5 = (amount_mv_sort_top5 / amount_all * 100).round(2)
     else:
-        rate_amount_top5 = 0
-    rate_amount_tail95 = 100 - rate_amount_top5
-    rate_total_mv_top5 = (total_mv_top5 / total_mv_all * 100).round(2)
-    rate_total_mv_tail95 = 100 - rate_total_mv_top5
-    index_concentration = (rate_amount_top5 - rate_total_mv_top5).round(2)
-    str_msg = (
-        f"{round(amount_all, 2)} - Index[{index_concentration:6.2f}]"
-        f" - Amount[{rate_amount_top5:.2f}({rate_total_mv_top5:.2f})]"
-        f" - Turnover[{turnover_top5:.2f}/{turnover_tail95:.2f}]"
-        f" - Amplitude[{amplitude_top5:.2f}/{amplitude_tail95:.2f}]"
+        rate_amount_amount_sort_top5 = 0
+        rate_amount_mv_sort_top5 = 0
+
+    if mv_all != 0:
+        rate_mv_amount_sort_top5 = (mv_amount_sort_top5 / mv_all * 100).round(2)
+        rate_mv_mv_sort_top5 = (mv_mv_sort_top5 / mv_all * 100).round(2)
+    else:
+        rate_mv_amount_sort_top5 = 0
+        rate_mv_mv_sort_top5 = 0
+    str_msg_concentration = (
+        f"[{round(amount_all, 2)}]"
+        f" - Top{top5_stocks} - A/S:[Amount-{rate_amount_amount_sort_top5:.2f}"
+        f" - MV-{rate_mv_amount_sort_top5:.2f}]"
+        f" - Mean_A/S:[{mean_amount_sort_top5}]"
+        f" - Mean_MV/S:[{mean_mv_sort_top5}]"
     )
+    str_msg_additional = (
+        f"T/O:[{turnover_amount_sort_top5:.2f}/{turnover_amount_sort_tail95:.2f}]"
+        f" - AMP:[{amplitude_amount_sort_top5:.2f}/{amplitude_amount_sort_tail95:.2f}]"
+        f" - MV/S: [Amount-{rate_amount_mv_sort_top5} - MV-{rate_mv_mv_sort_top5}]"
+        f" - Mean:[{mean_all}]"
+    )
+    tuple_str = (str_msg_concentration, str_msg_additional)
     df_concentration_rate = analysis.base.read_df_from_db(
         key=name, filename=filename_chip_shelve
     )
     dt_now = datetime.datetime.now()
-    if dt_am_start < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
-        df_concentration_rate.at[dt_now, "rate_amount_top5"] = rate_amount_top5
-        df_concentration_rate.at[dt_now, "rate_amount_tail95"] = rate_amount_tail95
-        df_concentration_rate.at[dt_now, "rate_total_mv_top5"] = rate_total_mv_top5
-        df_concentration_rate.at[dt_now, "rate_total_mv_tail95"] = rate_total_mv_tail95
-        df_concentration_rate.at[dt_now, "turnover_top5"] = turnover_top5
-        df_concentration_rate.at[dt_now, "turnover_tail95"] = turnover_tail95
-        df_concentration_rate.at[dt_now, "amplitude_top5"] = amplitude_top5
-        df_concentration_rate.at[dt_now, "amplitude_tail95"] = amplitude_tail95
-        df_concentration_rate.at[dt_now, "index_concentration"] = index_concentration
+    if dt_am_1015 < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
+        df_concentration_rate.at[dt_now, "amount_all"] = amount_all
+        df_concentration_rate.at[dt_now, "top5_stocks"] = top5_stocks
+        df_concentration_rate.at[
+            dt_now, "rate_amount_amount_sort_top5"
+        ] = rate_amount_amount_sort_top5
+        df_concentration_rate.at[
+            dt_now, "rate_mv_amount_sort_top5"
+        ] = rate_mv_amount_sort_top5
+        df_concentration_rate.at[
+            dt_now, "mean_amount_sort_top5"
+        ] = mean_amount_sort_top5
+        df_concentration_rate.at[
+            dt_now, "turnover_amount_sort_top5"
+        ] = turnover_amount_sort_top5
+        df_concentration_rate.at[
+            dt_now, "turnover_amount_sort_tail95"
+        ] = turnover_amount_sort_tail95
+        df_concentration_rate.at[
+            dt_now, "amplitude_amount_sort_top5"
+        ] = amplitude_amount_sort_top5
+        df_concentration_rate.at[
+            dt_now, "amplitude_amount_sort_tail95"
+        ] = amplitude_amount_sort_tail95
+        df_concentration_rate.at[
+            dt_now, "rate_amount_mv_sort_top5"
+        ] = rate_amount_mv_sort_top5
+        df_concentration_rate.at[dt_now, "rate_mv_mv_sort_top5"] = rate_mv_mv_sort_top5
+        df_concentration_rate.at[dt_now, "mean_mv_sort_top5"] = mean_mv_sort_top5
+        df_concentration_rate.at[dt_now, "mean_all"] = mean_all
         analysis.base.write_obj_to_db(
             obj=df_concentration_rate,
             key=name,
             filename=filename_chip_shelve,
         )
     if not df_concentration_rate.empty:
-        x_axis = df_concentration_rate.index.tolist()
-        y_axis_rate_amount_top5 = df_concentration_rate["rate_amount_top5"].tolist()
-        y_axis_rate_total_mv_top5 = df_concentration_rate["rate_total_mv_top5"].tolist()
-        y_axis_index_concentration = df_concentration_rate[
-            "index_concentration"
+        x_dt = df_concentration_rate.index.tolist()
+        y_rate_amount_by_amount = df_concentration_rate[
+            "rate_amount_amount_sort_top5"
         ].tolist()
+        y_rate_mv_by_amount = df_concentration_rate["rate_mv_amount_sort_top5"].tolist()
+        y_rate_amount_by_mv = df_concentration_rate["rate_amount_mv_sort_top5"].tolist()
+        y_rate_mv_by_mv = df_concentration_rate["rate_mv_mv_sort_top5"].tolist()
         y_min = min(
-            y_axis_rate_amount_top5
-            + y_axis_rate_total_mv_top5
-            + y_axis_index_concentration
+            y_rate_amount_by_amount
+            + y_rate_mv_by_amount
+            + y_rate_amount_by_mv
+            + y_rate_mv_by_mv
         )
         y_max = max(
-            y_axis_rate_amount_top5
-            + y_axis_rate_total_mv_top5
-            + y_axis_index_concentration
+            y_rate_amount_by_amount
+            + y_rate_mv_by_amount
+            + y_rate_amount_by_mv
+            + y_rate_mv_by_mv
         )
         line_concentration_rate = Line(
             init_opts=opts.InitOpts(
@@ -95,10 +145,10 @@ def concentration_rate() -> str:
                 page_title="Concentration Rate",
             )
         )
-        line_concentration_rate.add_xaxis(xaxis_data=x_axis)
+        line_concentration_rate.add_xaxis(xaxis_data=x_dt)
         line_concentration_rate.add_yaxis(
-            series_name="rate_amount_top5",
-            y_axis=y_axis_rate_amount_top5,
+            series_name="concentration_rate",
+            y_axis=y_rate_amount_by_amount,
             is_symbol_show=False,
             markpoint_opts=opts.MarkPointOpts(
                 data=[
@@ -108,8 +158,8 @@ def concentration_rate() -> str:
             ),
         )
         line_concentration_rate.add_yaxis(
-            series_name="rate_total_mv_top5",
-            y_axis=y_axis_rate_total_mv_top5,
+            series_name="MV_A/S",
+            y_axis=y_rate_mv_by_amount,
             is_symbol_show=False,
             markpoint_opts=opts.MarkPointOpts(
                 data=[
@@ -119,8 +169,8 @@ def concentration_rate() -> str:
             ),
         )
         line_concentration_rate.add_yaxis(
-            series_name="index_concentration",
-            y_axis=y_axis_index_concentration,
+            series_name="Amount_MV/S",
+            y_axis=y_rate_amount_by_mv,
             is_symbol_show=False,
             markpoint_opts=opts.MarkPointOpts(
                 data=[
@@ -128,6 +178,25 @@ def concentration_rate() -> str:
                     opts.MarkPointItem(name="最小值", type_="min"),
                 ]
             ),
+        )
+        line_concentration_rate.add_yaxis(
+            series_name="MV_MV/S",
+            y_axis=y_rate_mv_by_mv,
+            is_symbol_show=False,
+            markpoint_opts=opts.MarkPointOpts(
+                data=[
+                    opts.MarkPointItem(name="最大值", type_="max"),
+                    opts.MarkPointItem(name="最小值", type_="min"),
+                ]
+            ),
+        )
+        line_concentration_rate.set_colors(
+            colors=[
+                "red",
+                "black",
+                "orange",
+                "green",
+            ]
         )
         line_concentration_rate.set_global_opts(
             title_opts=opts.TitleOpts(title="Concentration Rate", pos_left="center"),
@@ -143,13 +212,69 @@ def concentration_rate() -> str:
                 range_end=100,
             ),
         )
+        line_mean = Line(
+            init_opts=opts.InitOpts(
+                width="1800px",
+                height="860px",
+                page_title="Mean",
+            )
+        )
+        line_mean.add_xaxis(xaxis_data=x_dt)
+        y_mean_amount_sort_top5 = df_concentration_rate[
+            "mean_amount_sort_top5"
+        ].tolist()
+        y_mean_mv_sort_top5 = df_concentration_rate["mean_mv_sort_top5"].tolist()
+        y_min = min(y_mean_amount_sort_top5 + y_mean_mv_sort_top5)
+        y_max = max(y_mean_amount_sort_top5 + y_mean_mv_sort_top5)
+        line_mean.add_yaxis(
+            series_name="Mean_A/S",
+            y_axis=y_mean_amount_sort_top5,
+            is_symbol_show=False,
+            markpoint_opts=opts.MarkPointOpts(
+                data=[
+                    opts.MarkPointItem(name="最大值", type_="max"),
+                    opts.MarkPointItem(name="最小值", type_="min"),
+                ]
+            ),
+        )
+        line_mean.add_yaxis(
+            series_name="Mean_MV/S",
+            y_axis=y_mean_mv_sort_top5,
+            is_symbol_show=False,
+            markpoint_opts=opts.MarkPointOpts(
+                data=[
+                    opts.MarkPointItem(name="最大值", type_="max"),
+                    opts.MarkPointItem(name="最小值", type_="min"),
+                ]
+            ),
+        )
+        line_mean.set_colors(
+            colors=[
+                "red",
+                "green",
+            ]
+        )
+        line_mean.set_global_opts(
+            title_opts=opts.TitleOpts(title="Mean", pos_left="center"),
+            tooltip_opts=opts.TooltipOpts(trigger="axis"),
+            toolbox_opts=opts.ToolboxOpts(),
+            legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top="48%"),
+            yaxis_opts=opts.AxisOpts(
+                min_=y_min,
+                max_=y_max,
+            ),
+            datazoom_opts=opts.DataZoomOpts(
+                range_start=0,
+                range_end=100,
+            ),
+        )
         page = Page(
             page_title="concentration",
         )
-        page.add(line_concentration_rate)
+        page.add(line_concentration_rate, line_mean)
         page.render(path=filename_concentration_rate_charts)
         logger.trace(f"{name} End")
-    return str_msg
+    return tuple_str
 
 
 def concentration() -> bool:
@@ -185,8 +310,8 @@ def concentration() -> bool:
     df_concentration["latest_concentration"].fillna(value=dt_date_init, inplace=True)
     df_concentration["days_concentration"].fillna(value=0, inplace=True)
     df_concentration["times_concentration"].fillna(value=0, inplace=True)
-    if dt_pm_end_last_T1 < datetime.datetime.now() <= dt_pm_end:
-        date_latest = dt_date_trading_last_T1
+    if dt_pm_end_last_1T < datetime.datetime.now() <= dt_pm_end:
+        date_latest = dt_date_trading_last_1T
     else:
         date_latest = dt_date_trading
     for symbol in df_concentration.index:

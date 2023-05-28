@@ -61,6 +61,13 @@ def chip() -> object | DataFrame:
     else:
         df_st = pd.DataFrame()
         logger.trace("load df_st fail")
+    while True:
+        if analysis.industry.industry_rank():
+            break
+        else:
+            print("Sleep 1 hour")
+            dt_now_delta = datetime.datetime.now() + datetime.timedelta(seconds=3600)
+            analysis.base.sleep_to_time(dt_time=dt_now_delta, seconds=10)
     index_ssb = analysis.index.IndexSSB(update=True)
     df_stocks_in_ssb = index_ssb.stocks_in_ssb()
     if analysis.concentration():
@@ -71,12 +78,6 @@ def chip() -> object | DataFrame:
     else:
         df_concentration = pd.DataFrame()
         logger.error("load df_concentration fail")
-    while True:
-        if analysis.industry.industry_rank():
-            break
-        else:
-            print("Sleep 1 hour")
-            time.sleep(3600)
     if analysis.industry.ths_industry():
         df_industry = analysis.base.read_df_from_db(
             key="df_industry", filename=filename_chip_shelve
