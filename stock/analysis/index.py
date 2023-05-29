@@ -638,7 +638,13 @@ class IndexSSB(object):
         return self.py_dbm["df_stocks_in_ssb"]
 
     def realtime_index(self):
-        df_stocks_in_ssb = self.py_dbm["df_stocks_in_ssb"]
+        try:
+            df_stocks_in_ssb = self.py_dbm["df_stocks_in_ssb"]
+        except KeyError as e:
+            logger.error(f"{e.args[0]} not exist")
+            self.make()  # 更新数据调用
+            self.stocks_in_ssb()
+            df_stocks_in_ssb = self.py_dbm["df_stocks_in_ssb"]
         df_realtime = analysis.ashare.stock_zh_a_spot_em()[["total_mv"]]  # 调用实时数据接口
         df_mv_all = self.py_dbm["df_mv_all"][["base_mv", "now_mv"]]
         df_mv_now = pd.concat(

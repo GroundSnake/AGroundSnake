@@ -30,7 +30,7 @@ from analysis import (
 
 
 __version__ = "3.0.0"
-logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
 
 
 if __name__ == "__main__":
@@ -87,15 +87,19 @@ if __name__ == "__main__":
     )
     if df_industry_rank_pool.empty:
         print("Please rerun df_industry_rank_pool function")
-        sys.exit()
-    df_industry_rank_pool_buying = df_industry_rank_pool[
-        df_industry_rank_pool["T5_rank"] >= 66
-    ]
-    df_industry_rank_pool_selling = df_industry_rank_pool[
-        df_industry_rank_pool["T5_rank"] <= 10
-    ]
-    list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
-    list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
+        df_industry_rank_pool_buying = pd.DataFrame()
+        df_industry_rank_pool_selling = pd.DataFrame()
+        list_industry_buying = list()
+        list_industry_selling = list()
+    else:
+        df_industry_rank_pool_buying = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] >= 66
+            ]
+        df_industry_rank_pool_selling = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] <= 10
+            ]
+        list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
+        list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
     # 加载df_industry_rank_pool End
     df_industry_rank = analysis.read_df_from_db(
         key="df_industry_rank", filename=filename_chip_shelve
@@ -104,10 +108,14 @@ if __name__ == "__main__":
         key="df_industry_pct", filename=filename_chip_shelve
     )
     # 加载df_industry_rank_pool End
-    pds_industry = df_industry_pct.iloc[-1]
-    pds_industry.sort_values(ascending=False, inplace=True)
-    list_industry_min = pds_industry.head(5).index.tolist()
-    list_industry_max = pds_industry.tail(5).index.tolist()
+    if df_industry_pct.empty:
+        list_industry_min = list()
+        list_industry_max = list()
+    else:
+        pds_industry = df_industry_pct.iloc[-1]
+        pds_industry.sort_values(ascending=False, inplace=True)
+        list_industry_min = pds_industry.head(5).index.tolist()
+        list_industry_max = pds_industry.tail(5).index.tolist()
     list_industry_min_name = list()
     list_industry_max_name = list()
     for ti_code in list_industry_min:
@@ -152,7 +160,10 @@ if __name__ == "__main__":
     df_stocks_pool = analysis.read_df_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
-    dt_inclusion = df_stocks_pool["dt"].max().date()
+    if df_stocks_pool.empty:
+        dt_inclusion = dt_init
+    else:
+        dt_inclusion = df_stocks_pool["dt"].max()
     for code in df_stocks_pool.index:
         if code not in df_trader.index:
             df_trader.at[code, "date_of_inclusion_first"] = dt_inclusion
