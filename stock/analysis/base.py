@@ -1,6 +1,7 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
+import time
 import random
 import sys
 import datetime
@@ -8,13 +9,14 @@ import shelve
 import dbm
 import win32file
 import pandas as pd
+from console import fg
 from pandas import DataFrame
 import tushare as ts
 from loguru import logger
 from analysis.const import (
     dt_am_0910,
     dt_pm_end,
-    dt_pm_end_last_T1,
+    dt_pm_end_last_1T,
     str_date_path,
     path_check,
     filename_chip_shelve,
@@ -99,6 +101,22 @@ def write_obj_to_db(obj: object, key: str, filename: str):
     return True
 
 
+def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
+    dt_now_sleep = datetime.datetime.now()
+    while dt_now_sleep <= dt_time:
+        int_delay = int((dt_time - dt_now_sleep).total_seconds())
+        str_sleep_gm = time.strftime("%H:%M:%S", time.gmtime(int_delay))
+        str_sleep_msg = f"Waiting: {str_sleep_gm}"
+        str_sleep_msg = fg.cyan(str_sleep_msg)
+        str_dt_now_sleep = dt_now_sleep.strftime("<%H:%M:%S>")
+        str_sleep_msg = f"{str_dt_now_sleep}----" + str_sleep_msg
+        print(f"\r{str_sleep_msg}\033[K", end="")  # 进度条
+        time.sleep(seconds)
+        dt_now_sleep = datetime.datetime.now()
+    print("\n", end="")
+    return True
+
+
 def read_df_from_db(key: str, filename: str) -> DataFrame:
     try:
         with shelve.open(filename=filename, flag="r") as py_dbm_chip:
@@ -132,8 +150,8 @@ def is_latest_version(key: str, filename: str) -> bool:
     else:
         if dt_am_0910 < dt_now < dt_pm_end:
             return True
-        elif dt_pm_end_last_T1 < dt_now < dt_am_0910:
-            if dt_latest == dt_pm_end_last_T1:
+        elif dt_pm_end_last_1T < dt_now < dt_am_0910:
+            if dt_latest == dt_pm_end_last_1T:
                 return True
             else:
                 return False
