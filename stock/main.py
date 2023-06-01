@@ -63,7 +63,9 @@ if __name__ == "__main__":
     )
     if df_industry_member.empty:
         try:
-            df_industry_member = pd.read_excel(io="df_industry_member.xlsx", index_col=0)
+            df_industry_member = pd.read_excel(
+                io="df_industry_member.xlsx", index_col=0
+            )
         except FileNotFoundError as e:
             print(f"[df_industry_member.xlsx] - {e.args[1]}")
             sys.exit()
@@ -80,17 +82,6 @@ if __name__ == "__main__":
                     filename=filename_chip_shelve,
                 )
     # 加载df_industry_class End
-    # 加载df_chip Begin
-    df_chip = analysis.read_df_from_db(key="df_chip", filename=filename_chip_shelve)
-    if df_chip.empty:
-        df_chip = analysis.chip()
-        if df_chip.empty:
-            sys.exit()
-    dt_chip_max = df_chip["dt"].max()
-    str_chip_msg = f"The latest chip analysis is on [{dt_chip_max}]"
-    str_chip_msg = fg.red(str_chip_msg)
-    print(str_chip_msg)
-    # 加载df_chip End
     index_ssb = analysis.IndexSSB(update=False)
     # 加载df_industry_rank_pool Begin
     df_industry_rank_pool = analysis.read_df_from_db(
@@ -98,15 +89,19 @@ if __name__ == "__main__":
     )
     if df_industry_rank_pool.empty:
         print("Please rerun df_industry_rank_pool function")
-        sys.exit()
-    df_industry_rank_pool_buying = df_industry_rank_pool[
-        df_industry_rank_pool["T5_rank"] >= 66
-    ]
-    df_industry_rank_pool_selling = df_industry_rank_pool[
-        df_industry_rank_pool["T5_rank"] <= 10
-    ]
-    list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
-    list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
+        df_industry_rank_pool_buying = pd.DataFrame()
+        df_industry_rank_pool_selling = pd.DataFrame()
+        list_industry_buying = list()
+        list_industry_selling = list()
+    else:
+        df_industry_rank_pool_buying = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] >= 66
+        ]
+        df_industry_rank_pool_selling = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] <= 10
+        ]
+        list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
+        list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
     # 加载df_industry_rank_pool End
     df_industry_rank = analysis.read_df_from_db(
         key="df_industry_rank", filename=filename_chip_shelve
@@ -115,10 +110,14 @@ if __name__ == "__main__":
         key="df_industry_pct", filename=filename_chip_shelve
     )
     # 加载df_industry_rank_pool End
-    pds_industry = df_industry_pct.iloc[-1]
-    pds_industry.sort_values(ascending=False, inplace=True)
-    list_industry_min = pds_industry.head(5).index.tolist()
-    list_industry_max = pds_industry.tail(5).index.tolist()
+    if df_industry_pct.empty:
+        list_industry_min = list()
+        list_industry_max = list()
+    else:
+        pds_industry = df_industry_pct.iloc[-1]
+        pds_industry.sort_values(ascending=False, inplace=True)
+        list_industry_min = pds_industry.head(5).index.tolist()
+        list_industry_max = pds_industry.tail(5).index.tolist()
     list_industry_min_name = list()
     list_industry_max_name = list()
     for ti_code in list_industry_min:
@@ -163,7 +162,10 @@ if __name__ == "__main__":
     df_stocks_pool = analysis.read_df_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
-    dt_inclusion = df_stocks_pool["dt"].max().date()
+    if df_stocks_pool.empty:
+        dt_inclusion = dt_init
+    else:
+        dt_inclusion = df_stocks_pool["dt"].max()
     for code in df_stocks_pool.index:
         if code not in df_trader.index:
             df_trader.at[code, "date_of_inclusion_first"] = dt_inclusion
@@ -184,12 +186,11 @@ if __name__ == "__main__":
                 if df_trader.at[code, "date_of_inclusion_latest"] != dt_inclusion:
                     df_trader.at[code, "date_of_inclusion_latest"] = dt_inclusion
                     df_trader.at[code, "times_of_inclusion"] += 1
-    df_trader = analysis.init_trader(df_trader=df_trader)
+    df_trader = analysis.init_trader(df_trader=df_trader, sort=False)
     # 保存df_trader----Begin
     analysis.write_obj_to_db(
         obj=df_trader, key="df_trader", filename=filename_chip_shelve
     )
-    df_trader.to_csv(path_or_buf=filename_data_csv)
     # 保存df_trader----End
     # 创建df_signal----Begin
     if os.access(path=filename_signal, mode=os.F_OK):
@@ -233,7 +234,7 @@ if __name__ == "__main__":
             os.system("cls")
         dt_now = datetime.datetime.now()
         dict_index_ssb_now = dict()
-        if frq % 15 == 0:  # 3 = 1 minutes, 6 = 2 minutes, 15 = 5 minutes
+        if frq % 3 == 0:  # 3 = 1 minutes, 6 = 2 minutes, 15 = 5 minutes
             (
                 str_msg_concentration_rate,
                 str_msg_concentration_additional,
@@ -313,7 +314,7 @@ if __name__ == "__main__":
                             if pd.isnull(df_trader.at[code, "times_of_inclusion"]):
                                 df_trader.at[code, "times_of_inclusion"] = 1
                             if pd.isnull(df_trader.at[code, "price_of_inclusion"]):
-                                df_trader.at[code, "price_of_inclusion"] = df_chip.at[
+                                df_trader.at[code, "price_of_inclusion"] = df_trader.at[
                                     code, "now_price"
                                 ]
                     str_msg_add = f"{list_in_add}"
@@ -515,8 +516,8 @@ if __name__ == "__main__":
                         f"---- [T: {df_trader.at[code, 'recent_trading'].date()}]"
                         f" - [R:{df_trader.at[code, 'rate_of_inclusion']:6.2f}%]"
                         f" - [T:{df_trader.at[code, 'times_of_inclusion']:3.0f}]"
-                        f" - [F: {df_trader.at[code, 'date_of_inclusion_first']}]"
-                        f" - [L: {df_trader.at[code, 'date_of_inclusion_latest']}]"
+                        f" - [F: {df_trader.at[code, 'date_of_inclusion_first'].date()}]"
+                        f" - [L: {df_trader.at[code, 'date_of_inclusion_latest'].date()}]"
                     )
                     if item in "Buy":
                         msg_signal_code_1 = fg.lightgreen(msg_signal_code_1)

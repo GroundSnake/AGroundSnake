@@ -2,10 +2,10 @@
 from loguru import logger
 import pandas as pd
 import analysis.base
-from analysis.const import rise, fall, filename_chip_shelve, dt_date_trading, dt_init
+from analysis.const import rise, fall, filename_chip_shelve, dt_init, dt_trading
 
 
-def init_trader(df_trader: pd.DataFrame) -> pd.DataFrame:
+def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
     df_chip = analysis.base.read_df_from_db(
         key="df_chip", filename=filename_chip_shelve
     )
@@ -69,6 +69,8 @@ def init_trader(df_trader: pd.DataFrame) -> pd.DataFrame:
                     code, "close"
                 ]
             df_trader.at[code, "total_mv_E"] = df_chip.at[code, "total_mv_E"]
+            df_trader.at[code, "alpha_times"] = df_chip.at[code, "alpha_times"]
+            df_trader.at[code, "alpha_mean"] = df_chip.at[code, "alpha_mean"]
             df_trader.at[code, "ssb_index"] = df_chip.at[code, "ssb_index"]
             df_trader.at[code, "ST"] = df_chip.at[code, "ST"]
             df_trader.at[code, "industry_code"] = df_chip.at[code, "industry_code"]
@@ -85,7 +87,7 @@ def init_trader(df_trader: pd.DataFrame) -> pd.DataFrame:
             pct_chg = round(pct_chg, 2)
             df_trader.at[code, "pct_chg"] = pct_chg
             days_of_inclusion = (
-                dt_date_trading - df_trader.at[code, "date_of_inclusion_first"]
+                dt_trading - df_trader.at[code, "date_of_inclusion_first"]
             ).days + 1
             days_of_inclusion = (
                 days_of_inclusion // 7 * 5 + days_of_inclusion % 7
@@ -163,6 +165,37 @@ def init_trader(df_trader: pd.DataFrame) -> pd.DataFrame:
                 + grade_g
             )
             df_trader.at[code, "grade"] = grade
+    if sort:
+        df_trader = df_trader.reindex(
+            columns=[
+                "name",
+                "recent_price",
+                "position",
+                "now_price",
+                "pct_chg",
+                "position_unit",
+                "trx_unit_share",
+                "industry_code",
+                "industry_name",
+                "alpha_times",
+                "alpha_mean",
+                "total_mv_E",
+                "ssb_index",
+                "stock_index",
+                "grade",
+                "recent_trading",
+                "ST",
+                "date_of_inclusion_first",
+                "date_of_inclusion_latest",
+                "times_of_inclusion",
+                "rate_of_inclusion",
+                "price_of_inclusion",
+                "pct_of_inclusion",
+                "rise",
+                "fall",
+                "remark",
+            ]
+        )
     return df_trader
 
 

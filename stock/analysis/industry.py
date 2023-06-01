@@ -1,7 +1,6 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
-import random
 import time
 import datetime
 import requests
@@ -12,7 +11,7 @@ import feather
 import tushare as ts
 import analysis.base
 from analysis.const import (
-    dt_date_init,
+    dt_init,
     path_data,
     dt_date_trading,
     dt_pm_end,
@@ -31,6 +30,95 @@ if not os.path.exists(path_industry):
     os.mkdir(path_industry)
 
 
+def get_industry_index() -> pd.DataFrame:
+    name: str = "df_industry_index"
+    logger.trace(f"{name} Begin！")
+    pro = ts.pro_api()
+    df_ths_index = pro.ths_index()
+    df_industry_index = df_ths_index[
+        df_ths_index["ts_code"].str.contains("8811").fillna(False)
+    ]
+    df_industry_index = df_industry_index[["ts_code", "name"]]
+    df_industry_index.rename(
+        columns={
+            "ts_code": "industry_code",
+            "name": "industry_name",
+        },
+        inplace=True,
+    )
+    df_industry_index.set_index(keys=["industry_code"], inplace=True)
+    analysis.base.write_obj_to_db(
+        obj=df_industry_index,
+        key=name,
+        filename=filename_chip_shelve,
+    )
+    logger.trace(f"{name} End！")
+    return df_industry_index
+
+
+def reset_industry_member() -> bool:
+    name = "df_industry_member"
+    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+        logger.trace(f"df_industry_member,Break and End")
+        return True
+    df_industry_member = analysis.base.read_df_from_db(
+        key="df_industry_member", filename=filename_chip_shelve
+    )
+    df_industry_index = analysis.base.read_df_from_db(
+        key="df_industry_index", filename=filename_chip_shelve
+    )
+    if df_industry_index.empty:
+        df_industry_index = get_industry_index()
+    df_industry_member_all = pd.DataFrame(index=list_all_stocks)
+    df_industry_member = pd.concat(
+        objs=[
+            df_industry_member,
+            df_industry_member_all,
+        ],
+        axis=1,
+        join="outer",
+    )
+    df_industry_member = df_industry_member[
+        df_industry_member.index.isin(list_all_stocks)
+    ]
+    pro = ts.pro_api()
+    i = 0
+    count_industry_code = len(df_industry_index)
+    for industry_code in df_industry_index.index:
+        i += 1
+        srt_msg = f"[{i:02d}/{count_industry_code}] - [{industry_code}]"
+        df_ths_member = pro.ths_member(ts_code=industry_code)
+        df_ths_member["symbol"] = df_ths_member["code"].apply(
+            func=analysis.base.code_ts_to_ths
+        )
+        df_ths_member.set_index(keys=["symbol"], inplace=True)
+        for symbol in df_ths_member.index:
+            if symbol in df_industry_member.index:
+                if pd.isnull(df_industry_member.at[symbol, "industry_code"]):
+                    print(f"\r{srt_msg} - [{symbol}]\033[K")
+                    df_industry_member.at[symbol, "industry_code"] = industry_code
+                    df_industry_member.at[
+                        symbol, "industry_name"
+                    ] = df_industry_index.at[industry_code, "industry_name"]
+        print(f"\r{srt_msg}\033[K", end="")
+    print("\n", end="")  # 格式处理
+    df_industry_member.sort_values(by=["industry_code"], inplace=True)
+    df_industry_member.to_csv("df_industry_member.csv")
+    if i >= count_industry_code:
+        analysis.base.write_obj_to_db(
+            obj=df_industry_member,
+            key="df_industry_member",
+            filename=filename_chip_shelve,
+        )
+        with pd.ExcelWriter(path="df_industry_member.xlsx", mode="w") as writer_e:
+            df_industry_member.to_excel(
+                excel_writer=writer_e, sheet_name="df_industry_member"
+            )
+        analysis.base.set_version(key=name, dt=dt_pm_end)
+    logger.trace(f"{name} End")
+    return True
+
+
 def update_industry_index_ths() -> bool:
     name: str = f"index_kline_industry"
     logger.trace(f"{name} Begin！")
@@ -38,29 +126,26 @@ def update_industry_index_ths() -> bool:
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"{name},Break and End")
         return True
-    dt_index_kline_industry = None
-    df_industry_member = analysis.base.read_df_from_db(
-        key="df_industry_member", filename=filename_chip_shelve
+    df_industry_index = analysis.base.read_df_from_db(
+        key="df_industry_index", filename=filename_chip_shelve
     )
-    if df_industry_member.empty:
-        logger.error(f"df_industry_member is empty,return None DataFrame")
-        return False
-    list_industry_index_code = list(set(df_industry_member["industry_code"].tolist()))
-    random.shuffle(list_industry_index_code)
+    if df_industry_index.empty:
+        df_industry_index = get_industry_index()
+    dt_index_kline_industry = dt_init
     pro = ts.pro_api()
-    len_list_index_codes = len(list_industry_index_code)
+    count_industry_index = len(df_industry_index)
     i = 0
-    for ts_code_index in list_industry_index_code:
+    for industry_code in df_industry_index.index:
         i += 1
-        symbol_index = analysis.base.code_ts_to_ths(ts_code_index)
-        str_msg_bar = f"{name}:[{i:3d}/{len_list_index_codes:3d}] - [{symbol_index}]"
+        symbol_index = analysis.base.code_ts_to_ths(industry_code)
+        str_msg_bar = f"{name}:[{i:3d}/{count_industry_index:3d}] - [{symbol_index}]"
         df_ths_daily = pd.DataFrame()
         i_times_ths_daily = 0
         while True:
             i_times_ths_daily += 1
             try:
                 df_ths_daily = pro.ths_daily(
-                    ts_code=ts_code_index,
+                    ts_code=industry_code,
                     start_date=str_delta,
                     end_date=str_date_trading,
                 )
@@ -77,30 +162,26 @@ def update_industry_index_ths() -> bool:
                 break
         if df_ths_daily.empty:
             return False
-        df_ths_daily["trade_date"] = pd.to_datetime(df_ths_daily["trade_date"])
         df_ths_daily["trade_date"] = df_ths_daily["trade_date"].apply(
-            func=lambda x: x.date()
+            func=lambda x: datetime.datetime.combine(
+                pd.to_datetime(x).date(), time_pm_end
+            )
         )
         df_ths_daily.set_index(keys=["trade_date"], inplace=True)
         df_ths_daily.sort_index(ascending=True, inplace=True)
         filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
         feather.write_dataframe(df=df_ths_daily, dest=filename_ths_daily)
-        dt_industry_index_temp = datetime.datetime.combine(
-            df_ths_daily.index.max(), time_pm_end
-        )
+        dt_industry_index_temp = df_ths_daily.index.max()
         str_msg_bar += f" - [{dt_industry_index_temp}]"
         dt_now = datetime.datetime.now()
         if dt_now > dt_pm_end and dt_industry_index_temp != dt_pm_end:
             str_msg_bar += f" - Not the latest"
             print(f"\r{str_msg_bar}\033[K")  # Program End
             return False
-        if (
-            dt_index_kline_industry is None
-            or dt_index_kline_industry < dt_industry_index_temp
-        ):
+        if dt_index_kline_industry < dt_industry_index_temp:
             dt_index_kline_industry = dt_industry_index_temp
         print(f"\r{str_msg_bar}\033[K", end="")  # End of this cycle, print progress bar
-    if i >= len_list_index_codes:
+    if i >= count_industry_index:
         print("\n", end="")  # 格式处理
         analysis.base.set_version(key=name, dt=dt_index_kline_industry)
     end_loop_time = time.perf_counter_ns()
@@ -124,24 +205,25 @@ def industry_pct() -> bool:
             pass
         else:
             return False
-    df_industry_member = analysis.base.read_df_from_db(
-        key="df_industry_member", filename=filename_chip_shelve
+    df_industry_index = analysis.base.read_df_from_db(
+        key="df_industry_index", filename=filename_chip_shelve
     )
+    if df_industry_index.empty:
+        df_industry_index = get_industry_index()
     filename_industry_pct = os.path.join(
-        path_data, f"industry_pct_temp_{str_date_path}.ftr"
+        path_data, f"industry_pct_temp_{str_date_path()}.ftr"
     )
     if os.path.exists(filename_industry_pct):
         df_industry_pct = feather.read_dataframe(source=filename_industry_pct)
     else:
         df_industry_pct = pd.DataFrame()
     list_industry_pct_exist = set(df_industry_pct.columns.tolist())
-    list_industry_index_code = set(df_industry_member["industry_code"].tolist())
     i = 0
-    len_list_index_codes = len(list_industry_index_code)
-    for ts_code_index in list_industry_index_code:
+    count_industry_index = len(df_industry_index)
+    for ts_code_index in df_industry_index.index:
         i += 1
         symbol_index = analysis.base.code_ts_to_ths(ts_code_index)
-        str_msg_bar = f"\r{name}:[{i:3d}/{len_list_index_codes:3d}] - [{symbol_index}]"
+        str_msg_bar = f"\r{name}:[{i:3d}/{count_industry_index:3d}] - [{symbol_index}]"
         if ts_code_index in list_industry_pct_exist:
             print(f"{str_msg_bar} - exist", end="")
             continue
@@ -173,9 +255,7 @@ def industry_pct() -> bool:
             key=name,
             filename=filename_chip_shelve,
         )
-        dt_industry_pct = datetime.datetime.combine(
-            df_industry_pct.index.max(), time_pm_end
-        )
+        dt_industry_pct = df_industry_pct.index.max()
         analysis.base.set_version(key=name, dt=dt_industry_pct)
     if os.path.exists(filename_industry_pct):  # 删除临时文件
         os.remove(path=filename_industry_pct)
@@ -226,9 +306,7 @@ def industry_rank():
     df_industry_pct = analysis.base.read_df_from_db(
         key="df_industry_pct", filename=filename_chip_shelve
     )
-    dt_industry_rank = datetime.datetime.combine(
-        df_industry_pct.index.max(), time_pm_end
-    )
+    dt_industry_rank = df_industry_pct.index.max()
     df_5_industry_pct = df_industry_pct.iloc[-5:]
     df_20_industry_pct = df_industry_pct.iloc[-20:-5]
     df_40_industry_pct = df_industry_pct.iloc[-40:-20]
@@ -342,7 +420,7 @@ def ths_industry() -> bool:
         logger.trace(f"ths_industry,Break and End")
         return True
     filename_industry_temp = os.path.join(
-        path_data, f"industry_temp_{str_date_path}.ftr"
+        path_data, f"industry_temp_{str_date_path()}.ftr"
     )
     if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
         if not update_industry_index_ths():
@@ -356,7 +434,7 @@ def ths_industry() -> bool:
         df_industry["industry_flag"] = 0
         feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
     pro = ts.pro_api()
-    dt_date_daily_max = dt_date_init
+    dt_date_daily_max = dt_init
     i = 0
     df_industry = df_industry.sample(frac=1)
     count_industry = len(df_industry)
@@ -398,9 +476,10 @@ def ths_industry() -> bool:
                 },
                 inplace=True,
             )
-            df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
             df_daily["trade_date"] = df_daily["trade_date"].apply(
-                func=lambda x: x.date()
+                func=lambda x: datetime.datetime.combine(
+                    pd.to_datetime(x).date(), time_pm_end
+                )
             )
             df_daily.set_index(keys=["trade_date"], inplace=True)
             df_daily.sort_index(ascending=True, inplace=True)
@@ -490,11 +569,11 @@ def ths_industry() -> bool:
             obj=df_industry, key=name, filename=filename_chip_shelve
         )
         dt_mow = datetime.datetime.now()
-        dt_daily_max = datetime.datetime.combine(dt_date_daily_max, time_pm_end)
+        dt_daily_max = dt_date_daily_max
         if (
             dt_mow > dt_pm_end
             and dt_daily_max != dt_pm_end
-            and dt_date_daily_max != dt_date_init
+            and dt_date_daily_max != dt_init
         ):
             print(f"\n{name} is not latest")
         analysis.base.set_version(key=name, dt=dt_daily_max)
@@ -502,66 +581,5 @@ def ths_industry() -> bool:
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
     print(f"Industry analysis [{name}] takes {str_gm}")
-    logger.trace(f"{name} End")
-    return True
-
-
-def reset_industry_index() -> bool:
-    name = "df_industry_member"
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        logger.trace(f"df_industry_member,Break and End")
-        return True
-    df_industry_member = analysis.base.read_df_from_db(
-        key="df_industry_member", filename=filename_chip_shelve
-    )
-    df_industry_index = analysis.base.read_df_from_db(
-        key="df_industry_index", filename=filename_chip_shelve
-    )
-    df_industry_member_all = pd.DataFrame(index=list_all_stocks)
-    df_industry_member = pd.concat(
-        objs=[
-            df_industry_member,
-            df_industry_member_all,
-        ],
-        axis=1,
-        join="outer",
-    )
-    df_industry_member = df_industry_member[
-        df_industry_member.index.isin(list_all_stocks)
-    ]
-    pro = ts.pro_api()
-    i = 0
-    count_industry_code = len(df_industry_index)
-    for industry_code in df_industry_index.index:
-        i += 1
-        srt_msg = f"[{i:02d}/{count_industry_code}] - [{industry_code}]"
-        df_ths_member = pro.ths_member(ts_code=industry_code)
-        df_ths_member["symbol"] = df_ths_member["code"].apply(
-            func=analysis.base.code_ts_to_ths
-        )
-        df_ths_member.set_index(keys=["symbol"], inplace=True)
-        for symbol in df_ths_member.index:
-            if symbol in df_industry_member.index:
-                if pd.isnull(df_industry_member.at[symbol, "industry_code"]):
-                    print(f"\r{srt_msg} - [{symbol}]\033[K")
-                    df_industry_member.at[symbol, "industry_code"] = industry_code
-                    df_industry_member.at[
-                        symbol, "industry_name"
-                    ] = df_industry_index.at[industry_code, "industry_name"]
-        print(f"\r{srt_msg}\033[K", end="")
-    print("\n", end="")  # 格式处理
-    df_industry_member.sort_values(by=["industry_code"], inplace=True)
-    df_industry_member.to_csv("df_industry_member.csv")
-    if i >= count_industry_code:
-        analysis.base.write_obj_to_db(
-            obj=df_industry_member,
-            key="df_industry_member",
-            filename=filename_chip_shelve,
-        )
-        with pd.ExcelWriter(path="df_industry_member.xlsx", mode="w") as writer_e:
-            df_industry_member.to_excel(
-                excel_writer=writer_e, sheet_name="df_industry_member"
-            )
-        analysis.base.set_version(key=name, dt=dt_pm_end)
     logger.trace(f"{name} End")
     return True

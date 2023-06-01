@@ -346,5 +346,4 @@ def concentration() -> bool:
         dt_concentration_date = date_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
-    print(df_concentration)
     return True

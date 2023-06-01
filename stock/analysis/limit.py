@@ -1,7 +1,6 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
-import sys
 import datetime
 import time
 import random
@@ -32,7 +31,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"Limit Count Begin")
     file_name_df_limit_temp = os.path.join(
-        path_data, f"df_limit_count_temp_{str_date_path}.ftr"
+        path_data, f"df_limit_count_temp_{str_date_path()}.ftr"
     )
     dt_delta = dt_date_trading - datetime.timedelta(days=366)
     dt_limit = None
@@ -114,12 +113,12 @@ def limit_count(list_symbol: list | str = None) -> bool:
         i += 1
         str_msg_bar = f"Limit Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if symbol in list_exist:  # 己存在，断点继续
-            str_msg_bar += f" - exist"
-            print(f"\r{str_msg_bar}\033[K", end="")
+            print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
         df_stock = pd.DataFrame()
         i_times = 0
-        while i_times <= 2:
+        while i_times < 2:
+            i_times += 1
             try:
                 df_stock = ak.stock_zh_a_hist(
                     symbol=symbol[2:8],
@@ -128,19 +127,17 @@ def limit_count(list_symbol: list | str = None) -> bool:
                     end_date=str_date_trading,
                 )
             except KeyError as e:
-                str_msg_bar += f" - {repr(e)}"
-                logger.trace(repr(e))
-                break
+                print(f"\r{str_msg_bar} - Sleep({i_times}) - {repr(e)}\033[K")
+                time.sleep(1)
             except OSError as e:
-                str_msg_bar += f" - {repr(e)}"
-                logger.trace(repr(e))
-                time.sleep(2)
+                print(f"\r{str_msg_bar} - Sleep({i_times}) - {repr(e)}\033[K")
+                time.sleep(1)
             else:
-                break
-            if i_times >= 2:
-                print(f"[{symbol}] Request TimeoutError")
-                sys.exit()
-            i_times += 1
+                if df_stock.empty:
+                    print(f"\r{str_msg_bar} - Sleep({i_times}) - empty\033[K")
+                    time.sleep(1)
+                else:
+                    break
         if df_stock.empty:  # 数据接口，没有该[symbol]日K线，跳过本[symbol]处理
             df_limit.at[symbol, "times"] = 0
             df_limit.at[symbol, "up_times"] = -1
@@ -156,7 +153,7 @@ def limit_count(list_symbol: list | str = None) -> bool:
             df_limit.at[symbol, "down_times_3pct"] = -1
             df_limit.at[symbol, "up_A_down_3pct"] = 0
             str_msg_bar += f" - df_stock empty"
-            print(f"\r{str_msg_bar}\033[K")
+            print(f"\r{str_msg_bar} -Empty\033[K")
             continue
         df_stock.rename(
             columns={

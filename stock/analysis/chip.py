@@ -68,7 +68,14 @@ def chip() -> object | DataFrame:
             print("Sleep 1 hour")
             dt_now_delta = datetime.datetime.now() + datetime.timedelta(seconds=3600)
             analysis.base.sleep_to_time(dt_time=dt_now_delta, seconds=10)
-    index_ssb = analysis.index.IndexSSB(update=True)
+    if analysis.base.is_latest_version(
+        key="df_stocks_in_ssb", filename=filename_chip_shelve
+    ):
+        index_ssb = analysis.index.IndexSSB(update=False)
+    else:
+        index_ssb = analysis.index.IndexSSB(update=True)
+        dt_stocks_in_ssb = index_ssb.version()
+        analysis.base.set_version(key="df_stocks_in_ssb", dt=dt_stocks_in_ssb)
     df_stocks_in_ssb = index_ssb.stocks_in_ssb()
     if analysis.concentration():
         df_concentration = analysis.base.read_df_from_db(

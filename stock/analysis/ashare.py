@@ -3,6 +3,7 @@
 from __future__ import annotations
 import re
 import random
+from pprint import pprint
 import requests
 import datetime
 import pandas as pd
@@ -162,24 +163,18 @@ def get_history_n_min_tx(
     }
     frequency = frq_map.get(frequency, "5m")
     url_qq = f"http://ifzq.gtimg.cn/appstock/app/kline/mkline?param={symbol},{frequency},,{count}"
-    rs = requests.get(url=url_qq, headers=headers)
-    data = rs.json()
-    data = data["data"][symbol][frequency]
+    try:
+        rs = requests.get(url=url_qq, headers=headers)
+        data = rs.json()
+        data = data["data"][symbol][frequency]
+    except TypeError as e:
+        logger.error(f"{repr(e)}")
+        return pd.DataFrame()
     df_qq = pd.DataFrame(
-        data
-    )  # , columns=["time", "open", "close", "high", "low", "volume", "n1", "n2"]
-    df_qq = df_qq.iloc[:, 0:6]  # 用序号取第0到第5列的切片
-    df_qq.rename(
-        columns={
-            0: "datetime",
-            1: "open",
-            2: "close",
-            3: "high",
-            4: "low",
-            5: "volume",
-        },
-        inplace=True,
+        data=data,
+        columns=["datetime", "open", "close", "high", "low", "volume", "n1", "n2"],
     )
+    df_qq = df_qq.iloc[:, 0:6]  # 用序号取第0到第5列的切片
     if df_qq.empty:
         return pd.DataFrame()  # return null DataFrame without data
     df_qq["datetime"] = pd.to_datetime(df_qq["datetime"])

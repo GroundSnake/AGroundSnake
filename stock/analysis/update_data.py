@@ -2,7 +2,6 @@
 import datetime
 import os
 import time
-import sys
 import requests
 import pandas as pd
 import feather
@@ -34,7 +33,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
     if not os.path.exists(path_kline):
         os.mkdir(path_kline)
     file_name_catalogue_temp = os.path.join(
-        path_data, f"catalogue_temp_{str_date_path}.ftr"
+        path_data, f"catalogue_temp_{str_date_path()}.ftr"
     )
     quantity = 80000
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
@@ -68,19 +67,25 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     df_catalogue.loc[symbol, "end"] = dt_latest_trading = dt_data_max
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
-                    str_msg = str_msg + f" - [{dt_latest_trading}]-------------latest"
+                    print(f"\r{str_msg} - [{dt_latest_trading}] - Latest\033[K", end="")
                 else:
-                    while True:
+                    df_delta = pd.DataFrame()
+                    i_while_delta = 0
+                    while i_while_delta <= 1:
+                        i_while_delta += 1
                         try:
                             df_delta = analysis.ashare.get_history_n_min_tx(
                                 symbol=symbol, frequency=frequency, count=quantity
                             )
                         except requests.exceptions.Timeout as e:
-                            print(repr(e))
-                            logger.trace(repr(e))
-                            time.sleep(2)
+                            print(f"\r{str_msg} - [{i_while_delta}] - {repr(e)}\033[K")
+                            time.sleep(1)
                         else:
-                            break
+                            if df_delta.empty:
+                                print(f"\r{str_msg} - [Times:{i_while_delta}] - df_delta empty\033[K")
+                                time.sleep(1)
+                            else:
+                                break
                     df_data = pd.concat([df_data, df_delta], axis=0, join="outer")
                     df_data = df_data[~df_data.index.duplicated(keep="last")]  # 删除重复记录
                     df_data.sort_values(by=["datetime"], ascending=True, inplace=True)
@@ -92,24 +97,32 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     ] = dt_latest_trading = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
-                    str_msg = str_msg + f" - [{dt_latest_trading}]-------------update"
+                    print(f"\r{str_msg} - [{dt_latest_trading}] - Update\033[K", end="")
             else:
-                while True:
+                df_data = pd.DataFrame()
+                i_while_data = 0
+                while i_while_data <= 1:
+                    i_while_data += 1
                     try:
                         df_data = analysis.ashare.get_history_n_min_tx(
                             symbol=symbol, frequency=frequency, count=quantity
                         )
                     except requests.exceptions.Timeout as e:
-                        print(repr(e))
-                        logger.trace(repr(e))
-                        time.sleep(2)
+                        print(f"\r{str_msg} - [Times:{i_while_data}] - {repr(e)}\033[K")
+                        time.sleep(1)
                     else:
-                        break
+                        if df_data.empty:
+                            print(f"\r{str_msg} - [Times:{i_while_data}] - df_data empty\033[K")
+                            time.sleep(1)
+                        else:
+                            break
                 if df_data.empty:
                     df_catalogue.loc[symbol, "end"] = dt_latest_trading = dt_no_data
                     df_catalogue.loc[symbol, "start"] = dt_init
                     df_catalogue.loc[symbol, "count"] = 0
-                    str_msg = str_msg + f" - [{dt_latest_trading}]-unable to get data"
+                    print(
+                        f"\r{str_msg} - [{dt_latest_trading}] - Unable to get data\033[K"
+                    )
                 else:
                     feather.write_dataframe(
                         df=df_data, dest=file_name_feather
@@ -119,30 +132,30 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     ] = dt_latest_trading = df_data.index.max()
                     df_catalogue.loc[symbol, "start"] = df_data.index.min()
                     df_catalogue.loc[symbol, "count"] = len(df_data)
-                    str_msg = str_msg + f" - [{dt_latest_trading}]-------------Create"
+                    print(f"\r{str_msg} - [{dt_latest_trading}] - Create\033[K", end="")
         elif dt_max == dt_no_data:
-            str_msg = str_msg + f" - [{dt_max}]------------No data"
+            print(f"\r{str_msg} - [{dt_max}] - No data\033[K")
         elif dt_max == dt_pm_end:
-            str_msg = str_msg + f" - [{dt_max}]-------------latest"
+            print(f"\r{str_msg} - [{dt_max}] - Latest\033[K", end="")
         elif dt_no_data < dt_max < dt_pm_end:
             df_data = feather.read_dataframe(source=file_name_feather)  # 读取腌制数据 df_data
             df_delta = pd.DataFrame()
             i_times = 0
-            while i_times <= 2:
+            while i_times <= 1:
+                i_times += 1
                 try:
                     df_delta = analysis.ashare.get_history_n_min_tx(
                         symbol=symbol, frequency=frequency, count=quantity
                     )
-                    # logger.trace(f"[{symbol}] get_history_n_min_tx success")
-                    break
                 except ConnectionError as e:
-                    logger.error(repr(e))
-                    print("--", repr(e))
-                    time.sleep(3)
-                if i_times >= 2:
-                    print(f"[{symbol}] Request TimeoutError")
-                    sys.exit()
-                i_times += 1
+                    print(f"\r{str_msg} - [Times:{i_times}] - {repr(e)}-\033[K")
+                    time.sleep(1)
+                else:
+                    if df_delta.empty:
+                        print(f"\r{str_msg} - [Times:{i_times} - df_delta empty\033[K")
+                        time.sleep(1)
+                    else:
+                        break
             if not df_delta.empty:
                 df_data = pd.concat(objs=[df_data, df_delta], axis=0, join="outer")
             df_data = df_data[~df_data.index.duplicated(keep="last")]
@@ -150,12 +163,11 @@ def update_stock_data(frequency: str = "1m") -> bool:
             feather.write_dataframe(
                 df=df_data, dest=file_name_feather
             )  # 写入腌制数据 df_data
-            df_catalogue.loc[symbol, "end"] = df_data.index.max()
+            df_catalogue.loc[symbol, "end"] = dt_latest_trading = df_data.index.max()
             df_catalogue.loc[symbol, "start"] = df_data.index.min()
             df_catalogue.loc[symbol, "count"] = len(df_data)
-            str_msg = str_msg + f"-------------update"
+            print(f"\r{str_msg} - [{dt_latest_trading}]- Update\033[K", end="")
         feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
-        print(f"\r{str_msg}\033[K", end="")
     if i >= count:
         print("\n", end="")
         df_catalogue = df_catalogue[df_catalogue["count"] != 0]  # 删除无K线记录的股票
