@@ -297,6 +297,7 @@ def concentration() -> bool:
                 "latest_concentration",
                 "days_concentration",
                 "times_concentration",
+                "rate_concentration",
             ],
         )
     else:
@@ -310,6 +311,7 @@ def concentration() -> bool:
     df_concentration["latest_concentration"].fillna(value=dt_date_init, inplace=True)
     df_concentration["days_concentration"].fillna(value=0, inplace=True)
     df_concentration["times_concentration"].fillna(value=0, inplace=True)
+    df_concentration["rate_concentration"].fillna(value=0, inplace=True)
     if dt_pm_end_last_1T < datetime.datetime.now() <= dt_pm_end:
         date_latest = dt_date_trading_last_1T
     else:
@@ -330,6 +332,23 @@ def concentration() -> bool:
                     df_concentration.at[symbol, "latest_concentration"]
                     - df_concentration.at[symbol, "first_concentration"]
                 ).days + 1
+        if df_concentration.at[symbol, "first_concentration"] == dt_date_init:
+            df_concentration.at[symbol, "rate_concentration"] = 0
+        else:
+            days_concentration = (
+                df_concentration.at[symbol, "days_concentration"] // 7 * 5
+                + df_concentration.at[symbol, "days_concentration"] % 7
+            )  # 修正除数，尽可能趋近交易日
+            if days_concentration > 0:
+                df_concentration.at[symbol, "rate_concentration"] = round(
+                    df_concentration.at[symbol, "times_concentration"]
+                    / days_concentration
+                    * 100,
+                    2,
+                )
+            else:
+                logger.error(f"{symbol} [days_concentration] is zero")
+                df_concentration.at[symbol, "rate_concentration"] = 0
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )
@@ -346,5 +365,4 @@ def concentration() -> bool:
         dt_concentration_date = date_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
-    print(df_concentration)
     return True

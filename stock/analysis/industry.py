@@ -12,7 +12,6 @@ import tushare as ts
 import analysis.base
 from analysis.const import (
     dt_init,
-    dt_date_init,
     path_data,
     dt_date_trading,
     dt_pm_end,
@@ -36,14 +35,16 @@ def get_industry_index() -> pd.DataFrame:
     logger.trace(f"{name} Begin！")
     pro = ts.pro_api()
     df_ths_index = pro.ths_index()
-    df_industry_index = df_ths_index[df_ths_index["ts_code"].str.contains("8811").fillna(False)]
+    df_industry_index = df_ths_index[
+        df_ths_index["ts_code"].str.contains("8811").fillna(False)
+    ]
     df_industry_index = df_industry_index[["ts_code", "name"]]
     df_industry_index.rename(
         columns={
             "ts_code": "industry_code",
             "name": "industry_name",
         },
-        inplace=True
+        inplace=True,
     )
     df_industry_index.set_index(keys=["industry_code"], inplace=True)
     analysis.base.write_obj_to_db(
@@ -161,17 +162,16 @@ def update_industry_index_ths() -> bool:
                 break
         if df_ths_daily.empty:
             return False
-        df_ths_daily["trade_date"] = pd.to_datetime(df_ths_daily["trade_date"])
         df_ths_daily["trade_date"] = df_ths_daily["trade_date"].apply(
-            func=lambda x: x.date()
+            func=lambda x: datetime.datetime.combine(
+                pd.to_datetime(x).date(), time_pm_end
+            )
         )
         df_ths_daily.set_index(keys=["trade_date"], inplace=True)
         df_ths_daily.sort_index(ascending=True, inplace=True)
         filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
         feather.write_dataframe(df=df_ths_daily, dest=filename_ths_daily)
-        dt_industry_index_temp = datetime.datetime.combine(
-            df_ths_daily.index.max(), time_pm_end
-        )
+        dt_industry_index_temp = df_ths_daily.index.max()
         str_msg_bar += f" - [{dt_industry_index_temp}]"
         dt_now = datetime.datetime.now()
         if dt_now > dt_pm_end and dt_industry_index_temp != dt_pm_end:
@@ -211,7 +211,7 @@ def industry_pct() -> bool:
     if df_industry_index.empty:
         df_industry_index = get_industry_index()
     filename_industry_pct = os.path.join(
-        path_data, f"industry_pct_temp_{str_date_path}.ftr"
+        path_data, f"industry_pct_temp_{str_date_path()}.ftr"
     )
     if os.path.exists(filename_industry_pct):
         df_industry_pct = feather.read_dataframe(source=filename_industry_pct)
@@ -255,9 +255,7 @@ def industry_pct() -> bool:
             key=name,
             filename=filename_chip_shelve,
         )
-        dt_industry_pct = datetime.datetime.combine(
-            df_industry_pct.index.max(), time_pm_end
-        )
+        dt_industry_pct = df_industry_pct.index.max()
         analysis.base.set_version(key=name, dt=dt_industry_pct)
     if os.path.exists(filename_industry_pct):  # 删除临时文件
         os.remove(path=filename_industry_pct)
@@ -308,9 +306,7 @@ def industry_rank():
     df_industry_pct = analysis.base.read_df_from_db(
         key="df_industry_pct", filename=filename_chip_shelve
     )
-    dt_industry_rank = datetime.datetime.combine(
-        df_industry_pct.index.max(), time_pm_end
-    )
+    dt_industry_rank = df_industry_pct.index.max()
     df_5_industry_pct = df_industry_pct.iloc[-5:]
     df_20_industry_pct = df_industry_pct.iloc[-20:-5]
     df_40_industry_pct = df_industry_pct.iloc[-40:-20]
@@ -424,7 +420,7 @@ def ths_industry() -> bool:
         logger.trace(f"ths_industry,Break and End")
         return True
     filename_industry_temp = os.path.join(
-        path_data, f"industry_temp_{str_date_path}.ftr"
+        path_data, f"industry_temp_{str_date_path()}.ftr"
     )
     if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
         if not update_industry_index_ths():
@@ -438,7 +434,7 @@ def ths_industry() -> bool:
         df_industry["industry_flag"] = 0
         feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
     pro = ts.pro_api()
-    dt_date_daily_max = dt_date_init
+    dt_date_daily_max = dt_init
     i = 0
     df_industry = df_industry.sample(frac=1)
     count_industry = len(df_industry)
@@ -480,9 +476,10 @@ def ths_industry() -> bool:
                 },
                 inplace=True,
             )
-            df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
             df_daily["trade_date"] = df_daily["trade_date"].apply(
-                func=lambda x: x.date()
+                func=lambda x: datetime.datetime.combine(
+                    pd.to_datetime(x).date(), time_pm_end
+                )
             )
             df_daily.set_index(keys=["trade_date"], inplace=True)
             df_daily.sort_index(ascending=True, inplace=True)
@@ -572,11 +569,11 @@ def ths_industry() -> bool:
             obj=df_industry, key=name, filename=filename_chip_shelve
         )
         dt_mow = datetime.datetime.now()
-        dt_daily_max = datetime.datetime.combine(dt_date_daily_max, time_pm_end)
+        dt_daily_max = dt_date_daily_max
         if (
             dt_mow > dt_pm_end
             and dt_daily_max != dt_pm_end
-            and dt_date_daily_max != dt_date_init
+            and dt_date_daily_max != dt_init
         ):
             print(f"\n{name} is not latest")
         analysis.base.set_version(key=name, dt=dt_daily_max)

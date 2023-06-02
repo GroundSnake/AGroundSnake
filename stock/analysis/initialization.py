@@ -2,7 +2,7 @@
 from loguru import logger
 import pandas as pd
 import analysis.base
-from analysis.const import rise, fall, filename_chip_shelve, dt_date_trading, dt_init
+from analysis.const import rise, fall, filename_chip_shelve, dt_init, dt_trading
 
 
 def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
@@ -87,7 +87,7 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
             pct_chg = round(pct_chg, 2)
             df_trader.at[code, "pct_chg"] = pct_chg
             days_of_inclusion = (
-                dt_date_trading - df_trader.at[code, "date_of_inclusion_first"]
+                dt_trading - df_trader.at[code, "date_of_inclusion_first"]
             ).days + 1
             days_of_inclusion = (
                 days_of_inclusion // 7 * 5 + days_of_inclusion % 7

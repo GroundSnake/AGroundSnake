@@ -51,7 +51,7 @@ def all_chs_code() -> list | None:
         return
 
 
-dt_now = datetime.datetime.now()
+# dt_now = datetime.datetime.now()
 path_main = os.getcwd()
 path_data = os.path.join(path_main, "data")
 if not os.path.exists(path_data):
@@ -97,24 +97,34 @@ dt_pm_start = datetime.datetime.combine(dt_date_trading, time_pm_start)
 dt_pm_1457 = datetime.datetime.combine(dt_date_trading, time_pm_1457)
 dt_pm_end = datetime.datetime.combine(dt_date_trading, time_pm_end)
 dt_pm_end_last_1T = datetime.datetime.combine(dt_date_trading_last_1T, time_pm_end)
-if dt_now < dt_pm_end:
-    str_date_path = dt_date_trading_last_1T.strftime("%Y_%m_%d")
-else:
-    str_date_path = dt_date_trading.strftime("%Y_%m_%d")
-if dt_now < dt_am_0500:
-    str_trading_path = dt_date_trading_last_1T.strftime("%Y_%m_%d")
-elif dt_am_0500 < dt_now < dt_pm_end:
-    str_trading_path = dt_date_trading.strftime("%Y_%m_%d")
-else:
-    str_trading_path = dt_trading_last_T1.strftime("%Y_%m_%d")
+
+
+def str_date_path() -> str:
+    dt_now = datetime.datetime.now()
+    if dt_now < dt_pm_end:
+        return dt_date_trading_last_1T.strftime("%Y_%m_%d")
+    else:
+        return dt_date_trading.strftime("%Y_%m_%d")
+
+
+def str_trading_path() -> str:
+    dt_now = datetime.datetime.now()
+    if dt_now < dt_am_0500:
+        return dt_date_trading_last_1T.strftime("%Y_%m_%d")
+    elif dt_am_0500 < dt_now < dt_pm_end:
+        return dt_date_trading.strftime("%Y_%m_%d")
+    else:
+        return dt_trading_last_T1.strftime("%Y_%m_%d")
+
+
 filename_log = os.path.join(path_log, "log{time}.log")
 filename_input = os.path.join(path_main, f"input.xlsx")
 filename_trader_template = os.path.join(path_main, f"trader.xlsx")
 filename_chip_shelve = os.path.join(path_data, f"chip")
 filename_market_values_shelve = os.path.join(path_mv, f"mv")
-filename_chip_excel = os.path.join(path_check, f"chip_{str_date_path}.xlsx")
-filename_signal = os.path.join(path_check, f"signal_{str_trading_path}.xlsx")
-filename_data_csv = os.path.join(path_check, f"trader_{str_trading_path}.csv")
+filename_chip_excel = os.path.join(path_check, f"chip_{str_date_path()}.xlsx")
+filename_signal = os.path.join(path_check, f"signal_{str_trading_path()}.xlsx")
+filename_data_csv = os.path.join(path_check, f"trader_{str_trading_path()}.csv")
 filename_index_charts = os.path.join(path_check, f"index_charts.html")
 filename_concentration_rate_charts = os.path.join(
     path_check, f"concentration_rate_charts.html"
