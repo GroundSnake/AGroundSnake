@@ -82,7 +82,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
                             time.sleep(1)
                         else:
                             if df_delta.empty:
-                                print(f"\r{str_msg} - [Times:{i_while_delta}] - df_delta empty\033[K")
+                                print(
+                                    f"\r{str_msg} - [Times:{i_while_delta}] - df_delta empty\033[K"
+                                )
                                 time.sleep(1)
                             else:
                                 break
@@ -112,7 +114,9 @@ def update_stock_data(frequency: str = "1m") -> bool:
                         time.sleep(1)
                     else:
                         if df_data.empty:
-                            print(f"\r{str_msg} - [Times:{i_while_data}] - df_data empty\033[K")
+                            print(
+                                f"\r{str_msg} - [Times:{i_while_data}] - df_data empty\033[K"
+                            )
                             time.sleep(1)
                         else:
                             break
@@ -121,7 +125,7 @@ def update_stock_data(frequency: str = "1m") -> bool:
                     df_catalogue.loc[symbol, "start"] = dt_init
                     df_catalogue.loc[symbol, "count"] = 0
                     print(
-                        f"\r{str_msg} - [{dt_latest_trading}] - Unable to get data\033[K"
+                        f"\r{str_msg} - [{dt_latest_trading}] - Unable to obtain data\033[K"
                     )
                 else:
                     feather.write_dataframe(

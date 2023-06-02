@@ -63,6 +63,13 @@ def chip() -> object | DataFrame:
         logger.trace("load df_st fail")
     while True:
         if analysis.industry.industry_rank():
+            df_industry_rank = analysis.base.read_df_from_db(
+                key="df_industry_rank", filename=filename_chip_shelve
+            )
+            df_industry_rank_deviation = df_industry_rank[
+                df_industry_rank["max_min"] >= 60
+            ]
+            list_industry_code_deviation = df_industry_rank_deviation.index.tolist()
             break
         else:
             print("Sleep 1 hour")
@@ -76,12 +83,13 @@ def chip() -> object | DataFrame:
         index_ssb = analysis.index.IndexSSB(update=True)
         dt_stocks_in_ssb = index_ssb.version()
         analysis.base.set_version(key="df_stocks_in_ssb", dt=dt_stocks_in_ssb)
+    if analysis.industry.reset_industry_member():
+        pass
     df_stocks_in_ssb = index_ssb.stocks_in_ssb()
     if analysis.concentration():
         df_concentration = analysis.base.read_df_from_db(
             key="df_concentration", filename=filename_chip_shelve
         )
-        logger.trace("load df_concentration success")
     else:
         df_concentration = pd.DataFrame()
         logger.error("load df_concentration fail")
@@ -97,11 +105,11 @@ def chip() -> object | DataFrame:
         objs=[
             df_cap,
             df_stocks_in_ssb,
+            df_st,
+            df_concentration,
             df_industry,
             df_golden,
             df_limit,
-            df_concentration,
-            df_st,
         ],
         axis=1,
         join="outer",
@@ -137,6 +145,9 @@ def chip() -> object | DataFrame:
         & (df_chip["T20_amplitude"] >= 5)
     ]
     df_turnover_6 = df_chip[(df_chip["turnover"] >= 10)]
+    df_alpha_7 = df_chip[
+        (df_chip["alpha_times"] >= 70) & (df_chip["alpha_mean"] >= 1.5)
+    ]
     df_stocks_pool = pd.concat(
         objs=[
             df_g_price_1,
@@ -145,6 +156,7 @@ def chip() -> object | DataFrame:
             df_t5_pct_4,
             df_t5_amplitude_5,
             df_turnover_6,
+            df_alpha_7,
         ],
         axis=0,
         join="outer",
@@ -158,52 +170,52 @@ def chip() -> object | DataFrame:
         & (df_stocks_pool["up_A_down_5pct"] >= 24)
         & (df_stocks_pool["up_A_down_3pct"] >= 48)
         & (df_stocks_pool["turnover"] <= 40)
+        & (df_stocks_pool["industry_code"].isin(values=list_industry_code_deviation))
         & (~df_stocks_pool["name"].str.contains("ST").fillna(False))
         & (~df_stocks_pool["ST"].str.contains("ST").fillna(False))
     ]
     df_stocks_pool["factor_count"] = 1
     df_stocks_pool["factor"] = None
-    list_game_over = df_stocks_pool.index.tolist()
-    list_1 = df_g_price_1.index.tolist()
-    list_2 = df_up_a_down_5pct_2.index.tolist()
-    list_3 = df_tm_grade_3.index.tolist()
-    list_4 = df_t5_pct_4.index.tolist()
-    list_5 = df_t5_amplitude_5.index.tolist()
-    list_6 = df_turnover_6.index.tolist()
-    for symbol in list_game_over:
-        if symbol in list_1:
+    for symbol in df_stocks_pool.index:
+        if symbol in df_g_price_1.index:
             if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
                 df_stocks_pool.at[symbol, "factor"] += ",[G_price]"
                 df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
                 df_stocks_pool.at[symbol, "factor"] = "[G_price]"
-        if symbol in list_2:
+        if symbol in df_up_a_down_5pct_2.index:
             if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
                 df_stocks_pool.at[symbol, "factor"] += ",[up_A_down_5pct]"
                 df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
                 df_stocks_pool.at[symbol, "factor"] = "[up_A_down_5pct]"
-        if symbol in list_3:
+        if symbol in df_tm_grade_3.index:
             if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
                 df_stocks_pool.at[symbol, "factor"] += ",[tm_grade]"
                 df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
                 df_stocks_pool.at[symbol, "factor"] = "[tm_grade]"
-        if symbol in list_4:
+        if symbol in df_t5_pct_4.index:
             if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
                 df_stocks_pool.at[symbol, "factor"] += ",[t5_pct]"
                 df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
                 df_stocks_pool.at[symbol, "factor"] = "[t5_pct]"
-        if symbol in list_5:
+        if symbol in df_t5_amplitude_5.index:
             if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
                 df_stocks_pool.at[symbol, "factor"] += ",[t5_amplitude]"
                 df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
                 df_stocks_pool.at[symbol, "factor"] = "[t5_amplitude]"
-        if symbol in list_6:
+        if symbol in df_turnover_6.index:
             if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
                 df_stocks_pool.at[symbol, "factor"] += ",[turnover]"
+                df_stocks_pool.at[symbol, "factor_count"] += 1
+            else:
+                df_stocks_pool.at[symbol, "factor"] = "[turnover]"
+        if symbol in df_alpha_7.index:
+            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
+                df_stocks_pool.at[symbol, "factor"] += ",[alpha]"
                 df_stocks_pool.at[symbol, "factor_count"] += 1
             else:
                 df_stocks_pool.at[symbol, "factor"] = "[turnover]"

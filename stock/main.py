@@ -106,26 +106,11 @@ if __name__ == "__main__":
     df_industry_rank = analysis.read_df_from_db(
         key="df_industry_rank", filename=filename_chip_shelve
     )
-    df_industry_pct = analysis.read_df_from_db(
-        key="df_industry_pct", filename=filename_chip_shelve
-    )
+    df_industry_rank_deviation = df_industry_rank[df_industry_rank["max_min"] >= 60]
+    list_industry_name_deviation = list()
+    for ti_code in df_industry_rank_deviation.index:
+        list_industry_name_deviation.append(df_industry_rank.at[ti_code, "name"])
     # 加载df_industry_rank_pool End
-    if df_industry_pct.empty:
-        list_industry_min = list()
-        list_industry_max = list()
-    else:
-        pds_industry = df_industry_pct.iloc[-1]
-        pds_industry.sort_values(ascending=False, inplace=True)
-        list_industry_min = pds_industry.head(5).index.tolist()
-        list_industry_max = pds_industry.tail(5).index.tolist()
-    list_industry_min_name = list()
-    list_industry_max_name = list()
-    for ti_code in list_industry_min:
-        list_industry_min_name.append(df_industry_rank.at[ti_code, "name"])
-    for ti_code in list_industry_max:
-        list_industry_max_name.append(df_industry_rank.at[ti_code, "name"])
-    str_industry_min_name = fg.lightgreen(f"Tail Industry: {list_industry_min_name}")
-    str_industry_max_name = fg.red(f"Head Industry: {list_industry_max_name}")
     # 加载df_trader Begin
     df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
     if df_trader.empty:
@@ -524,9 +509,9 @@ if __name__ == "__main__":
                     elif item in "Sell":
                         msg_signal_code_1 = fg.red(msg_signal_code_1)
                     if industry_code in df_industry_rank_pool_selling.index:
-                        msg_signal_code_3 = fg.lightred(msg_signal_code_3)
-                    elif industry_code in df_industry_rank_pool_buying.index:
                         msg_signal_code_3 = fg.red(msg_signal_code_3)
+                    elif industry_code in df_industry_rank_pool_buying.index:
+                        msg_signal_code_3 = fg.green(msg_signal_code_3)
                     msg_signal_code_4 = fg.yellow(msg_signal_code_4)
                     msg_signal_code_5 = fg.purple(msg_signal_code_5)
                     msg_signal_code = (
@@ -583,9 +568,7 @@ if __name__ == "__main__":
             if list_signal_chg:
                 print(f"{str_dt_now_time}----New Signal: {list_signal_chg}\a")
                 print("*" * 86)
-            print(str_industry_max_name)
-            print("=" * 86)
-            print(str_industry_min_name)
+            print(list_industry_name_deviation)
             print("=" * 86)
             if list_industry_buying:
                 print(f"{fg.green(f'Buying: {list_industry_buying}')}")

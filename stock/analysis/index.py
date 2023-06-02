@@ -115,6 +115,11 @@ class IndexSSB(object):
     def test(self):
         pass
         df = self.__read_df_from_dbm(key="df_index_exist")
+        """
+        df.iloc[-1 ,1] = 0
+        df.iloc[-1 ,2] = 0
+        self.__write_df_from_dbm(df=df, key="df_index_exist")
+        """
         print(df)
 
     def version(self) -> pd.Timestamp:
@@ -145,6 +150,7 @@ class IndexSSB(object):
         )
         df_mv = self.__read_df_from_dbm(key=str_df_mv)
         if df_mv.empty:
+            print(f"[{str_df_mv}] not in shelve")
             if os.path.exists(filename_df_mv_temp):
                 df_mv = feather.read_dataframe(source=filename_df_mv_temp)
             else:
@@ -176,21 +182,23 @@ class IndexSSB(object):
                         )
                     except requests.exceptions.ConnectionError as e:
                         print(f"\r{str_msg_bar} - {repr(e)}\033[K")
-                        logger.error(repr(e))
-                        time.sleep(2)
+                        time.sleep(1)
                         if i_times > times_try:
                             df_daily_basic_symbol = pd.DataFrame()
                             break
                     else:
                         if df_daily_basic_symbol.empty:
-                            time.sleep(2)
+                            print(
+                                f"\r{str_msg_bar} - df_daily_basic_symbol empty\033[K"
+                            )
+                            time.sleep(1)
                             if i_times > times_try:
                                 break
                         else:
                             break
                 if df_daily_basic_symbol.empty:
                     df_mv.drop(index=symbol, inplace=True)
-                    str_msg_bar += " - drop#1"
+                    print(f"\r{str_msg_bar} - drop#1\033[K")
                 else:
                     df_daily_basic_symbol["trade_date"] = pd.to_datetime(
                         df_daily_basic_symbol["trade_date"]
@@ -244,7 +252,10 @@ class IndexSSB(object):
                             )
                         else:
                             same_date_pos += 1
-                        str_msg_bar += f" - [{now_dt}] - [{dt_pos}]"
+                            print(
+                                f"\r{str_msg_bar} - [{now_dt}] - [{dt_pos}] - latest\033[K",
+                                end="",
+                            )
                     elif now_total_share != base_total_share:
                         share_change += 1
                         print(
@@ -263,21 +274,23 @@ class IndexSSB(object):
                                 )
                             except requests.exceptions.ConnectionError as e:
                                 print(f"\r{str_msg_bar} - {repr(e)}\033[K")
-                                logger.error(repr(e))
-                                time.sleep(2)
+                                time.sleep(1)
                                 if i_pro_bar > times_try:
                                     df_pro_bar_symbol = pd.DataFrame()
                                     break
                             else:
                                 if df_pro_bar_symbol.empty:
-                                    time.sleep(2)
+                                    print(
+                                        f"\r{str_msg_bar} - df_pro_bar_symbol empty\033[K"
+                                    )
+                                    time.sleep(1)
                                     if i_pro_bar > times_try:
                                         break
                                 else:
                                     break
                         if df_pro_bar_symbol.empty:
                             df_mv.drop(index=symbol, inplace=True)
-                            str_msg_bar += " - drop#2"
+                            print(f"\r{str_msg_bar} - drop#2\033[K")
                         else:
                             df_pro_bar_symbol["trade_date"] = pd.to_datetime(
                                 df_pro_bar_symbol["trade_date"]
@@ -331,7 +344,10 @@ class IndexSSB(object):
                                 )
                             else:
                                 same_date_pos += 1
-                            str_msg_bar += f" - [{now_dt}] - [{dt_pos}]"
+                                print(
+                                    f"\r{str_msg_bar} - [{now_dt}] - [{dt_pos}] - latest\033[K",
+                                    end="",
+                                )
                     else:
                         logger.error(
                             f"{symbol} - Unknow Error"
@@ -352,6 +368,7 @@ class IndexSSB(object):
                 sys.exit()
         if i >= count:
             print("\n", end="")  # 格式处理
+            df_mv.dropna(inplace=True)
             df_mv.applymap(
                 func=lambda x: round(x / 10000, 2)
                 if (isinstance(x, (int, float)) and x > 100)
@@ -361,7 +378,7 @@ class IndexSSB(object):
             if date_mv_max == dt_pos:
                 self.df_index_exist.at[dt_pos, name] = 1
                 self.__write_df_from_dbm(df=self.df_index_exist, key="df_index_exist")
-                self.__write_df_from_dbm(df=self.df_mv, key=str_df_mv)
+                self.__write_df_from_dbm(df=df_mv, key=str_df_mv)
             if os.path.exists(filename_df_mv_temp):
                 os.remove(path=filename_df_mv_temp)
         logger.trace(f"{name} End")
@@ -448,7 +465,11 @@ class IndexSSB(object):
             now_mv_n = df_mv_n["now_mv"].sum()
             df_index_ssb.at[dt_pos, f"base_mv_{key}"] = round(base_mv_n / 100000000, 2)
             df_index_ssb.at[dt_pos, f"now_mv_{key}"] = round(now_mv_n / 100000000, 2)
-            stocks_index_n = now_mv_n / base_mv_n * 1000
+            if base_mv_n > 0:
+                stocks_index_n = now_mv_n / base_mv_n * 1000
+            else:
+                stocks_index_n = 0
+                logger.error(f"[{key}] - base_mv_n = {base_mv_n}")
             stocks_index_n = round(stocks_index_n, 2)
             df_index_ssb.at[dt_pos, f"ssb_{key}"] = stocks_index_n
             df_mv_n[f"contribution_points_index_{key}"] = (
@@ -513,7 +534,7 @@ class IndexSSB(object):
                     str_msg_bar += " - [trading day]"
             else:
                 str_msg_bar += " - [non trading day]"
-            print(f"\r{str_msg_bar}\033[K", end="")
+            print(f"\r{str_msg_bar}\033[K")
         logger.trace("make_index_line End")
 
     def __make_charts(self):
