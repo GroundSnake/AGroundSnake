@@ -30,12 +30,7 @@ if not os.path.exists(path_industry):
 def get_industry_index() -> pd.DataFrame:
     name: str = "df_industry_index"
     logger.trace(f"{name} Begin！")
-<<<<<<< HEAD
     df_ths_index = client_ts_pro.ths_index()
-=======
-    pro = ts.pro_api()
-    df_ths_index = pro.ths_index()
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     df_industry_index = df_ths_index[
         df_ths_index["ts_code"].str.contains("8811").fillna(False)
     ]
@@ -237,11 +232,7 @@ def industry_pct() -> bool:
     )
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_pct = os.path.join(
-<<<<<<< HEAD
         path_data, f"industry_pct_temp_{str_dt_history_path}.ftr"
-=======
-        path_data, f"industry_pct_temp_{str_date_path()}.ftr"
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     )
     if os.path.exists(filename_industry_pct):
         df_industry_pct = feather.read_dataframe(source=filename_industry_pct)
@@ -344,10 +335,7 @@ def industry_rank():
     df_industry_pct = analysis.base.read_df_from_db(
         key="df_industry_pct", filename=filename_chip_shelve
     )
-<<<<<<< HEAD
     df_industry_pct.sort_index(inplace=True)
-=======
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     dt_industry_rank = df_industry_pct.index.max()
     df_5_industry_pct = df_industry_pct.iloc[-5:]
     df_20_industry_pct = df_industry_pct.iloc[-20:-5]
@@ -478,11 +466,7 @@ def ths_industry() -> bool:
         return True
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_temp = os.path.join(
-<<<<<<< HEAD
         path_data, f"industry_temp_{str_dt_history_path}.ftr"
-=======
-        path_data, f"industry_temp_{str_date_path()}.ftr"
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     )
     if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
         if not update_industry_index_ths():
@@ -518,15 +502,10 @@ def ths_industry() -> bool:
         ]
         df_industry = df_industry.reindex(columns=list_industry_columns, fill_value=0)
         feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
-<<<<<<< HEAD
     dt_date_daily_max = dt_init
     str_date_trading = dt_history().strftime("%Y%m%d")
     dt_delta = dt_history() - datetime.timedelta(days=366)
     str_delta = dt_delta.strftime("%Y%m%d")
-=======
-    pro = ts.pro_api()
-    dt_date_daily_max = dt_init
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     i = 0
     df_industry = df_industry.sample(frac=1)
     count = len(df_industry)
