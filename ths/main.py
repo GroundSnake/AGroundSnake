@@ -1,7 +1,6 @@
 # coding=utf-8
 import datetime
 import time
-
 from base.ashare import realtime_quotations, history_n
 import pandas as pd
 import os
