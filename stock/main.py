@@ -32,6 +32,10 @@ from analysis import (
 )
 
 __version__ = "3.0.0"
+<<<<<<< HEAD
+=======
+logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+>>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
 
 
 running_state = "NORMAL"  # NORMAL ,DEBUG
@@ -102,10 +106,35 @@ if __name__ == "__main__":
     df_industry_rank_pool = analysis.read_df_from_db(
         key="df_industry_rank_pool", filename=filename_chip_shelve
     )
+<<<<<<< HEAD
+=======
+    if df_industry_rank_pool.empty:
+        print("Please rerun df_industry_rank_pool function")
+        df_industry_rank_pool_buying = pd.DataFrame()
+        df_industry_rank_pool_selling = pd.DataFrame()
+        list_industry_buying = list()
+        list_industry_selling = list()
+    else:
+        df_industry_rank_pool_buying = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] >= 66
+        ]
+        df_industry_rank_pool_selling = df_industry_rank_pool[
+            df_industry_rank_pool["T5_rank"] <= 10
+        ]
+        list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
+        list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
+>>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     # 加载df_industry_rank_pool End
     df_industry_rank = analysis.read_df_from_db(
         key="df_industry_rank", filename=filename_chip_shelve
     )
+<<<<<<< HEAD
+=======
+    df_industry_rank_deviation = df_industry_rank[df_industry_rank["max_min"] >= 60]
+    list_industry_name_deviation = list()
+    for ti_code in df_industry_rank_deviation.index:
+        list_industry_name_deviation.append(df_industry_rank.at[ti_code, "name"])
+>>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     # 加载df_industry_rank_pool End
     # 加载df_trader Begin
     df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
@@ -556,9 +585,20 @@ if __name__ == "__main__":
                         f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
                         f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}]"
                     )
+<<<<<<< HEAD
                     msg_signal_code_7 = (
                         f"[{df_trader.at[code, 'times_exceed_correct_industry']}"
                         f" - {df_trader.at[code, 'mean_exceed_correct_industry']:5.2f}]"
+=======
+                    msg_signal_code_4 = f"---- [{df_trader.at[code, 'grade']}]"
+                    msg_signal_code_5 = f" - {df_trader.at[code, 'stock_index']}"
+                    msg_signal_code_6 = (
+                        f"---- [T: {df_trader.at[code, 'recent_trading'].date()}]"
+                        f" - [R:{df_trader.at[code, 'rate_of_inclusion']:6.2f}%]"
+                        f" - [T:{df_trader.at[code, 'times_of_inclusion']:3.0f}]"
+                        f" - [F: {df_trader.at[code, 'date_of_inclusion_first'].date()}]"
+                        f" - [L: {df_trader.at[code, 'date_of_inclusion_latest'].date()}]"
+>>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
                     )
                     if industry_code in df_industry_rank_pool.index:
                         if (
@@ -622,8 +662,17 @@ if __name__ == "__main__":
                         msg_signal_code_1 = fg.lightgreen(msg_signal_code_1)
                     elif item in "Sell":
                         msg_signal_code_1 = fg.red(msg_signal_code_1)
+<<<<<<< HEAD
                     if "A" in msg_signal_code_8 and "Z" not in msg_signal_code_8:
                         msg_signal_code_8 = fg.red(msg_signal_code_8)
+=======
+                    if industry_code in df_industry_rank_pool_selling.index:
+                        msg_signal_code_3 = fg.red(msg_signal_code_3)
+                    elif industry_code in df_industry_rank_pool_buying.index:
+                        msg_signal_code_3 = fg.green(msg_signal_code_3)
+                    msg_signal_code_4 = fg.yellow(msg_signal_code_4)
+                    msg_signal_code_5 = fg.purple(msg_signal_code_5)
+>>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
                     msg_signal_code = (
                         "\n"
                         + msg_signal_code_1
@@ -688,7 +737,21 @@ if __name__ == "__main__":
             if str_msg_del:
                 str_msg_del = f"{str_dt_now_time}----remove: {fg.green(str_msg_del)}"
                 print("=" * 86)
+<<<<<<< HEAD
                 print(str_msg_del)
+=======
+            if list_signal_chg:
+                print(f"{str_dt_now_time}----New Signal: {list_signal_chg}\a")
+                print("*" * 86)
+            print(list_industry_name_deviation)
+            print("=" * 86)
+            if list_industry_buying:
+                print(f"{fg.green(f'Buying: {list_industry_buying}')}")
+                print("*" * 86)
+            if list_industry_selling:
+                print(f"{fg.red(f'Selling: {list_industry_selling}')}")
+                print("*" * 86)
+>>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
             if dict_index_ssb_now:
                 print("=" * 86)
                 print(dict_index_ssb_now)
