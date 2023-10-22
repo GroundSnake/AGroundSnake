@@ -3,15 +3,24 @@
 from __future__ import annotations
 import re
 import random
+from functools import lru_cache
 import requests
 import datetime
 import pandas as pd
 from loguru import logger
+from fake_useragent import UserAgent
+import analysis
+from analysis.const import client_mootdx
+from analysis.base import get_stock_code
+
+
+ua = UserAgent()
 
 
 headers = {
+    "Accept": "*/*",
     "Accept-Encoding": "gzip, deflate, sdch",
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.100 Safari/537.36",
+    "User-Agent": ua.random,
 }
 
 
@@ -164,24 +173,17 @@ def get_history_n_min_tx(
     url_qq = f"http://ifzq.gtimg.cn/appstock/app/kline/mkline?param={symbol},{frequency},,{count}"
     rs = requests.get(url=url_qq, headers=headers)
     data = rs.json()
-    data = data["data"][symbol][frequency]
+    try:
+        data = data["data"][symbol][frequency]
+    except TypeError:
+        return pd.DataFrame()
     df_qq = pd.DataFrame(
-        data
-    )  # , columns=["time", "open", "close", "high", "low", "volume", "n1", "n2"]
-    df_qq = df_qq.iloc[:, 0:6]  # 用序号取第0到第5列的切片
-    df_qq.rename(
-        columns={
-            0: "datetime",
-            1: "open",
-            2: "close",
-            3: "high",
-            4: "low",
-            5: "volume",
-        },
-        inplace=True,
+        data=data,
+        columns=["datetime", "open", "close", "high", "low", "volume", "n1", "n2"],
     )
+    df_qq = df_qq.iloc[:, 0:6]  # 用序号取第0到第5列的切片
     if df_qq.empty:
-        return pd.DataFrame()  # return null DataFrame without data
+        return pd.DataFrame()
     df_qq["datetime"] = pd.to_datetime(df_qq["datetime"])
     df_qq.set_index(["datetime"], inplace=True)
     df_qq = df_qq.applymap(func=float)
@@ -274,7 +276,6 @@ def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
     ]
     temp_df["code"] = temp_df["code"].apply(func=str)
     temp_df["code"] = temp_df["code"].apply(func=lambda x: _get_stock_type(x) + x)
-
     temp_df["close"] = pd.to_numeric(temp_df["close"], errors="coerce")
     temp_df["pct_chg"] = pd.to_numeric(temp_df["pct_chg"], errors="coerce")
     temp_df["change"] = pd.to_numeric(temp_df["change"], errors="coerce")
@@ -471,3 +472,177 @@ def realtime_quotations(stock_codes: str | list) -> pd.DataFrame:
     else:
         logger.error(f"realtime_quotations return None")
         return pd.DataFrame()
+
+
+def realtime_tdx(stock_codes: str | list) -> pd.DataFrame:
+    print(len(stock_codes))
+    if not isinstance(stock_codes, list):
+        list_stock_codes = [stock_codes]
+    else:
+        list_stock_codes = stock_codes.copy()
+        random.shuffle(list_stock_codes)  # 打乱list顺序，防ban
+    list_tdx_codes = [get_stock_code(x) for x in list_stock_codes]
+    frq = 80  # TDX api limit 80 record
+    list_group = [
+        list_tdx_codes[i : i + frq] for i in range(0, len(list_stock_codes), frq)
+    ]
+    df = pd.DataFrame()
+    for list_tdx_unit in list_group:
+        df_temp = client_mootdx.quotes(symbol=list_tdx_unit)
+        if df.empty:
+            df = df_temp.copy()
+        else:
+            df = pd.concat(objs=[df, df_temp], axis=0)
+    df["symbol"] = df["code"].apply(func=analysis.code_to_ths)
+    df.set_index(keys=["symbol"], inplace=True)
+    df = df[["price", "open", "high", "low", "volume", "amount", "servertime"]]
+    return df
+
+
+@lru_cache()
+def index_code_id_map_em() -> dict:
+    """
+    东方财富-股票和市场代码
+    http://quote.eastmoney.com/center/gridlist.html#hs_a_board
+    :return: 股票和市场代码
+    :rtype: dict
+    """
+    url = "http://80.push2.eastmoney.com/api/qt/clist/get"
+    params = {
+        "pn": "1",
+        "pz": "10000",
+        "po": "1",
+        "np": "1",
+        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "fltt": "2",
+        "invt": "2",
+        "fid": "f3",
+        "fs": "m:1 t:2,m:1 t:23",
+        "fields": "f12",
+        "_": "1623833739532",
+    }
+    r = requests.get(url, params=params)
+    data_json = r.json()
+    if not data_json["data"]["diff"]:
+        return dict()
+    temp_df = pd.DataFrame(data_json["data"]["diff"])
+    temp_df["market_id"] = 1
+    temp_df.columns = ["sh_code", "sh_id"]
+    code_id_dict = dict(zip(temp_df["sh_code"], temp_df["sh_id"]))
+    params = {
+        "pn": "1",
+        "pz": "10000",
+        "po": "1",
+        "np": "1",
+        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "fltt": "2",
+        "invt": "2",
+        "fid": "f3",
+        "fs": "m:0 t:6,m:0 t:80",
+        "fields": "f12",
+        "_": "1623833739532",
+    }
+    r = requests.get(url, params=params)
+    data_json = r.json()
+    if not data_json["data"]["diff"]:
+        return dict()
+    temp_df_sz = pd.DataFrame(data_json["data"]["diff"])
+    temp_df_sz["sz_id"] = 0
+    code_id_dict.update(dict(zip(temp_df_sz["f12"], temp_df_sz["sz_id"])))
+    params = {
+        "pn": "1",
+        "pz": "10000",
+        "po": "1",
+        "np": "1",
+        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "fltt": "2",
+        "invt": "2",
+        "fid": "f3",
+        "fs": "m:0 t:81 s:2048",
+        "fields": "f12",
+        "_": "1623833739532",
+    }
+    r = requests.get(url, params=params)
+    data_json = r.json()
+    if not data_json["data"]["diff"]:
+        return dict()
+    temp_df_sz = pd.DataFrame(data_json["data"]["diff"])
+    temp_df_sz["bj_id"] = 0
+    code_id_dict.update(dict(zip(temp_df_sz["f12"], temp_df_sz["bj_id"])))
+    code_id_dict = {
+        key: value - 1 if value == 1 else value + 1
+        for key, value in code_id_dict.items()
+    }
+    return code_id_dict
+
+
+def index_zh_a_hist_min_em(symbol: str = "000001") -> pd.DataFrame:
+    code_id_dict = index_code_id_map_em()
+    url = "http://push2his.eastmoney.com/api/qt/stock/trends2/get"
+    try:
+        params = {
+            "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
+            "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+            "iscr": "0",
+            "ndays": "5",
+            "secid": f"{code_id_dict[symbol]}.{symbol}",
+            "_": "1623766962675",
+        }
+    except KeyError:
+        params = {
+            "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
+            "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+            "iscr": "0",
+            "ndays": "5",
+            "secid": f"1.{symbol}",
+            "_": "1623766962675",
+        }
+        r = requests.get(url, params=params)
+        data_json = r.json()
+        if data_json["data"] is None:
+            params = {
+                "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
+                "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
+                "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+                "iscr": "0",
+                "ndays": "5",
+                "secid": f"0.{symbol}",
+                "_": "1623766962675",
+            }
+            r = requests.get(url, params=params)
+            data_json = r.json()
+            if data_json["data"] is None:
+                params = {
+                    "fields1": "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13",
+                    "fields2": "f51,f52,f53,f54,f55,f56,f57,f58",
+                    "ut": "fa5fd1943c7b386f172d6893dbfba10b",
+                    "iscr": "0",
+                    "ndays": "5",
+                    "secid": f"47.{symbol}",
+                    "_": "1623766962675",
+                }
+    r = requests.get(url, params=params)
+    data_json = r.json()
+    temp_df = pd.DataFrame([item.split(",") for item in data_json["data"]["trends"]])
+    temp_df.columns = [
+        "day",
+        "open",
+        "close",
+        "high",
+        "low",
+        "volume",
+        "amount",
+        "now",
+    ]
+    temp_df["day"] = pd.to_datetime(temp_df["day"])
+    temp_df.set_index(keys=["day"], inplace=True)
+    dt_now_date = datetime.datetime.now().date()
+    time_start = datetime.time(hour=9, minute=30)
+    time_end = datetime.time(hour=15)
+    dt_start = datetime.datetime.combine(dt_now_date, time_start)
+    dt_end = datetime.datetime.combine(dt_now_date, time_end)
+    temp_df = temp_df[dt_start:dt_end]
+    temp_df = temp_df.applymap(func=float)
+    return temp_df

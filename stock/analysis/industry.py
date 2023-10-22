@@ -1,6 +1,7 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
 import os
+import random
 import time
 import datetime
 import requests
@@ -8,24 +9,19 @@ import math
 import pandas as pd
 from loguru import logger
 import feather
-import tushare as ts
 import analysis.base
 from analysis.const import (
     dt_init,
-    dt_date_init,
     path_data,
-    dt_date_trading,
     dt_pm_end,
-    str_date_path,
     time_pm_end,
-    str_date_trading,
+    dt_history,
     filename_chip_shelve,
-    list_all_stocks,
+    all_chs_code,
+    client_ts_pro,
 )
 
 
-dt_delta = dt_date_trading - datetime.timedelta(days=366)
-str_delta = dt_delta.strftime("%Y%m%d")
 path_industry = os.path.join(path_data, f"industry_ths")
 if not os.path.exists(path_industry):
     os.mkdir(path_industry)
@@ -34,16 +30,17 @@ if not os.path.exists(path_industry):
 def get_industry_index() -> pd.DataFrame:
     name: str = "df_industry_index"
     logger.trace(f"{name} Begin！")
-    pro = ts.pro_api()
-    df_ths_index = pro.ths_index()
-    df_industry_index = df_ths_index[df_ths_index["ts_code"].str.contains("8811").fillna(False)]
+    df_ths_index = client_ts_pro.ths_index()
+    df_industry_index = df_ths_index[
+        df_ths_index["ts_code"].str.contains("8811").fillna(False)
+    ]
     df_industry_index = df_industry_index[["ts_code", "name"]]
     df_industry_index.rename(
         columns={
             "ts_code": "industry_code",
             "name": "industry_name",
         },
-        inplace=True
+        inplace=True,
     )
     df_industry_index.set_index(keys=["industry_code"], inplace=True)
     analysis.base.write_obj_to_db(
@@ -57,6 +54,7 @@ def get_industry_index() -> pd.DataFrame:
 
 def reset_industry_member() -> bool:
     name = "df_industry_member"
+    logger.trace(f"{name} Begin")
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"df_industry_member,Break and End")
         return True
@@ -68,6 +66,7 @@ def reset_industry_member() -> bool:
     )
     if df_industry_index.empty:
         df_industry_index = get_industry_index()
+    list_all_stocks = all_chs_code()
     df_industry_member_all = pd.DataFrame(index=list_all_stocks)
     df_industry_member = pd.concat(
         objs=[
@@ -80,13 +79,12 @@ def reset_industry_member() -> bool:
     df_industry_member = df_industry_member[
         df_industry_member.index.isin(list_all_stocks)
     ]
-    pro = ts.pro_api()
     i = 0
     count_industry_code = len(df_industry_index)
     for industry_code in df_industry_index.index:
         i += 1
         srt_msg = f"[{i:02d}/{count_industry_code}] - [{industry_code}]"
-        df_ths_member = pro.ths_member(ts_code=industry_code)
+        df_ths_member = client_ts_pro.ths_member(ts_code=industry_code)
         df_ths_member["symbol"] = df_ths_member["code"].apply(
             func=analysis.base.code_ts_to_ths
         )
@@ -102,7 +100,6 @@ def reset_industry_member() -> bool:
         print(f"\r{srt_msg}\033[K", end="")
     print("\n", end="")  # 格式处理
     df_industry_member.sort_values(by=["industry_code"], inplace=True)
-    df_industry_member.to_csv("df_industry_member.csv")
     if i >= count_industry_code:
         analysis.base.write_obj_to_db(
             obj=df_industry_member,
@@ -131,26 +128,47 @@ def update_industry_index_ths() -> bool:
     if df_industry_index.empty:
         df_industry_index = get_industry_index()
     dt_index_kline_industry = dt_init
-    pro = ts.pro_api()
+    str_date_trading = dt_history().strftime("%Y%m%d")
+    dt_delta = dt_history() - datetime.timedelta(days=366)
+    str_delta = dt_delta.strftime("%Y%m%d")
+    not_latest = 0
+    not_latest_i = 2
+    dt_now = datetime.datetime.now()
+    df_industry_index = df_industry_index.sample(frac=1)
     count_industry_index = len(df_industry_index)
     i = 0
     for industry_code in df_industry_index.index:
         i += 1
         symbol_index = analysis.base.code_ts_to_ths(industry_code)
         str_msg_bar = f"{name}:[{i:3d}/{count_industry_index:3d}] - [{symbol_index}]"
-        df_ths_daily = pd.DataFrame()
+        filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
+        if os.path.exists(filename_ths_daily):
+            df_ths_daily = feather.read_dataframe(source=filename_ths_daily)
+        else:
+            df_ths_daily = pd.DataFrame()
+        if not df_ths_daily.empty:
+            dt_industry_index_temp = df_ths_daily.index.max()
+            if dt_index_kline_industry == dt_init:
+                dt_index_kline_industry = dt_industry_index_temp
+            elif dt_index_kline_industry > dt_industry_index_temp:
+                dt_index_kline_industry = dt_industry_index_temp
+            if dt_industry_index_temp >= dt_pm_end:
+                print(
+                    f"\r{str_msg_bar} - [{dt_industry_index_temp}] - latest\033[K",
+                    end="",
+                )
+                continue
         i_times_ths_daily = 0
         while True:
             i_times_ths_daily += 1
             try:
-                df_ths_daily = pro.ths_daily(
+                df_ths_daily = client_ts_pro.ths_daily(
                     ts_code=industry_code,
                     start_date=str_delta,
                     end_date=str_date_trading,
                 )
             except requests.exceptions.ConnectionError as e:
-                str_msg_bar += f" - {repr(e)}"
-                logger.trace(repr(e))
+                logger.trace(f"{str_msg_bar} - {repr(e)}")
                 time.sleep(2)
             else:
                 if df_ths_daily.empty:
@@ -161,29 +179,33 @@ def update_industry_index_ths() -> bool:
                 break
         if df_ths_daily.empty:
             return False
-        df_ths_daily["trade_date"] = pd.to_datetime(df_ths_daily["trade_date"])
         df_ths_daily["trade_date"] = df_ths_daily["trade_date"].apply(
-            func=lambda x: x.date()
+            func=lambda x: datetime.datetime.combine(
+                pd.to_datetime(x).date(), time_pm_end
+            )
         )
         df_ths_daily.set_index(keys=["trade_date"], inplace=True)
         df_ths_daily.sort_index(ascending=True, inplace=True)
-        filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
         feather.write_dataframe(df=df_ths_daily, dest=filename_ths_daily)
-        dt_industry_index_temp = datetime.datetime.combine(
-            df_ths_daily.index.max(), time_pm_end
-        )
+        dt_industry_index_temp = df_ths_daily.index.max()
         str_msg_bar += f" - [{dt_industry_index_temp}]"
-        dt_now = datetime.datetime.now()
-        if dt_now > dt_pm_end and dt_industry_index_temp != dt_pm_end:
-            str_msg_bar += f" - Not the latest"
-            print(f"\r{str_msg_bar}\033[K")  # Program End
-            return False
+        if dt_industry_index_temp < dt_pm_end < dt_now:
+            print(f"\r{str_msg_bar} - Not the latest \033[K")  # Program End
+            not_latest += 1
+            if not_latest <= not_latest_i:
+                continue
+            else:
+                logger.error("not_latest greater than 4")
+                return False
+        print(
+            f"\r{str_msg_bar} - Update\033[K", end=""
+        )  # End of this cycle, print progress bar
         if dt_index_kline_industry < dt_industry_index_temp:
             dt_index_kline_industry = dt_industry_index_temp
-        print(f"\r{str_msg_bar}\033[K", end="")  # End of this cycle, print progress bar
     if i >= count_industry_index:
         print("\n", end="")  # 格式处理
-        analysis.base.set_version(key=name, dt=dt_index_kline_industry)
+    analysis.base.set_version(key=name, dt=dt_index_kline_industry)
+    print(dt_index_kline_industry)
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -208,10 +230,9 @@ def industry_pct() -> bool:
     df_industry_index = analysis.base.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
-    if df_industry_index.empty:
-        df_industry_index = get_industry_index()
+    str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_pct = os.path.join(
-        path_data, f"industry_pct_temp_{str_date_path}.ftr"
+        path_data, f"industry_pct_temp_{str_dt_history_path}.ftr"
     )
     if os.path.exists(filename_industry_pct):
         df_industry_pct = feather.read_dataframe(source=filename_industry_pct)
@@ -220,6 +241,8 @@ def industry_pct() -> bool:
     list_industry_pct_exist = set(df_industry_pct.columns.tolist())
     i = 0
     count_industry_index = len(df_industry_index)
+    if df_industry_index.empty:
+        df_industry_index = get_industry_index()
     for ts_code_index in df_industry_index.index:
         i += 1
         symbol_index = analysis.base.code_ts_to_ths(ts_code_index)
@@ -227,6 +250,8 @@ def industry_pct() -> bool:
         if ts_code_index in list_industry_pct_exist:
             print(f"{str_msg_bar} - exist", end="")
             continue
+        if random.randint(0, 5) == 3:
+            feather.write_dataframe(df=df_industry_pct, dest=filename_industry_pct)
         filename_ths_daily = os.path.join(path_industry, f"{symbol_index}.ftr")
         df_ths_daily = feather.read_dataframe(source=filename_ths_daily)
         df_ths_daily_pct = df_ths_daily[["pct_change"]].copy()
@@ -236,9 +261,9 @@ def industry_pct() -> bool:
             axis=1,
             join="outer",
         )
-        feather.write_dataframe(df=df_industry_pct, dest=filename_industry_pct)
         dt_ths_daily = datetime.datetime.combine(df_ths_daily.index.max(), time_pm_end)
         print(f"{str_msg_bar} - {dt_ths_daily}", end="")
+    df_industry_pct.fillna(method="ffill", inplace=True)
     df_industry_pct = df_industry_pct.applymap(func=lambda x: x + 100)
     len_df_industry_pct = len(df_industry_pct)
     i = 0
@@ -255,9 +280,7 @@ def industry_pct() -> bool:
             key=name,
             filename=filename_chip_shelve,
         )
-        dt_industry_pct = datetime.datetime.combine(
-            df_industry_pct.index.max(), time_pm_end
-        )
+        dt_industry_pct = df_industry_pct.index.max()
         analysis.base.set_version(key=name, dt=dt_industry_pct)
     if os.path.exists(filename_industry_pct):  # 删除临时文件
         os.remove(path=filename_industry_pct)
@@ -286,6 +309,9 @@ def industry_rank():
     df_industry_rank = pd.DataFrame(
         columns=[
             "name",
+            "T1",
+            "T1_Zeroing_sort",
+            "T1_rank",
             "T5",
             "T5_Zeroing_sort",
             "T5_rank",
@@ -301,26 +327,31 @@ def industry_rank():
             "T80",
             "T80_Zeroing_sort",
             "T80_rank",
-            "rank",
+            "max_min_plus",
+            "max_min_minus",
             "max_min",
         ]
     )
     df_industry_pct = analysis.base.read_df_from_db(
         key="df_industry_pct", filename=filename_chip_shelve
     )
-    dt_industry_rank = datetime.datetime.combine(
-        df_industry_pct.index.max(), time_pm_end
-    )
+    df_industry_pct.sort_index(inplace=True)
+    dt_industry_rank = df_industry_pct.index.max()
     df_5_industry_pct = df_industry_pct.iloc[-5:]
     df_20_industry_pct = df_industry_pct.iloc[-20:-5]
     df_40_industry_pct = df_industry_pct.iloc[-40:-20]
     df_60_industry_pct = df_industry_pct.iloc[-60:-40]
     df_80_industry_pct = df_industry_pct.iloc[-80:-60]
+    df_industry_rank["T1"] = df_industry_pct.iloc[-1].round(4)
     df_industry_rank["T5"] = (df_5_industry_pct.sum(axis=0) / 5 * 20).round(2)
     df_industry_rank["T20"] = (df_20_industry_pct.sum(axis=0) / 15 * 20).round(2)
     df_industry_rank["T40"] = df_40_industry_pct.sum(axis=0).round(2)
     df_industry_rank["T60"] = df_60_industry_pct.sum(axis=0).round(2)
     df_industry_rank["T80"] = df_80_industry_pct.sum(axis=0).round(2)
+    df_industry_rank["T1_Zeroing_sort"] = df_industry_rank["T1"]
+    df_industry_rank["T1_rank"] = df_industry_rank["T1"].rank(
+        axis=0, method="min", ascending=False
+    )
     df_industry_rank["T5_Zeroing_sort"] = analysis.base.zeroing_sort(
         pd_series=df_industry_rank["T5"]
     )
@@ -351,51 +382,61 @@ def industry_rank():
     df_industry_rank["T80_rank"] = df_industry_rank["T80"].rank(
         axis=0, method="min", ascending=False
     )
-    df_industry_rank["rank"] = (
-        df_industry_rank["T5_rank"]
-        + df_industry_rank["T20_rank"]
-        + df_industry_rank["T40_rank"]
-        + df_industry_rank["T60_rank"]
-        + df_industry_rank["T80_rank"]
-    )
-    pro = ts.pro_api()
-    df_ths_index = pro.ths_index()
+    df_ths_index = client_ts_pro.ths_index()
     df_ths_index.set_index(keys="ts_code", inplace=True)
     for ths_index_code in df_industry_rank.index:
         if ths_index_code in df_ths_index.index:
             df_industry_rank.at[ths_index_code, "name"] = df_ths_index.at[
                 ths_index_code, "name"
             ]
-            df_industry_rank.at[ths_index_code, "max_min"] = max(
-                df_industry_rank.at[ths_index_code, "T5_rank"],
-                df_industry_rank.at[ths_index_code, "T20_rank"],
-                df_industry_rank.at[ths_index_code, "T40_rank"],
-                df_industry_rank.at[ths_index_code, "T60_rank"],
-                df_industry_rank.at[ths_index_code, "T80_rank"],
-            ) - min(
+            rank_max = max(
                 df_industry_rank.at[ths_index_code, "T5_rank"],
                 df_industry_rank.at[ths_index_code, "T20_rank"],
                 df_industry_rank.at[ths_index_code, "T40_rank"],
                 df_industry_rank.at[ths_index_code, "T60_rank"],
                 df_industry_rank.at[ths_index_code, "T80_rank"],
             )
+            rank_min = min(
+                df_industry_rank.at[ths_index_code, "T5_rank"],
+                df_industry_rank.at[ths_index_code, "T20_rank"],
+                df_industry_rank.at[ths_index_code, "T40_rank"],
+                df_industry_rank.at[ths_index_code, "T60_rank"],
+                df_industry_rank.at[ths_index_code, "T80_rank"],
+            )
+            df_industry_rank.at[ths_index_code, "max_min_minus"] = max_min_minus = (
+                rank_max - rank_min
+            )
+            df_industry_rank.at[ths_index_code, "max_min_plus"] = max_min_plus = (
+                rank_max + rank_min
+            )
+            df_industry_rank.at[ths_index_code, "max_min"] = math.floor(
+                pow(max_min_minus, 2) / max_min_plus
+            )
     df_industry_rank.sort_values(by=["max_min"], axis=0, ascending=False, inplace=True)
     analysis.base.write_obj_to_db(
         obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve
     )
     analysis.base.set_version(key=name, dt=dt_industry_rank)
-    df_industry_rank_pool = df_industry_rank[df_industry_rank["max_min"] >= 56]
+    df_industry_rank_pool = df_industry_rank[df_industry_rank["max_min"] >= 45]
     df_industry_rank_pool = df_industry_rank_pool[
-        (df_industry_rank_pool["T5_rank"] >= 66)
-        | (df_industry_rank_pool["T5_rank"] <= 10)
+        (df_industry_rank_pool["T5_rank"] >= 56)
+        | (df_industry_rank_pool["T5_rank"] <= 20)
     ]
     df_industry_rank_pool = df_industry_rank_pool[
-        (df_industry_rank_pool["T20_rank"] >= 66)
-        | (df_industry_rank_pool["T20_rank"] <= 10)
+        (df_industry_rank_pool["T20_rank"] >= 56)
+        | (df_industry_rank_pool["T20_rank"] <= 20)
     ]
     df_industry_rank_pool = df_industry_rank_pool[
         (df_industry_rank_pool["T40_rank"] >= 56)
         | (df_industry_rank_pool["T40_rank"] <= 20)
+    ]
+    df_industry_rank_pool = df_industry_rank_pool[
+        (df_industry_rank_pool["T60_rank"] >= 56)
+        | (df_industry_rank_pool["T60_rank"] <= 20)
+    ]
+    df_industry_rank_pool = df_industry_rank_pool[
+        (df_industry_rank_pool["T80_rank"] >= 56)
+        | (df_industry_rank_pool["T80_rank"] <= 20)
     ]
     if not df_industry_rank_pool.empty:
         df_industry_rank_pool.sort_values(
@@ -406,7 +447,6 @@ def industry_rank():
             key="df_industry_rank_pool",
             filename=filename_chip_shelve,
         )
-        analysis.base.set_version(key="df_industry_rank_pool", dt=dt_industry_rank)
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -418,71 +458,107 @@ def industry_rank():
 def ths_industry() -> bool:
     name: str = f"df_industry"
     kdata: str = f"update_industry_index"
+    rdata: str = f"df_industry_rank"
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace(f"ths_industry,Break and End")
         return True
+    str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_temp = os.path.join(
-        path_data, f"industry_temp_{str_date_path}.ftr"
+        path_data, f"industry_temp_{str_dt_history_path}.ftr"
     )
     if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
         if not update_industry_index_ths():
             return False
+    if not analysis.base.is_latest_version(key=rdata, filename=filename_chip_shelve):
+        if not industry_rank():
+            logger.error("industry_rank")
+            return False
+    df_industry_rank = analysis.base.read_df_from_db(
+        key="df_industry_rank", filename=filename_chip_shelve
+    )
+    if df_industry_rank.empty:
+        logger.error("df_industry_rank empty")
+        return False
     if os.path.exists(filename_industry_temp):
         df_industry = feather.read_dataframe(source=filename_industry_temp)
     else:
+        if reset_industry_member():
+            pass
         df_industry = analysis.base.read_df_from_db(
             key="df_industry_member", filename=filename_chip_shelve
         )
-        df_industry["industry_flag"] = 0
+        list_industry_columns = df_industry.columns.tolist() + [
+            "max_min",
+            "times_industry",
+            "up_exceed_industry",
+            "down_exceed_industry",
+            "non_exceed_industry",
+            "up_mean_industry",
+            "down_mean_industry",
+            "times_exceed_correct_industry",
+            "mean_exceed_correct_industry",
+        ]
+        df_industry = df_industry.reindex(columns=list_industry_columns, fill_value=0)
         feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
-    pro = ts.pro_api()
-    dt_date_daily_max = dt_date_init
+    dt_date_daily_max = dt_init
+    str_date_trading = dt_history().strftime("%Y%m%d")
+    dt_delta = dt_history() - datetime.timedelta(days=366)
+    str_delta = dt_delta.strftime("%Y%m%d")
     i = 0
     df_industry = df_industry.sample(frac=1)
-    count_industry = len(df_industry)
+    count = len(df_industry)
     for symbol in df_industry.index:
         i += 1
-        str_msg_bar = f"{name}:[{i:04d}/{count_industry:4d}] -- [{symbol}]"
-        if df_industry.at[symbol, "industry_flag"] != 0:  # 己存在，断点继续
-            print(f"\r{str_msg_bar} - exist\033[K", end="")
+        str_msg_bar = f"{name}:[{i:04d}/{count:4d}] -- [{symbol}]"
+        if df_industry.at[symbol, "times_industry"] != 0:  # 己存在，断点继续
+            print(f"\r{str_msg_bar} - Exist\033[K", end="")
             continue
+        if random.randint(0, 5) == 3:
+            feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
         ts_code_index = df_industry.at[symbol, "industry_code"]
+        if isinstance(ts_code_index, str):
+            symbol_class = analysis.base.code_ts_to_ths(ts_code_index)
+        else:
+            print("\n\r", end="")
+            logger.error(f"{symbol} does not have an industry code")
+            continue
         ts_code = analysis.base.code_ths_to_ts(symbol)
-        symbol_class = analysis.base.code_ts_to_ths(ts_code_index)
         i_times_daily = 0
         df_daily = pd.DataFrame()
-        while True:
+        while i_times_daily < 1:
             i_times_daily += 1
             try:
-                df_daily = pro.daily(
+                df_daily = client_ts_pro.daily(
                     ts_code=ts_code,
                     start_date=str_delta,
                     end_date=str_date_trading,
-                )[["ts_code", "trade_date", "pct_chg"]]
+                )
             except requests.exceptions.ConnectionError as e:
                 print(f"\r{str_msg_bar} - {repr(e)}\033[K")
-                time.sleep(2)
+                time.sleep(1)
             else:
                 if df_daily.empty:
-                    time.sleep(2)
+                    print(f"\r{str_msg_bar} - df_daily empty({i_times_daily})\033[K")
+                    time.sleep(0.5)
                 else:
                     break
-            if i_times_daily >= 2:
-                break
         if df_daily.empty:
+            print(f"\r{str_msg_bar} - No Data\033[K")
             continue
         else:
+            df_daily = df_daily[["ts_code", "trade_date", "pct_chg"]]
             df_daily.rename(
                 columns={
                     "pct_chg": "pct_stock",
                 },
                 inplace=True,
             )
-            df_daily["trade_date"] = pd.to_datetime(df_daily["trade_date"])
             df_daily["trade_date"] = df_daily["trade_date"].apply(
-                func=lambda x: x.date()
+                func=lambda x: datetime.datetime.combine(
+                    pd.to_datetime(x).date(), time_pm_end
+                )
             )
             df_daily.set_index(keys=["trade_date"], inplace=True)
             df_daily.sort_index(ascending=True, inplace=True)
@@ -507,79 +583,88 @@ def ths_industry() -> bool:
             axis=1,
             join="outer",
         )
-        df_daily.dropna(inplace=True)
-        days_count = len(df_daily)
+        df_daily.fillna(method="ffill", inplace=True)
+        if df_daily.empty:
+            print(f"\r{str_msg_bar} - No Data #2\033[K")
+            continue
+        times_industry = len(df_daily)
+        str_msg_bar += f" - [{times_industry:3d}]"
         dt_daily = df_daily.index.max()
         dt_ths_daily = df_ths_daily.index.max()
         if dt_date_daily_max < dt_daily:
             dt_date_daily_max = dt_daily
-        alpha_up = 0
-        alpha_down = 0
-        alpha_non = 0
+        up_exceed_industry = 0
+        down_exceed_industry = 0
+        non_exceed_industry = 0
         for index in df_daily.index:
             pct_industry = df_daily.at[index, "pct_industry"]
             pct_stock = df_daily.at[index, "pct_stock"]
             if 0 < pct_industry < pct_stock:
-                df_daily.at[index, "alpha"] = pct_stock - pct_industry
-                alpha_up += 1
+                df_daily.at[index, "exceed"] = pct_stock - pct_industry
+                up_exceed_industry += 1
             elif pct_stock < pct_industry < 0:
-                df_daily.at[index, "alpha"] = pct_stock - pct_industry
-                alpha_down += 1
+                df_daily.at[index, "exceed"] = pct_stock - pct_industry
+                down_exceed_industry += 1
             else:
-                df_daily.at[index, "alpha"] = 0
-                alpha_non += 1
+                df_daily.at[index, "exceed"] = 0
+                non_exceed_industry += 1
         if dt_daily == dt_ths_daily:
-            print(
-                f"\r{str_msg_bar} - [{days_count:3d}]\033[K",
-                end="",
-            )
+            print(f"\r{str_msg_bar}\033[K", end="")
         else:
             print(
-                f"\r{str_msg_bar} - [{days_count:3d}] - [{dt_daily}] - [{dt_ths_daily}]\033[K",
+                f"\r{str_msg_bar} - [{dt_daily.date()}] - [{dt_ths_daily.date()}]\033[K",
             )
-        df_industry.at[symbol, "days_count"] = days_count
-        df_industry.at[symbol, "alpha_up"] = alpha_up
-        df_industry.at[symbol, "alpha_down"] = alpha_down
-        df_industry.at[symbol, "alpha_non"] = alpha_non
-        df_daily_alpha_up = df_daily[df_daily["alpha"] > 0]
-        df_daily_alpha_down = df_daily[df_daily["alpha"] < 0]
-        df_industry.at[symbol, "alpha_up_mean"] = alpha_up_mean = df_daily_alpha_up[
-            "alpha"
+        df_industry.at[symbol, "max_min"] = df_industry_rank.at[
+            ts_code_index, "max_min"
+        ]
+        df_industry.at[symbol, "times_industry"] = times_industry
+        df_industry.at[symbol, "up_exceed_industry"] = up_exceed_industry
+        df_industry.at[symbol, "down_exceed_industry"] = down_exceed_industry
+        df_industry.at[symbol, "non_exceed_industry"] = non_exceed_industry
+        df_daily_alpha_up = df_daily[df_daily["exceed"] > 0]
+        df_daily_alpha_down = df_daily[df_daily["exceed"] < 0]
+        df_industry.at[symbol, "up_mean_industry"] = alpha_up_mean = df_daily_alpha_up[
+            "exceed"
         ].mean()
         df_industry.at[
-            symbol, "alpha_down_mean"
-        ] = alpha_down_mean = df_daily_alpha_down["alpha"].mean()
-        df_industry.at[symbol, "alpha_times"] = math.floor(
-            pow(abs(min(alpha_up, alpha_down)), 2) / max(alpha_up, alpha_down)
-        )
-        df_industry.at[symbol, "alpha_mean"] = round(
-            pow(abs(min(alpha_up_mean, alpha_down_mean)), 2)
-            / max(alpha_up_mean, alpha_down_mean),
-            2,
-        )
-        if df_industry.at[symbol, "industry_flag"] == 0:
-            df_industry.at[symbol, "industry_flag"] = 1
-        feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
+            symbol, "down_mean_industry"
+        ] = alpha_down_mean = df_daily_alpha_down["exceed"].mean()
+        alpha_times_min = min(abs(up_exceed_industry), abs(down_exceed_industry))
+        alpha_times_max = max(abs(up_exceed_industry), abs(down_exceed_industry))
+        if alpha_times_max > 0:
+            df_industry.at[symbol, "times_exceed_correct_industry"] = math.floor(
+                pow(alpha_times_min, 2) / alpha_times_max
+            )
+        alpha_mean_min = min(abs(alpha_up_mean), abs(alpha_down_mean))
+        alpha_mean_max = max(abs(alpha_up_mean), abs(alpha_down_mean))
+        if alpha_mean_max > 0:
+            df_industry.at[symbol, "mean_exceed_correct_industry"] = round(
+                pow(alpha_mean_min, 2) / alpha_mean_max,
+                2,
+            )
     print("\n", end="")  # 格式处理
-    df_industry.drop(columns=["industry_flag"], inplace=True)
-    df_industry.sort_values(
-        by=["alpha_times", "alpha_mean"], ascending=False, inplace=True
-    )
-    if i >= count_industry:
-        if os.path.exists(filename_industry_temp):
-            os.remove(path=filename_industry_temp)
+    if i >= count:
+        df_industry["up_mean_industry"].fillna(value=0, inplace=True)
+        df_industry["down_mean_industry"].fillna(value=0, inplace=True)
+        df_industry.sort_values(
+            by=["times_exceed_correct_industry", "mean_exceed_correct_industry"],
+            ascending=False,
+            inplace=True,
+        )
         analysis.base.write_obj_to_db(
             obj=df_industry, key=name, filename=filename_chip_shelve
         )
         dt_mow = datetime.datetime.now()
-        dt_daily_max = datetime.datetime.combine(dt_date_daily_max, time_pm_end)
+        dt_daily_max = dt_date_daily_max
         if (
             dt_mow > dt_pm_end
             and dt_daily_max != dt_pm_end
-            and dt_date_daily_max != dt_date_init
+            and dt_date_daily_max != dt_init
         ):
             print(f"\n{name} is not latest")
         analysis.base.set_version(key=name, dt=dt_daily_max)
+        if os.path.exists(filename_industry_temp):
+            os.remove(path=filename_industry_temp)
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

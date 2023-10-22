@@ -1,4 +1,5 @@
 # modified at 2023/05/18 22::25
+import os
 import datetime
 import pandas as pd
 from pyecharts.charts import Line, Page
@@ -7,18 +8,17 @@ from loguru import logger
 import analysis.ashare
 import analysis.base
 from analysis.const import (
-    dt_date_init,
+    dt_init,
     time_pm_end,
     dt_am_1015,
     dt_am_end,
     dt_pm_start,
     dt_pm_end,
     dt_pm_end_last_1T,
-    dt_date_trading,
-    dt_date_trading_last_1T,
-    list_all_stocks,
+    all_chs_code,
     filename_chip_shelve,
     filename_concentration_rate_charts,
+    path_check,
 )
 
 
@@ -28,28 +28,22 @@ def concentration_rate() -> tuple:
     df_amount_sort = df_all.sort_values(by=["amount"], ascending=False)
     df_mv_sort = df_all.sort_values(by=["total_mv"], ascending=False)
     top5_stocks = int(round(len(df_all) * 0.05, 0))
-
     df_amount_sort_top5 = df_amount_sort.iloc[:top5_stocks]
     df_amount_sort_tail95 = df_amount_sort.iloc[top5_stocks:]
     df_mv_sort_top5 = df_mv_sort.iloc[:top5_stocks]
-
     amount_all = df_all["amount"].sum() / 100000000
-    mv_all = df_all["total_mv"].sum() / 100000000
+    mv_all = df_all["total_mv"].sum()
     mean_all = df_all["total_mv"].mean().round(2)
-
     amount_amount_sort_top5 = df_amount_sort_top5["amount"].sum() / 100000000
-    mv_amount_sort_top5 = df_amount_sort_top5["total_mv"].sum() / 100000000
+    mv_amount_sort_top5 = df_amount_sort_top5["total_mv"].sum()
     mean_amount_sort_top5 = df_amount_sort_top5["total_mv"].mean().round(2)
-
     amount_mv_sort_top5 = df_mv_sort_top5["amount"].sum() / 100000000
-    mv_mv_sort_top5 = df_mv_sort_top5["total_mv"].sum() / 100000000
+    mv_mv_sort_top5 = df_mv_sort_top5["total_mv"].sum()
     mean_mv_sort_top5 = df_mv_sort_top5["total_mv"].mean().round(2)
-
     turnover_amount_sort_top5 = df_amount_sort_top5["turnover"].mean().round(2)
     amplitude_amount_sort_top5 = df_amount_sort_top5["amplitude"].mean().round(2)
     turnover_amount_sort_tail95 = df_amount_sort_tail95["turnover"].mean().round(2)
     amplitude_amount_sort_tail95 = df_amount_sort_tail95["amplitude"].mean().round(2)
-
     if amount_all != 0:
         rate_amount_amount_sort_top5 = (
             amount_amount_sort_top5 / amount_all * 100
@@ -84,8 +78,12 @@ def concentration_rate() -> tuple:
     )
     dt_now = datetime.datetime.now()
     if dt_am_1015 < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
+        df_concentration_rate.at[dt_now, "mv_all"] = mv_all
         df_concentration_rate.at[dt_now, "amount_all"] = amount_all
+        df_concentration_rate.at[dt_now, "mean_all"] = mean_all
         df_concentration_rate.at[dt_now, "top5_stocks"] = top5_stocks
+        df_concentration_rate.at[dt_now, "rate_mv_mv_sort_top5"] = rate_mv_mv_sort_top5
+        df_concentration_rate.at[dt_now, "mean_mv_sort_top5"] = mean_mv_sort_top5
         df_concentration_rate.at[
             dt_now, "rate_amount_amount_sort_top5"
         ] = rate_amount_amount_sort_top5
@@ -110,14 +108,16 @@ def concentration_rate() -> tuple:
         df_concentration_rate.at[
             dt_now, "rate_amount_mv_sort_top5"
         ] = rate_amount_mv_sort_top5
-        df_concentration_rate.at[dt_now, "rate_mv_mv_sort_top5"] = rate_mv_mv_sort_top5
-        df_concentration_rate.at[dt_now, "mean_mv_sort_top5"] = mean_mv_sort_top5
-        df_concentration_rate.at[dt_now, "mean_all"] = mean_all
+
         analysis.base.write_obj_to_db(
             obj=df_concentration_rate,
             key=name,
             filename=filename_chip_shelve,
         )
+        filename_concentration_rate = os.path.join(
+            path_check, f"concentration_rate.csv"
+        )
+        df_concentration_rate.to_csv(path_or_buf=filename_concentration_rate)
     if not df_concentration_rate.empty:
         x_dt = df_concentration_rate.index.tolist()
         y_rate_amount_by_amount = df_concentration_rate[
@@ -284,6 +284,7 @@ def concentration() -> bool:
         return True
     df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
     df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
+    list_all_stocks = all_chs_code()
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
     df_concentration_old = analysis.base.read_df_from_db(
@@ -295,8 +296,10 @@ def concentration() -> bool:
             columns=[
                 "first_concentration",
                 "latest_concentration",
-                "days_concentration",
+                "days_first_concentration",
+                "days_latest_concentration",
                 "times_concentration",
+                "rate_concentration",
             ],
         )
     else:
@@ -306,30 +309,51 @@ def concentration() -> bool:
             axis=1,
             join="outer",
         )
-    df_concentration["first_concentration"].fillna(value=dt_date_init, inplace=True)
-    df_concentration["latest_concentration"].fillna(value=dt_date_init, inplace=True)
-    df_concentration["days_concentration"].fillna(value=0, inplace=True)
+    df_concentration = df_concentration[
+        df_concentration.index.isin(values=list_all_stocks)
+    ]
+    df_concentration["first_concentration"].fillna(value=dt_init, inplace=True)
+    df_concentration["latest_concentration"].fillna(value=dt_init, inplace=True)
+    df_concentration["days_first_concentration"].fillna(value=0, inplace=True)
+    df_concentration["days_latest_concentration"].fillna(value=0, inplace=True)
     df_concentration["times_concentration"].fillna(value=0, inplace=True)
+    df_concentration["rate_concentration"].fillna(value=0, inplace=True)
+    dt_now = datetime.datetime.now()
     if dt_pm_end_last_1T < datetime.datetime.now() <= dt_pm_end:
-        date_latest = dt_date_trading_last_1T
+        dt_latest = dt_pm_end_last_1T
     else:
-        date_latest = dt_date_trading
+        dt_latest = dt_pm_end
     for symbol in df_concentration.index:
         if symbol in df_realtime_top5.index:
-            if df_concentration.at[symbol, "first_concentration"] == dt_date_init:
+            if df_concentration.at[symbol, "first_concentration"] == dt_init:
                 df_concentration.at[
                     symbol, "first_concentration"
-                ] = df_concentration.at[symbol, "latest_concentration"] = date_latest
-                df_concentration.at[symbol, "days_concentration"] = 1
+                ] = df_concentration.at[symbol, "latest_concentration"] = dt_latest
                 df_concentration.at[symbol, "times_concentration"] = 1
             else:
-                if df_concentration.at[symbol, "latest_concentration"] != date_latest:
-                    df_concentration.at[symbol, "latest_concentration"] = date_latest
+                if df_concentration.at[symbol, "latest_concentration"] != dt_latest:
+                    df_concentration.at[symbol, "latest_concentration"] = dt_latest
                     df_concentration.at[symbol, "times_concentration"] += 1
-                df_concentration.at[symbol, "days_concentration"] = (
-                    df_concentration.at[symbol, "latest_concentration"]
-                    - df_concentration.at[symbol, "first_concentration"]
-                ).days + 1
+        if df_concentration.at[symbol, "first_concentration"] != dt_init:
+            df_concentration.at[
+                symbol, "days_first_concentration"
+            ] = days_first_concentration = (
+                dt_now - df_concentration.at[symbol, "first_concentration"]
+            ).days + 1
+            df_concentration.at[symbol, "days_latest_concentration"] = (
+                dt_now - df_concentration.at[symbol, "latest_concentration"]
+            ).days + 1
+            # 修正除数，尽可能趋近交易日
+            days_first_concentration = (
+                days_first_concentration // 7 * 5 + days_first_concentration % 7
+            )
+            if days_first_concentration > 0:
+                df_concentration.at[symbol, "rate_concentration"] = round(
+                    df_concentration.at[symbol, "times_concentration"]
+                    / days_first_concentration
+                    * 100,
+                    2,
+                )
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )
@@ -339,12 +363,11 @@ def concentration() -> bool:
         filename=filename_chip_shelve,
     )
     dt_concentration_date = df_concentration["latest_concentration"].max(skipna=True)
-    if dt_concentration_date > date_latest:
+    if dt_concentration_date > dt_latest:
         logger.error(
             f"Error - dt_concentration_date[{dt_concentration_date}] greater then date_latest"
         )
-        dt_concentration_date = date_latest
+        dt_concentration_date = dt_latest
     dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
     analysis.base.set_version(key=name, dt=dt_concentration)
-    print(df_concentration)
     return True

@@ -1,5 +1,4 @@
 # modified at 2023/05/18 22::25
-import datetime
 import os
 import time
 import requests
@@ -16,21 +15,14 @@ from analysis.const import (
     dt_pm_end,
     filename_chip_shelve,
     all_chs_code,
-    all_chs_etf,
-    client_mootdx,
 )
 
 
-def update_stock_data(
-    frequency: str = "1m",
-    stock: bool = True,
-    etf: bool = True,
-    reset_catalogue: bool = False,
-) -> bool:
+def update_stock_data(frequency: str = "1m") -> bool:
     name: str = f"update_kline_{frequency}"
     logger.trace(f"[{frequency}] A Share Data Update Begin")
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        logger.trace("update stock Kline Break and End")
+        logger.trace(f"update stock Kline Break and End")
         return True
     start_loop_time = time.perf_counter_ns()
     path_kline = os.path.join(path_data, f"kline_{frequency}")
@@ -38,55 +30,37 @@ def update_stock_data(
         os.mkdir(path_kline)
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     file_name_catalogue_temp = os.path.join(
-        path_data, f"df_catalogue_temp_{str_dt_history_path}_{frequency}.ftr"
+        path_data, f"catalogue_temp_{str_dt_history_path}.ftr"
     )
-    if reset_catalogue:
-        analysis.base.delete_obj_from_db(
-            key=f"df_catalogue_{frequency}", filename=filename_chip_shelve
-        )
-        logger.trace("reset df_catalogue")
     if os.path.exists(file_name_catalogue_temp):
         # 读取腌制数据 catalogue
         df_catalogue = feather.read_dataframe(source=file_name_catalogue_temp)
+        df_catalogue = df_catalogue.sample(frac=1)
     else:
-        list_all_code = list()
-        if stock:
-            list_all_stock = all_chs_code()
-            list_all_code += list_all_stock
-        else:
-            list_all_stock = list()
-        if etf:
-            list_all_etf = all_chs_etf()
-            list_all_code += list_all_etf
-        else:
-            list_all_etf = list()
-        print("stock =", len(list_all_stock), ",    ETF =", len(list_all_etf))
+        list_all_stocks = all_chs_code()
         df_catalogue = pd.DataFrame(
-            index=list_all_code, columns=["start", "end", "count"]
+            index=list_all_stocks, columns=["start", "end", "count"]
         )
         df_catalogue["start"].fillna(value=dt_init, inplace=True)
         df_catalogue["end"].fillna(value=dt_init, inplace=True)
         df_catalogue["count"].fillna(value=0, inplace=True)
-    df_catalogue = df_catalogue.sample(frac=1)
     count = len(df_catalogue)
-    # quantity = 80000
+    quantity = 80000
     i = 0
     for symbol in df_catalogue.index:
         feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         i += 1
-        str_msg = f"Kline_{frequency} Update: [{i:4d}/{count:4d}] -- [{symbol}]"
+        str_msg = f"Kline Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if df_catalogue.at[symbol, "end"] == dt_pm_end:
             print(
                 f"\r{str_msg} - [{df_catalogue.at[symbol, 'end']}] - Latest\033[K",
                 end="",
             )
             continue
+        df_data = pd.DataFrame()
         file_name_feather = os.path.join(path_kline, f"{symbol}.ftr")
         if os.path.exists(file_name_feather):
             df_data = feather.read_dataframe(source=file_name_feather)
-        else:
-            print(f"\r{str_msg} - Kline data is not exist\033[K", end="")
-            df_data = pd.DataFrame()
         if not df_data.empty:
             df_catalogue.loc[symbol, "end"] = df_data.index.max()
             df_catalogue.loc[symbol, "start"] = df_data.index.min()
@@ -99,17 +73,11 @@ def update_stock_data(
                 continue
         df_delta = pd.DataFrame()
         i_while_delta = 0
-        stock_code = analysis.base.get_stock_code(symbol)
         while i_while_delta <= 1:
             i_while_delta += 1
             try:
-                """
                 df_delta = analysis.ashare.get_history_n_min_tx(
                     symbol=symbol, frequency=frequency, count=quantity
-                )
-                """
-                df_delta = client_mootdx.bars(
-                    symbol=stock_code, frequency=frequency, adjust="qfq"
                 )
             except requests.exceptions.Timeout as e:
                 print(f"\r{str_msg} - [{i_while_delta}] - {repr(e)}\033[K")
@@ -133,16 +101,12 @@ def update_stock_data(
                 )
             continue
         else:
-            df_delta["volume"] = round(df_delta["vol"] / 100, 2)
-            df_delta = df_delta[["open", "close", "high", "low", "volume", "amount"]]
-            if not isinstance(df_delta.index.max(), datetime.datetime):
-                df_delta.index = pd.to_datetime(df_delta.index)
             if df_data.empty:
                 df_data = df_delta.copy()
             else:
                 df_data = pd.concat([df_data, df_delta], axis=0, join="outer")
                 df_data = df_data[~df_data.index.duplicated(keep="last")]
-                df_data.sort_index(ascending=True, inplace=True)
+                df_data.sort_values(by=["datetime"], ascending=True, inplace=True)
         feather.write_dataframe(df=df_data, dest=file_name_feather)
         dt_data_max = df_data.index.max()
         if dt_data_max > dt_pm_end:
@@ -151,16 +115,13 @@ def update_stock_data(
         df_catalogue.loc[symbol, "start"] = df_data.index.min()
         df_catalogue.loc[symbol, "count"] = len(df_data)
         print(
-            f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update\033[K",
-            end="",
+            f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update\033[K", end=""
         )
     if i >= count:
         print("\n", end="")
         df_catalogue.sort_values(by=["count"], ascending=False, inplace=True)
         analysis.base.write_obj_to_db(
-            obj=df_catalogue,
-            key=f"df_catalogue_{frequency}",
-            filename=filename_chip_shelve,
+            obj=df_catalogue, key="df_catalogue", filename=filename_chip_shelve
         )
         analysis.base.set_version(key=name, dt=df_catalogue["end"].max())
         if os.path.exists(file_name_catalogue_temp):
