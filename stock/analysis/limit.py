@@ -18,7 +18,7 @@ from analysis.const import (
     filename_chip_shelve,
     dt_history,
     all_chs_code,
-    all_chs_etf,
+    all_stock_etf,
     path_main,
 )
 
@@ -215,7 +215,7 @@ def worth_etf(frequency: str = "day") -> bool:
         df_worth_etf = feather.read_dataframe(source=file_name_dt_worth_etf)
     else:
         df_worth_etf = pd.DataFrame()
-    list_etf = all_chs_etf()
+    list_etf = all_stock_etf()
     path_kline = os.path.join(path_main, "data", f"kline_{frequency}")
     dt_now = datetime.datetime.now()
     index_min = datetime.datetime(
@@ -256,6 +256,7 @@ def worth_etf(frequency: str = "day") -> bool:
         )
     df_worth_etf.fillna(method="ffill", inplace=True)
     df_worth_etf.fillna(method="bfill", inplace=True)
+    df_worth_etf.sort_values(axis=1, by=df_worth_etf.index.max(), inplace=True)
     df_statistics_etf = pd.DataFrame(
         index=df_worth_etf.columns, columns=["max", "min", "diff"]
     )
@@ -285,11 +286,9 @@ def worth_etf(frequency: str = "day") -> bool:
             key=f"df_statistics_etf_{frequency}",
             filename=filename_chip_shelve,
         )
-        df_worth_etf.to_csv("df_worth_etf.csv")
-        df_statistics_etf.to_csv("df_worth_etf_statistics.csv")
         dt_worth_etf = df_worth_etf.index.max()
         analysis.base.set_version(key=name, dt=dt_worth_etf)
         if os.path.exists(file_name_dt_worth_etf):
             os.remove(path=file_name_dt_worth_etf)
-    logger.trace(f"Limit Count End")
+    logger.trace(f"{name} End")
     return True

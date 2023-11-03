@@ -693,16 +693,16 @@ class IndexSSB(object):
         logger.trace(f"{name} End")
         return df_stocks_in_ssb
 
-    def realtime_index(self):
+    def realtime_index(self) -> str:
         df_stocks_in_ssb = self.__read_df_from_dbm(key="df_stocks_in_ssb")
         if df_stocks_in_ssb.empty:
             logger.error("df_stocks_in_ssb not exist")
             df_stocks_in_ssb = self.stocks_in_ssb()
         df_realtime = analysis.ashare.stock_zh_a_spot_em()[["total_mv"]]  # 调用实时数据接口
         df_mv_all = self.__read_df_from_dbm(key="df_mv_all")
-        dict_return = dict()
+        str_return = ""
         if df_mv_all.empty:
-            return dict_return
+            return str_return
         df_mv_all = df_mv_all[["base_mv", "now_mv"]]
         df_mv_now = pd.concat(
             objs=[
@@ -778,7 +778,21 @@ class IndexSSB(object):
         if not df_index_ssb_min.empty:
             self.__make_charts_min()
         dict_return = df_index_ssb_min.iloc[-1].to_dict()
-        return dict_return
+        dict_return = dict(
+            sorted(dict_return.items(), key=lambda x: x[1], reverse=True)
+        )
+        i = 0
+        line_len = 4
+        for key in dict_return.keys():
+            i += 1
+            str_symbol = f"[{key}] : [{dict_return[key]}]"
+            if str_return == "":
+                str_return = f"{str_symbol}"
+            elif i % line_len == 1:
+                str_return += f"\n\r{str_symbol}"
+            else:
+                str_return += f",     {str_symbol}"
+        return str_return
 
     def __make_charts_min(self):
         name = "make_charts"

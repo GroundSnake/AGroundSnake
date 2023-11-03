@@ -32,28 +32,21 @@ from analysis import (
 )
 
 __version__ = "3.0.0"
-<<<<<<< HEAD
-=======
-logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
-
-
 running_state = "NORMAL"  # NORMAL ,DEBUG
 
 
-if running_state == "NORMAL":
-    logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-elif running_state == "DEBUG":
-    logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-else:
-    logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
-
-if __name__ == "__main__":
+def main() -> None:
+    if running_state == "NORMAL":
+        logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    elif running_state == "DEBUG":
+        logger_console_level = "TRACE"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
+    else:
+        logger_console_level = "INFO"  # choice of {"TRACE","DEBUG","INFO"，"ERROR"}
     logger.remove()
     logger.add(sink=sys.stderr, level=logger_console_level)
     logger.add(sink=filename_log, level="TRACE", encoding="utf-8")
     logger.trace(f"{__name__} Begin")
-    if analysis.is_trading_day():
+    if analysis.is_trading_day() or (running_state == "DEBUG"):
         logger.trace("Betting day")
         print("Betting day")
     else:
@@ -64,18 +57,15 @@ if __name__ == "__main__":
     """init Begin"""
     frq = 0
     scan_interval = 20
-    amount_all = 0
-    amount_top5 = 0
-    concentration_rate_amount = 0
     str_msg_concentration_rate = ""
     str_msg_concentration_additional = ""
     # str_wc_use = ""
     str_limit_up = ""
-    dict_index_ssb_now = dict()
-    bool_update_news = False
+    str_index_ssb_now = dict()
     int_news_id = 0
     int_news_id_latest = 0
     news_update_frq = 4  # 4 Hours
+    list_all_code = all_chs_code()
     # 加载df_industry_class Begin
     df_industry_member = analysis.read_df_from_db(
         key="df_industry_member", filename=filename_chip_shelve
@@ -106,35 +96,10 @@ if __name__ == "__main__":
     df_industry_rank_pool = analysis.read_df_from_db(
         key="df_industry_rank_pool", filename=filename_chip_shelve
     )
-<<<<<<< HEAD
-=======
-    if df_industry_rank_pool.empty:
-        print("Please rerun df_industry_rank_pool function")
-        df_industry_rank_pool_buying = pd.DataFrame()
-        df_industry_rank_pool_selling = pd.DataFrame()
-        list_industry_buying = list()
-        list_industry_selling = list()
-    else:
-        df_industry_rank_pool_buying = df_industry_rank_pool[
-            df_industry_rank_pool["T5_rank"] >= 66
-        ]
-        df_industry_rank_pool_selling = df_industry_rank_pool[
-            df_industry_rank_pool["T5_rank"] <= 10
-        ]
-        list_industry_buying = df_industry_rank_pool_buying["name"].tolist()
-        list_industry_selling = df_industry_rank_pool_selling["name"].tolist()
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     # 加载df_industry_rank_pool End
     df_industry_rank = analysis.read_df_from_db(
         key="df_industry_rank", filename=filename_chip_shelve
     )
-<<<<<<< HEAD
-=======
-    df_industry_rank_deviation = df_industry_rank[df_industry_rank["max_min"] >= 60]
-    list_industry_name_deviation = list()
-    for ti_code in df_industry_rank_deviation.index:
-        list_industry_name_deviation.append(df_industry_rank.at[ti_code, "name"])
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
     # 加载df_industry_rank_pool End
     # 加载df_trader Begin
     df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
@@ -173,7 +138,7 @@ if __name__ == "__main__":
         key="df_stocks_pool", filename=filename_chip_shelve
     )
     if not df_stocks_pool.empty:
-        dt_inclusion = df_stocks_pool["dt"].max()
+        dt_inclusion = dt_pm_end
         for code in df_stocks_pool.index:
             if code not in df_trader.index:
                 df_trader.at[code, "date_of_inclusion_first"] = dt_inclusion
@@ -397,7 +362,6 @@ if __name__ == "__main__":
             df_realtime = pd.DataFrame()
             while i_realtime <= 2:
                 i_realtime += 1
-                list_trader = df_trader.index.to_list()
                 # list_trader = [item[2:] for item in list_trader]
                 # df_realtime = client_mootdx.quotes(symbol=list_trader)
                 df_realtime = analysis.realtime_quotations(
@@ -413,17 +377,26 @@ if __name__ == "__main__":
                 int_news_id = analysis.update_news(
                     start_id=int_news_id_latest, hours=news_update_frq
                 )
+                str_index_ssb_now = index_ssb.realtime_index()
+            df_news = analysis.base.read_df_from_db(
+                key="df_news", filename=filename_chip_shelve
+            )
             list_signal_on_sell = list()
             list_signal_on_buy = list()
+            dt_now = datetime.datetime.now()
+            str_dt_now_time = dt_now.strftime("<%H:%M:%S>")
             i = 0
-            count_trader = len(df_trader.index)
+            count_trader = df_trader.shape[0]
             for code in df_trader.index:
                 i += 1
-                dt_now = datetime.datetime.now()
+                print(f"\r[{i}/{count_trader}] - [{code}]\033[K", end="")
+                if i >= count_trader:
+                    time.sleep(1)
+                    print("\r\033[K", end="")
                 if code in df_realtime.index:
                     now_price = df_realtime.at[code, "close"]
                 else:
-                    if code not in all_chs_code():
+                    if code not in list_all_code:
                         df_trader.drop(index=code, inplace=True)
                         print(f"[{code}] not in df_realtime and drop [{code}]")
                         time.sleep(10)
@@ -444,7 +417,8 @@ if __name__ == "__main__":
                 df_trader.at[code, "pct_of_inclusion"] = pct_of_inclusion
                 if int_news_id > int_news_id_latest:
                     df_trader.at[code, "news"] = analysis.get_stock_news(
-                        df_trader.at[code, "name"]
+                        df_news=df_news,
+                        stock=df_trader.at[code, "name"],
                     )
                 if (
                     pct_chg >= df_trader.at[code, "rise"]
@@ -459,11 +433,12 @@ if __name__ == "__main__":
                     df_signal_sell.loc[code] = df_trader.loc[code]
                 if code in df_signal_buy.index:
                     df_signal_buy.loc[code] = df_trader.loc[code]
-            int_news_id_latest = int_news_id
+            if int_news_id > int_news_id_latest:
+                print(f"{str_dt_now_time}----{fg.red('News Update.')}")
+                int_news_id_latest = int_news_id
             analysis.write_obj_to_db(
                 obj=df_trader, key="df_trader", filename=filename_chip_shelve
             )
-            bool_update_news = False
             list_signal_buy_after = df_signal_buy.index.tolist()
             list_signal_sell_after = df_signal_sell.index.tolist()
             list_signal_chg = list()
@@ -523,7 +498,6 @@ if __name__ == "__main__":
             }
             msg_signal_chg = ""
             msg_signal_t0 = ""
-            i = 0
             for item in dict_df_signal:
                 msg_signal = ""
                 if item in "Buy":
@@ -534,7 +508,6 @@ if __name__ == "__main__":
                     str_arrow = "|"
                 i_records = 0
                 df_item = dict_df_signal[item]
-                all_records = len(df_item)
                 for code in df_item.index:
                     i_records += 1
                     if code not in dict_list_signal_on[item]:
@@ -555,7 +528,8 @@ if __name__ == "__main__":
                         f"[{df_trader.at[code, 'ST']}]"
                         f"_({df_trader.at[code, 'profit_rate']}%PR"
                         f" / {df_trader.at[code, 'dividend_rate']}%DR)"
-                        f"_{int(df_item.at[code, 'cash_div_year_times'])}Y"
+                        f"_({int(df_item.at[code, 'cash_div_period'])}"
+                        f"/{int(df_item.at[code, 'cash_div_excepted_period'])})Y"
                     )
 
                     if (
@@ -585,20 +559,9 @@ if __name__ == "__main__":
                         f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
                         f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}]"
                     )
-<<<<<<< HEAD
                     msg_signal_code_7 = (
                         f"[{df_trader.at[code, 'times_exceed_correct_industry']}"
                         f" - {df_trader.at[code, 'mean_exceed_correct_industry']:5.2f}]"
-=======
-                    msg_signal_code_4 = f"---- [{df_trader.at[code, 'grade']}]"
-                    msg_signal_code_5 = f" - {df_trader.at[code, 'stock_index']}"
-                    msg_signal_code_6 = (
-                        f"---- [T: {df_trader.at[code, 'recent_trading'].date()}]"
-                        f" - [R:{df_trader.at[code, 'rate_of_inclusion']:6.2f}%]"
-                        f" - [T:{df_trader.at[code, 'times_of_inclusion']:3.0f}]"
-                        f" - [F: {df_trader.at[code, 'date_of_inclusion_first'].date()}]"
-                        f" - [L: {df_trader.at[code, 'date_of_inclusion_latest'].date()}]"
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
                     )
                     if industry_code in df_industry_rank_pool.index:
                         if (
@@ -662,17 +625,8 @@ if __name__ == "__main__":
                         msg_signal_code_1 = fg.lightgreen(msg_signal_code_1)
                     elif item in "Sell":
                         msg_signal_code_1 = fg.red(msg_signal_code_1)
-<<<<<<< HEAD
                     if "A" in msg_signal_code_8 and "Z" not in msg_signal_code_8:
                         msg_signal_code_8 = fg.red(msg_signal_code_8)
-=======
-                    if industry_code in df_industry_rank_pool_selling.index:
-                        msg_signal_code_3 = fg.red(msg_signal_code_3)
-                    elif industry_code in df_industry_rank_pool_buying.index:
-                        msg_signal_code_3 = fg.green(msg_signal_code_3)
-                    msg_signal_code_4 = fg.yellow(msg_signal_code_4)
-                    msg_signal_code_5 = fg.purple(msg_signal_code_5)
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
                     msg_signal_code = (
                         "\n"
                         + msg_signal_code_1
@@ -722,8 +676,6 @@ if __name__ == "__main__":
                 print(f"====<Change>====\a", "=" * 70)
                 print(msg_signal_chg)
             # 更新df_data，str_msg_rise，str_msg_fall------End
-            dt_now = datetime.datetime.now()
-            str_dt_now_time = dt_now.strftime("<%H:%M:%S>")
             if str_msg_modified:
                 str_msg_modified = (
                     f"{str_dt_now_time}----modified: {fg.blue(str_msg_modified)}"
@@ -737,31 +689,15 @@ if __name__ == "__main__":
             if str_msg_del:
                 str_msg_del = f"{str_dt_now_time}----remove: {fg.green(str_msg_del)}"
                 print("=" * 86)
-<<<<<<< HEAD
                 print(str_msg_del)
-=======
-            if list_signal_chg:
-                print(f"{str_dt_now_time}----New Signal: {list_signal_chg}\a")
-                print("*" * 86)
-            print(list_industry_name_deviation)
-            print("=" * 86)
-            if list_industry_buying:
-                print(f"{fg.green(f'Buying: {list_industry_buying}')}")
-                print("*" * 86)
-            if list_industry_selling:
-                print(f"{fg.red(f'Selling: {list_industry_selling}')}")
-                print("*" * 86)
->>>>>>> c7ceb37b34590e3aa9d30e4ce1127cdd7492e372
-            if dict_index_ssb_now:
+            if str_index_ssb_now:
                 print("=" * 86)
-                print(dict_index_ssb_now)
-            """
-            print("#" * 108)
-            print(str_stock_market_activity_items)
-            print(str_stock_market_activity_value)
-            print("#" * 108)
-            """
-            str_msg_loop_ctl_zh = f"{str_dt_now_time}----{fg.red(str_pos_ctl_zh)}"
+                print(str_index_ssb_now)
+            if str_stock_market_activity_items or str_stock_market_activity_value:
+                print("#" * 108)
+                print(str_stock_market_activity_items)
+                print(str_stock_market_activity_value)
+                print("#" * 108)
             if frq % 3 == 0:
                 filename_data_csv = os.path.join(
                     path_check, f"trader_{str_trading_path()}.csv"
@@ -772,23 +708,23 @@ if __name__ == "__main__":
                     str_msg_concentration_rate,
                     str_msg_concentration_additional,
                 ) = analysis.concentration_rate()
-                dict_index_ssb_now = index_ssb.realtime_index()
             if frq % 6 == 0:  # 3 = 1 minutes, 6 = 2 minutes, 15 = 5 minutes
                 str_limit_up = analysis.limit_up_today(df_trader)
             """
             if frq % 15 == 0:  # 3 = 1 minutes, 6 = 2 minutes, 15 = 5 minutes
                 str_wc_use = analysis.volume_price_rise(df_trader)
             """
-            str_msg_loop_ctl_csi1000 = (
-                f"{str_dt_now_time}----{fg.red(str_pos_ctl_csi1000)}"
-            )
             if str_msg_concentration_rate and str_msg_concentration_additional:
                 print(f"{str_dt_now_time}----{str_msg_concentration_rate}")
                 print(f"{str_dt_now_time}----{str_msg_concentration_additional}")
+            str_msg_loop_ctl_zh = f"{str_dt_now_time}----{fg.red(str_pos_ctl_zh)}"
+            str_msg_loop_ctl_csi1000 = (
+                f"{str_dt_now_time}----{fg.red(str_pos_ctl_csi1000)}"
+            )
             print(str_msg_loop_ctl_zh)
             print(str_msg_loop_ctl_csi1000)
             if str_limit_up:
-                print("===Limit Up===", "=" * 93)
+                print(f"===Limit Up=== {dt_now}", "=" * 66)
                 print(str_limit_up)
                 print("=" * 108)
             """
@@ -809,11 +745,11 @@ if __name__ == "__main__":
                 scan_interval = 60
             dt_now = datetime.datetime.now()
             dt_now_delta = dt_now + datetime.timedelta(seconds=scan_interval)
-            sleep_to_time(dt_time=dt_now_delta, seconds=4)
+            sleep_to_time(dt_time=dt_now_delta, seconds=2)
         # 中午休息时间： 11:30 -- 13:00
         elif dt_am_end < dt_now < dt_pm_start:
             # -----当前时间与当日指定时间的间隔时间计算-----
-            sleep_to_time(dt_time=dt_pm_start, seconds=2)
+            sleep_to_time(dt_time=dt_pm_start, seconds=4)
             # -----当前时间与当日指定时间的间隔时间计算-----
         else:
             print("\a\r", end="")
@@ -843,3 +779,7 @@ if __name__ == "__main__":
                 else:
                     sys.exit()
         frq += 1
+
+
+if __name__ == "__main__":
+    main()

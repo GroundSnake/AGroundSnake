@@ -6,6 +6,7 @@ import hashlib
 import datetime
 import re
 import pandas as pd
+from console import fg
 import analysis.base
 from analysis.const import (
     filename_chip_shelve,
@@ -14,10 +15,9 @@ from analysis.const import (
 )
 
 
-def news_cls():
+def news_cls() -> pd.DataFrame:
     """
-    财联社-电报
-    https://www.cls.cn/telegraph
+    财联社-电报 https://www.cls.cn/telegraph
     :return: 财联社-电报
     :rtype: pandas.DataFrame
     """
@@ -69,7 +69,6 @@ def news_cls():
     }
     data = requests.get(url, headers=headers, params=params).json()
     df_news = pd.DataFrame(data["data"]["roll_data"])
-    df_news.to_csv("df_news_source.csv")
     df_news = df_news[["id", "ctime", "level", "content"]]
     df_news["ctime"] = pd.to_datetime(
         arg=df_news["ctime"], unit="s"
@@ -79,41 +78,28 @@ def news_cls():
     return df_news
 
 
-def update_news(start_id: int = None, hours: int = None) -> int:
+def update_news(start_id: int = 0, hours: int = 8) -> int:
     name: str = f"df_news"
     try:
         df_news = news_cls()
     except requests.exceptions.SSLError:
-        if start_id is None:
-            return 0
-        else:
-            return start_id
-    if hours is None:
-        hours_latest = 2
-    else:
-        hours_latest = hours
-    dt_start = datetime.datetime.now() - datetime.timedelta(hours=hours_latest)
+        return start_id
+    dt_start = datetime.datetime.now() - datetime.timedelta(hours=hours)
     df_news = df_news[df_news["ctime"] > dt_start]
-    if start_id is None:
-        pass
+    df_news = df_news[df_news.index > start_id]
+    if df_news.empty:
+        end_id = start_id
     else:
-        df_news = df_news[df_news.index > start_id]
+        end_id = int(df_news.index.max())
         analysis.base.write_obj_to_db(
             obj=df_news, key=name, filename=filename_chip_shelve
         )
-    if df_news.empty:
-        int_id = start_id
-    else:
-        int_id = int(df_news.index.max())
     filename_news_csv = os.path.join(path_check, f"news_{str_trading_path()}.csv")
     df_news.to_csv(path_or_buf=filename_news_csv)
-    return int_id
+    return end_id
 
 
-def get_news(stock: str = "开心汽车") -> str | None:
-    df_news = analysis.base.read_df_from_db(
-        key="df_news", filename=filename_chip_shelve
-    )
+def get_news(df_news: pd.DataFrame, stock: str = "开心汽车") -> str | None:
     text_news = None
     for index in df_news.index:
         if stock in df_news.at[index, "content"]:
@@ -128,12 +114,12 @@ def get_news(stock: str = "开心汽车") -> str | None:
     return text_news
 
 
-def get_stock_news(stock: str = "开心汽车") -> str | None:
+def get_stock_news(df_news: pd.DataFrame, stock: str = "开心汽车") -> str | None:
     stock_keyword = [
         r".*?免.*?职务?.*?】",
         r".*?因?.*?逮捕.*?】",
     ]
-    text_stock = get_news(stock)
+    text_stock = get_news(df_news=df_news, stock=stock)
     text_return = None
     if text_stock is not None:
         for pattern in stock_keyword:
@@ -146,3 +132,27 @@ def get_stock_news(stock: str = "开心汽车") -> str | None:
                 else:
                     text_return += match_msg.group()
     return text_return
+
+
+def scan_all_stock_news(df_news: pd.DataFrame) -> str:
+    df_cap = analysis.base.read_df_from_db(key="df_cap", filename=filename_chip_shelve)
+    df_trader = analysis.base.read_df_from_db(
+        key="df_trader", filename=filename_chip_shelve
+    )
+    stock_keyword = r".*?】"
+    i = 0
+    for symbol in df_cap.index:
+        i += 1
+        pattern = f".*?--【{df_cap.at[symbol, 'name']}" + stock_keyword
+        pattern_msg = re.compile(pattern)
+        text_stock = get_news(df_news=df_news, stock=df_cap.at[symbol, "name"])
+        if text_stock is None:
+            continue
+        match_msg = pattern_msg.search(string=text_stock)
+        if match_msg:
+            if symbol in df_trader.index:
+                str_stock_news = fg.red(match_msg.group())
+            else:
+                str_stock_news = match_msg.group()
+            print(str_stock_news)
+    return ""

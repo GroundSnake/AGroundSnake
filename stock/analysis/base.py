@@ -5,6 +5,7 @@ import time
 import re
 import random
 import sys
+import math
 import datetime
 import shelve
 import dbm
@@ -127,15 +128,13 @@ def get_stock_code(symbol: str):
 def transaction_unit(price: float, amount: float = 1000) -> int:
     if price * 100 > amount:
         return 100
-    unit_temp = amount / price
-    unit_small = int(unit_temp // 100 * 100)
-    unit_big = unit_small + 100
-    differ_big = abs(unit_big * price - amount)
-    differ_small = abs(unit_small * price - amount)
-    if differ_big < differ_small:
-        return unit_big
+    amount_max = amount * 1.5
+    volume = math.ceil(amount / price / 100) * 100
+    actual_amount = volume * price
+    if actual_amount > amount_max:
+        return volume - 100
     else:
-        return unit_small
+        return volume
 
 
 def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
@@ -353,4 +352,5 @@ def stock_basic_v2() -> pd.DataFrame:
         func=lambda x: pd.to_datetime(x)
     )
     df_stock_basic.set_index(keys="symbol", inplace=True)
+    df_stock_basic = df_stock_basic[["name", "list_date"]]
     return df_stock_basic

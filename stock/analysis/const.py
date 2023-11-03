@@ -66,12 +66,15 @@ def all_chs_code(r: bool = True) -> list | None:
         return list_chs_code
 
 
-def all_chs_etf(r: bool = True) -> list | None:
+def all_stock_etf(r: bool = True) -> list | None:
     df_etf = client_ts_pro.fund_basic(market="E")
     df_etf = df_etf[
         df_etf["name"].str.contains("ETF").fillna(False)
-        & df_etf["invest_type"].str.contains("被动指数型").fillna(False)
-        & df_etf["due_date"].isnull()
+        & (df_etf["invest_type"].str.contains("被动指数型").fillna(False))
+        & (df_etf["fund_type"].str.contains("股票型").fillna(False))
+        & (df_etf["status"].str.contains("L").fillna(False))
+        & (df_etf["market"].str.contains("E").fillna(False))
+        & (df_etf["due_date"].isnull())
     ]
     list_ts_code = df_etf["ts_code"].tolist()
     list_chs_code = [item[-2:].lower() + item[:6] for item in list_ts_code]
@@ -174,7 +177,7 @@ phi = 1 / golden  # extreme and mean ratio 黄金分割常数
 phi_a = phi * 100
 phi_b_neg = -(100 - phi_a)
 INDUSTRY_MAX_MIN = 45
-G_PRICE_MAX = 40  # g_price 最大价格 35
+G_PRICE_MAX = 25  # g_price 最大价格 25
 NOW_PRICE_MAX = G_PRICE_MAX
 lIST_DAYS_MAX = 365
 TOTAL_MV_E_MAX = 120

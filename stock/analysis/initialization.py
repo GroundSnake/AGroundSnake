@@ -73,6 +73,7 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
         "profit_rate": 0,
         "dividend_rate": 0,
         "cash_div_period": 0,
+        "cash_div_excepted_period": 0,
         "date_of_inclusion_first": dt_init,
         "date_of_inclusion_latest": dt_init,
         "times_of_inclusion": 0,
@@ -91,7 +92,6 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
             df_trader[columns].fillna(value=dict_trader_default[columns], inplace=True)
         else:
             df_trader[columns] = dict_trader_default[columns]
-    df_trader["news"] = None
     dt_now = datetime.datetime.now()
     for code in df_trader.index:
         if (
@@ -165,6 +165,9 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
             df_trader.at[code, "profit_rate"] = df_chip.at[code, "profit_rate"]
             df_trader.at[code, "dividend_rate"] = df_chip.at[code, "dividend_rate"]
             df_trader.at[code, "cash_div_period"] = df_chip.at[code, "cash_div_period"]
+            df_trader.at[code, "cash_div_excepted_period"] = df_chip.at[
+                code, "cash_div_excepted_period"
+            ]
             df_trader.at[code, "industry_code"] = df_chip.at[code, "industry_code"]
             df_trader.at[code, "industry_name"] = df_chip.at[code, "industry_name"]
             df_trader.at[code, "max_min"] = df_chip.at[code, "max_min"]
@@ -239,7 +242,7 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
             df_trader.at[code, "grade"] = grade
         # 删除df_trader过期的标的----Begin
         days_recent_trading = (dt_now - df_trader.at[code, "recent_trading"]).days
-        if df_trader.at[code, "position"] == 0.0 and days_recent_trading > 30:
+        if df_trader.at[code, "position"] == 0.0 and days_recent_trading > 60:
             days_of_inclusion_latest = (
                 dt_now - df_trader.at[code, "date_of_inclusion_latest"]
             ).days
@@ -268,6 +271,13 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False) -> pd.DataFrame:
             elif df_trader.at[code, "profit_rate"] <= phi_b_neg:
                 df_drop_stock.loc[code] = df_trader.loc[code]
                 df_drop_stock.at[code, "drop"] = "profit_rate"
+                df_trader.drop(index=code, inplace=True)
+            elif (
+                df_trader.at[code, "times_exceed_correct_industry"] < 35
+                or df_trader.at[code, "mean_exceed_correct_industry"] < 0.7
+            ):
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "times_exceed_correct"
                 df_trader.drop(index=code, inplace=True)
         # 删除df_trader过期的标的----End
     if not df_drop_stock.empty:

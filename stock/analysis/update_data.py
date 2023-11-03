@@ -16,7 +16,7 @@ from analysis.const import (
     dt_pm_end,
     filename_chip_shelve,
     all_chs_code,
-    all_chs_etf,
+    all_stock_etf,
     client_mootdx,
 )
 
@@ -56,7 +56,7 @@ def update_stock_data(
         else:
             list_all_stock = list()
         if etf:
-            list_all_etf = all_chs_etf()
+            list_all_etf = all_stock_etf()
             list_all_code += list_all_etf
         else:
             list_all_etf = list()

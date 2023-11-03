@@ -45,6 +45,7 @@ def capital() -> bool:
         df_daily_basic["symbol"] = df_daily_basic["ts_code"].apply(
             func=lambda x: x[7:].lower() + x[:6]
         )
+        df_daily_basic.drop(columns="ts_code", inplace=True)
         df_daily_basic["trade_date"] = df_daily_basic["trade_date"].apply(
             func=lambda x: datetime.datetime.combine(
                 pd.to_datetime(x).date(), time_pm_end
@@ -86,11 +87,12 @@ def capital() -> bool:
     count = len(df_cap)
     for symbol in df_cap.index:
         i += 1
+        str_msg_bar = f"Capital Update: [{i:4d}/{count:4d}] - [{symbol}]"
         if df_cap.at[symbol, "trade_date"] != dt_init:
+            print(f"\r{str_msg_bar} - Exist\033[K", end="")
             continue
         if random.randint(0, 5) == 3:
             feather.write_dataframe(df=df_cap, dest=filename_cap_feather_temp)
-        str_msg_bar = f"Capital Update: [{i:4d}/{count:4d}] - [{symbol}]"
         ts_code = symbol[2:] + "." + symbol[:2].upper()
         df_daily_basic = pd.DataFrame()
         i_times = 0
@@ -128,7 +130,6 @@ def capital() -> bool:
         )
         df_daily_basic.set_index(keys="trade_date", inplace=True)
         dt_max = df_daily_basic.index.max()
-        print(f"\r{str_msg_bar} - {dt_max.date()}\033[K", end="")
         df_cap.at[symbol, "trade_date"] = dt_max
         df_cap.at[symbol, "total_cap"] = df_daily_basic.at[dt_max, "total_share"]
         df_cap.at[symbol, "circ_cap"] = df_daily_basic.at[dt_max, "float_share"]
@@ -138,12 +139,13 @@ def capital() -> bool:
         df_cap.at[symbol, "list_days"] = (
             dt_pm_end - df_cap.at[symbol, "list_date"]
         ).days
+        print(f"\r{str_msg_bar} - {dt_max.date()}\033[K", end="")
     dt_trader = df_cap["trade_date"].max()
-    df_cap = df_cap.reindex(
-        columns=["name", "list_days", "total_cap", "circ_cap", "total_mv_E"]
-    )
     if i >= count:
         print("\n", end="")  # 格式处理
+        df_cap = df_cap.reindex(
+            columns=["name", "list_days", "total_cap", "circ_cap", "total_mv_E"]
+        )
         analysis.base.write_obj_to_db(
             obj=df_cap, key=name, filename=filename_chip_shelve
         )

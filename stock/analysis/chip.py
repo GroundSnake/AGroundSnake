@@ -205,8 +205,7 @@ def chip() -> object | DataFrame:
     df_stocks_pool = df_stocks_pool[
         (df_stocks_pool["list_days"] > lIST_DAYS_MAX)
         & (df_stocks_pool["correct_7pct_times"] > 1)
-        & (df_stocks_pool["now_price_ratio"] <= 86.8)
-        & (df_stocks_pool["now_price_ratio"] >= 36.8)
+        & (df_stocks_pool["now_price_ratio"].between(36.8, 86.8))
         & (df_stocks_pool["G_price"] <= G_PRICE_MAX)
         & (df_stocks_pool["total_mv_E"] <= TOTAL_MV_E_MAX)
         & (df_stocks_pool["industry_code"].isin(values=list_industry_code_deviation))
@@ -265,13 +264,13 @@ def chip() -> object | DataFrame:
             "times_exceed_correct_industry",
             "mean_exceed_correct_industry",
             "profit_rate",
+            "dividend_rate",
             "cash_div_end_dt",
             "factor_count",
             "factor",
             "now_price",
         ]
     ]
-    df_stocks_pool["dt"] = df_stocks_pool["dt"].max()
     analysis.base.write_obj_to_db(
         obj=df_stocks_pool, key="df_stocks_pool", filename=filename_chip_shelve
     )
@@ -281,8 +280,8 @@ def chip() -> object | DataFrame:
     try:
         df_config_temp = df_config.drop(index=[name])
     except KeyError as e:
-        print(f"[{name}] is not found in df_config -Error[{repr(e)}]")
-        logger.trace(f"[{name}] is not found in df_config -Error[{repr(e)}]")
+        print(f"[{name}] is not found in df_config - Error[{repr(e)}]")
+        logger.trace(f"[{name}] is not found in df_config - Error[{repr(e)}]")
         df_config_temp = df_config.copy()
     dt_chip = df_config_temp["date"].min()
     analysis.base.set_version(key=name, dt=dt_chip)

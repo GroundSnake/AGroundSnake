@@ -7,7 +7,7 @@ import akshare as ak
 from console import fg
 import analysis.base
 import analysis.update_data
-from analysis.const import time_pm_end, filename_chip_shelve, dt_pm_end
+from analysis.const import time_pm_end, filename_chip_shelve, dt_pm_end, client_ts_pro
 
 
 def position(index: str = "sh000001") -> str:
@@ -49,13 +49,21 @@ def position(index: str = "sh000001") -> str:
         logger.trace(f"position_control-[{name}] Break End")
         return str_pos_ctl
     logger.trace(f"Update df_pos_ctl-[py_dbm_chip] Begin")
+    dt_begin = datetime.datetime(year=2015, month=9, day=1)
+    str_dt = dt_begin.strftime("%Y%m%d")
+    str_now = datetime.datetime.now().strftime("%Y%m%d")
     if index == "sh000001":
         df_index = analysis.update_data.update_index_data(symbol=index[2:])
     else:
-        df_index = ak.stock_zh_index_daily(symbol=index)
-        df_index["date"] = pd.to_datetime(df_index["date"])
+        ts_code = analysis.base.code_ths_to_ts(index)
+        # df_index = ak.stock_zh_index_daily(symbol=index)
+        df_index = client_ts_pro.index_daily(
+            ts_code=ts_code, start_date=str_dt, end_date=str_now
+        )
+        df_index["date"] = pd.to_datetime(df_index["trade_date"])
         df_index.set_index(keys=["date"], inplace=True)
-    dt_begin = datetime.datetime(year=2015, month=9, day=1)
+        df_index.sort_index(inplace=True)
+        df_index["volume"] = df_index["vol"]
     df_index = df_index.loc[dt_begin:].copy()
     df_index["close"] = df_index["close"].apply(
         func=lambda x: int(round(x, 0)) // 10 * 10
@@ -63,6 +71,11 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl = pd.pivot_table(
         data=df_index, index=["close"], aggfunc={"volume": np.sum, "close": len}
     )
+    dt_index_max = df_index.index.max()
+    dt_index_max_date = dt_index_max.date()
+    if dt_index_max < dt_pm_end:
+        logger.error(f"{name} is not update - [{dt_index_max}]")
+
     df_pos_ctl.rename(columns={"close": "count"}, inplace=True)  # _descending
     df_pos_ctl.sort_index(ascending=False, inplace=True)
     count_all = df_pos_ctl["count"].sum()
@@ -77,9 +90,12 @@ def position(index: str = "sh000001") -> str:
             int(descending_volume / total_volume * 10000) / 100
         )
         if i == 0:
-            df_pos_ctl.at[i, "weight_volume"] = (
-                df_pos_ctl.at[i, "volume"] + df_pos_ctl.at[i + 1, "volume"]
-            )
+            if line_number > 0:
+                df_pos_ctl.at[i, "weight_volume"] = (
+                    df_pos_ctl.at[i, "volume"] + df_pos_ctl.at[i + 1, "volume"]
+                )
+            else:
+                df_pos_ctl.at[i, "weight_volume"] *= 2
         elif i == line_number - 1:
             df_pos_ctl.at[i, "weight_volume"] = (
                 df_pos_ctl.at[i - 1, "volume"] + df_pos_ctl.at[i, "volume"]
@@ -111,10 +127,6 @@ def position(index: str = "sh000001") -> str:
     if rank == 0:
         logger.error("Rank ERROR")
         return f"{index} ERROR"
-    dt_index_max = df_index.index.max()
-    dt_index_max_date = dt_index_max.date()
-    if dt_index_max < dt_pm_end:
-        logger.error(f"{name} is not update")
     str_pos_ctl = (
         f"[{nane_ssb}] - [{close_ssb} - {rank:3.0f}/{len_df_pos_ctl:3.0f}] --- "
         f"[{df_pos_ctl.at[close_ssb, 'sun_descending']:5.2f}] -- {dt_index_max_date}"

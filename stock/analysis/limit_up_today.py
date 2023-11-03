@@ -1,5 +1,6 @@
 # modified at 2023/08/05 12:12
 import decimal
+import random
 import pandas as pd
 from console import fg
 from loguru import logger
@@ -40,6 +41,7 @@ def limit_up_today(df_trader: pd.DataFrame) -> str:
         return str_return
     set_limit_up_all = {item[-2:].lower() + item[:6] for item in set_limit_up_all}
     list_union = list(set_trader & set_limit_up_all)
+    random.shuffle(list_union)
     df_realtime = pd.DataFrame()
     i_realtime = 0
     while i_realtime <= 2:
