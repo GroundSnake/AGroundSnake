@@ -175,9 +175,70 @@ fall = -5
 rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
 phi = 1 / golden  # extreme and mean ratio 黄金分割常数
 phi_a = phi * 100
+phi_b = 100 - phi_a
 phi_b_neg = -(100 - phi_a)
 INDUSTRY_MAX_MIN = 45
-G_PRICE_MAX = 25  # g_price 最大价格 25
+G_PRICE_MAX = 30  # g_price 最大价格 30
 NOW_PRICE_MAX = G_PRICE_MAX
 lIST_DAYS_MAX = 365
 TOTAL_MV_E_MAX = 120
+
+
+def get_trader_columns(data_type=None) -> list | dict | None:
+    """
+    :param data_type: e.g. "list","dict"
+    :return:
+    """
+    dict_trader_default = {
+        "name": "股票简称",
+        "recent_price": 0.0,
+        "position": 0,
+        "now_price": 0.0,
+        "pct_chg": 0.0,
+        "position_unit": 0.0,
+        "trx_unit_share": 0.0,
+        "position_unit_max": 0.0,
+        "industry_code": "000000.TI",
+        "industry_name": "行业",
+        "max_min": -1.0,
+        "times_exceed_correct_industry": 0.0,
+        "mean_exceed_correct_industry": 0.0,
+        "total_mv_E": 0.0,
+        "ssb_index": "index_none",
+        "7Pct_T": 0.0,
+        "T5_pct": 0.0,
+        "T5_amplitude": 0.0,
+        "G_price": 0.0,
+        "gold_section_volume": 0.0,
+        "gold_section_price": 0.0,
+        "gold_pct_max_min": 0.0,
+        "gold_date_max": dt_init,
+        "gold_date_min": dt_init,
+        "gold_price_min": 0.0,
+        "times_concentration": 0.0,
+        "rate_concentration": 0.0,
+        "recent_trading": dt_init,
+        "ST": "ST_none",
+        "profit_rate": 0.0,
+        "dividend_rate": 0.0,
+        "cash_div_period": 0.0,
+        "cash_div_excepted_period": 0.0,
+        "date_of_inclusion_first": dt_init,
+        "date_of_inclusion_latest": dt_init,
+        "times_of_inclusion": 0.0,
+        "rate_of_inclusion": 0.0,
+        "price_of_inclusion": 0.0,
+        "pct_of_inclusion": 0.0,
+        "rise": rise,
+        "fall": fall,
+        "factor_count": 0.0,
+        "factor": "",
+        "news": "",
+        "remark": "",
+    }
+    if data_type == "list":
+        return list(dict_trader_default.keys())
+    elif data_type == "dict":
+        return dict_trader_default
+    else:
+        return None

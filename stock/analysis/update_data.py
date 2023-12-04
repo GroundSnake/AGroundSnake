@@ -2,7 +2,8 @@
 import datetime
 import os
 import time
-import requests
+import httpx
+import random
 import pandas as pd
 import feather
 from loguru import logger
@@ -45,21 +46,21 @@ def update_stock_data(
             key=f"df_catalogue_{frequency}", filename=filename_chip_shelve
         )
         logger.trace("reset df_catalogue")
+    list_all_code = list()
+    if stock:
+        list_all_stock = all_chs_code()
+        list_all_code += list_all_stock
+    else:
+        list_all_stock = list()
+    if etf:
+        list_all_etf = all_stock_etf()
+        list_all_code += list_all_etf
+    else:
+        list_all_etf = list()
     if os.path.exists(file_name_catalogue_temp):
         # 读取腌制数据 catalogue
         df_catalogue = feather.read_dataframe(source=file_name_catalogue_temp)
     else:
-        list_all_code = list()
-        if stock:
-            list_all_stock = all_chs_code()
-            list_all_code += list_all_stock
-        else:
-            list_all_stock = list()
-        if etf:
-            list_all_etf = all_stock_etf()
-            list_all_code += list_all_etf
-        else:
-            list_all_etf = list()
         print("stock =", len(list_all_stock), ",    ETF =", len(list_all_etf))
         df_catalogue = pd.DataFrame(
             index=list_all_code, columns=["start", "end", "count"]
@@ -72,12 +73,11 @@ def update_stock_data(
     # quantity = 80000
     i = 0
     for symbol in df_catalogue.index:
-        feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         i += 1
         str_msg = f"Kline_{frequency} Update: [{i:4d}/{count:4d}] -- [{symbol}]"
         if df_catalogue.at[symbol, "end"] == dt_pm_end:
             print(
-                f"\r{str_msg} - [{df_catalogue.at[symbol, 'end']}] - Latest\033[K",
+                f"\r{str_msg} - [{df_catalogue.at[symbol, 'end']}] - Latest.\033[K",
                 end="",
             )
             continue
@@ -85,7 +85,7 @@ def update_stock_data(
         if os.path.exists(file_name_feather):
             df_data = feather.read_dataframe(source=file_name_feather)
         else:
-            print(f"\r{str_msg} - Kline data is not exist\033[K", end="")
+            # print(f"\r{str_msg} - Kline data is not exist\033[K", end="")
             df_data = pd.DataFrame()
         if not df_data.empty:
             df_catalogue.loc[symbol, "end"] = df_data.index.max()
@@ -93,14 +93,14 @@ def update_stock_data(
             df_catalogue.loc[symbol, "count"] = len(df_data)
             if df_catalogue.at[symbol, "end"] == dt_pm_end:
                 print(
-                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Latest\033[K",
-                    end="",
+                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Latest[Reset].\033[K",
+                    end=""
                 )
                 continue
         df_delta = pd.DataFrame()
         i_while_delta = 0
         stock_code = analysis.base.get_stock_code(symbol)
-        while i_while_delta <= 1:
+        while i_while_delta < 1:
             i_while_delta += 1
             try:
                 """
@@ -108,16 +108,24 @@ def update_stock_data(
                     symbol=symbol, frequency=frequency, count=quantity
                 )
                 """
-                df_delta = client_mootdx.bars(
-                    symbol=stock_code, frequency=frequency, adjust="qfq"
-                )
-            except requests.exceptions.Timeout as e:
-                print(f"\r{str_msg} - [{i_while_delta}] - {repr(e)}\033[K")
-                time.sleep(1)
+                if symbol in list_all_stock:
+                    df_delta = client_mootdx.bars(
+                        symbol=stock_code, frequency=frequency, adjust="qfq"
+                    )
+                elif symbol in list_all_etf:
+                    df_delta = client_mootdx.bars(
+                        symbol=stock_code, frequency=frequency
+                    )
+            except httpx.ReadTimeout as e:
+                logger.error(f"\r{str_msg} - [{i_while_delta}] - {repr(e)}\033[K")
+                time.sleep(3)
+            except ValueError as e:
+                logger.error(f"\r{str_msg} - [{i_while_delta}] - {repr(e)}\033[K")
+                time.sleep(3)
             else:
                 if df_delta.empty:
                     print(
-                        f"\r{str_msg} - [Times:{i_while_delta}] - df_delta empty\033[K"
+                        f"\r{str_msg} - [Times:{i_while_delta}] - df_delta empty\033[K",
                     )
                     time.sleep(0.5)
                 else:
@@ -125,11 +133,11 @@ def update_stock_data(
         if df_delta.empty:
             if df_data.empty:
                 print(
-                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - No data\033[K"
+                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - No data\033[K",
                 )
             else:
                 print(
-                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Suspension\033[K"
+                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Suspension\033[K",
                 )
             continue
         else:
@@ -140,9 +148,10 @@ def update_stock_data(
             if df_data.empty:
                 df_data = df_delta.copy()
             else:
-                df_data = pd.concat([df_data, df_delta], axis=0, join="outer")
+                df_data = pd.concat(objs=[df_data, df_delta], axis=0, join="outer")
                 df_data = df_data[~df_data.index.duplicated(keep="last")]
                 df_data.sort_index(ascending=True, inplace=True)
+        df_data.applymap(func=lambda x: round(x, 2))
         feather.write_dataframe(df=df_data, dest=file_name_feather)
         dt_data_max = df_data.index.max()
         if dt_data_max > dt_pm_end:
@@ -150,9 +159,11 @@ def update_stock_data(
         df_catalogue.loc[symbol, "end"] = dt_data_max
         df_catalogue.loc[symbol, "start"] = df_data.index.min()
         df_catalogue.loc[symbol, "count"] = len(df_data)
+        if random.randint(a=0, b=9) == 5:
+            feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         print(
-            f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update\033[K",
-            end="",
+            f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update.\033[K",
+            end=""
         )
     if i >= count:
         print("\n", end="")
@@ -190,17 +201,20 @@ def update_index_data(symbol: str = "000001") -> pd.DataFrame:
         # 读取腌制数据 catalogue
         df_index = feather.read_dataframe(source=file_name_index_feather)
         logger.trace(f"Load index[{symbol}] feather from [{file_name_index_feather}]")
-        df_index_delta = analysis.ashare.index_zh_a_hist_min_em(symbol=symbol)
+        df_index_delta = analysis.ashare.index_zh_a_hist_min_em(symbol=symbol, today=True)
         df_index = pd.concat(objs=[df_index, df_index_delta], axis=0, join="outer")
         df_index = df_index[~df_index.index.duplicated(keep="last")]
         df_index.fillna(value=0.0, inplace=True)
     else:
-        df_index = analysis.ashare.index_zh_a_hist_min_em(symbol=symbol)
-        logger.trace(f"Create and feather index[{symbol}]")
-    df_index.sort_index(inplace=True)
-    if not df_index.empty:
+        df_index = analysis.ashare.index_zh_a_hist_min_em(symbol=symbol, today=False)
+    if df_index.empty:
+        logger.error(f"df_index {symbol} is empty")
+    else:
+        df_index.sort_index(inplace=True)
         feather.write_dataframe(df=df_index, dest=file_name_index_feather)
-    dt_update_index_data = df_index.index.max()
-    analysis.base.set_version(key=name, dt=dt_update_index_data)
+        if not os.path.exists(file_name_index_feather):
+            logger.trace(f"Create and feather index_[{symbol}]")
+        dt_update_index_data = df_index.index.max()
+        analysis.base.set_version(key=name, dt=dt_update_index_data)
     logger.trace(f"[{symbol}] update_index_data End")
     return df_index

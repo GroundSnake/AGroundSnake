@@ -114,13 +114,13 @@ def get_news(df_news: pd.DataFrame, stock: str = "开心汽车") -> str | None:
     return text_news
 
 
-def get_stock_news(df_news: pd.DataFrame, stock: str = "开心汽车") -> str | None:
+def get_stock_news(df_news: pd.DataFrame, stock: str = "开心汽车") -> str:
     stock_keyword = [
         r".*?免.*?职务?.*?】",
         r".*?因?.*?逮捕.*?】",
     ]
     text_stock = get_news(df_news=df_news, stock=stock)
-    text_return = None
+    text_return = ""
     if text_stock is not None:
         for pattern in stock_keyword:
             pattern = f"【{stock}：" + pattern

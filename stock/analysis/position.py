@@ -20,6 +20,7 @@ def position(index: str = "sh000001") -> str:
     logger.trace(f"position_control-[{name}] Begin")
     rank = 0
     i_rank = 0
+    position_rate = 0.75
     # 取得实时上证指数
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
@@ -42,13 +43,13 @@ def position(index: str = "sh000001") -> str:
             return f"{index} ERROR"
         str_pos_ctl = (
             f"[{nane_ssb}] - [{close_ssb} - {rank:3.0f}/{len_df_pos_ctl:3.0f}] --- "
-            f"[{df_pos_ctl.at[close_ssb, 'sun_descending']:5.2f}]"
+            f"[{df_pos_ctl.at[close_ssb, 'sun_descending'] * position_rate:5.2f}]"
         )
         if i_rank != 0:
             str_pos_ctl += fg.red(f" * Gap[{close_ssb_gap}]")
         logger.trace(f"position_control-[{name}] Break End")
         return str_pos_ctl
-    logger.trace(f"Update df_pos_ctl-[py_dbm_chip] Begin")
+    logger.trace(f"Update [{name}] Begin")
     dt_begin = datetime.datetime(year=2015, month=9, day=1)
     str_dt = dt_begin.strftime("%Y%m%d")
     str_now = datetime.datetime.now().strftime("%Y%m%d")
@@ -69,8 +70,11 @@ def position(index: str = "sh000001") -> str:
         func=lambda x: int(round(x, 0)) // 10 * 10
     )
     df_pos_ctl = pd.pivot_table(
-        data=df_index, index=["close"], aggfunc={"volume": np.sum, "close": len}
+        data=df_index, index=["close"], aggfunc={"volume": "sum", "close": "count"}
     )
+    print(df_pos_ctl)
+    import sys
+    sys.exit()
     dt_index_max = df_index.index.max()
     dt_index_max_date = dt_index_max.date()
     if dt_index_max < dt_pm_end:
@@ -129,7 +133,7 @@ def position(index: str = "sh000001") -> str:
         return f"{index} ERROR"
     str_pos_ctl = (
         f"[{nane_ssb}] - [{close_ssb} - {rank:3.0f}/{len_df_pos_ctl:3.0f}] --- "
-        f"[{df_pos_ctl.at[close_ssb, 'sun_descending']:5.2f}] -- {dt_index_max_date}"
+        f"[{df_pos_ctl.at[close_ssb, 'sun_descending'] * position_rate:5.2f}] -- {dt_index_max_date}"
     )
     if i_rank != 0:
         str_pos_ctl += fg.red(f" * Gap[{close_ssb_gap}]")

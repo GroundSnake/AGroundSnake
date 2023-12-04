@@ -8,7 +8,7 @@ import pywencai
 import analysis
 
 
-def limit_up_today(df_trader: pd.DataFrame) -> str:
+def limit_up_today(df_trader: pd.DataFrame, df_stocks_pool: pd.DataFrame = None) -> str:
     logger.trace("limit_up_today Begin")
     str_return = ""
     if df_trader.empty:
@@ -56,17 +56,24 @@ def limit_up_today(df_trader: pd.DataFrame) -> str:
     count = len(list_union)
     if count == 0:
         return str_return
+    if df_stocks_pool is None:
+        df_stocks_pool = pd.DataFrame()
     i = 0
     line_len = 4
     while i < count:
         symbol = list_union[i]
         i += 1
         pct_chg = decimal.Decimal(df_realtime.at[symbol, "pct_chg"]).quantize(
-            decimal.Decimal("0.0"), rounding=decimal.ROUND_DOWN
+            decimal.Decimal("0.00"), rounding=decimal.ROUND_DOWN
         )
-        str_symbol = f"[{df_realtime.at[symbol, 'name']}({symbol})_{pct_chg}%]"
+        str_symbol = f"[{df_realtime.at[symbol, 'name']}({symbol})_{pct_chg:.2f}%]"
         if df_trader.at[symbol, "position"] > 0:
-            str_symbol = fg.red(str_symbol)
+            if pct_chg > 7:
+                str_symbol = fg.purple(str_symbol)
+            else:
+                str_symbol = fg.red(str_symbol)
+        if symbol in df_stocks_pool.index:
+            str_symbol = fg.yellow(str_symbol)
         if str_return == "":
             str_return = f"{str_symbol}"
         elif i % line_len == 1:

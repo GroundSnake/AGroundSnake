@@ -18,6 +18,7 @@ import analysis.industry
 import analysis.index
 import analysis.concentration
 import analysis.dividend
+import analysis.convertible_bonds
 from analysis.const import (
     filename_chip_shelve,
     path_check,
@@ -26,6 +27,7 @@ from analysis.const import (
     dt_recent_fiscal_start,
     INDUSTRY_MAX_MIN,
     G_PRICE_MAX,
+    NOW_PRICE_MAX,
     lIST_DAYS_MAX,
     TOTAL_MV_E_MAX,
 )
@@ -122,7 +124,11 @@ def chip() -> object | DataFrame:
     if analysis.limit.worth_etf():
         pass
     else:
-        logger.error("load df_cap fail")
+        logger.error("load df_worth_etf fail")
+    if analysis.convertible_bonds.update_convertible_bonds_basic():
+        pass
+    else:
+        logger.error("load df_cb_basic fail")
     analysis.update_data.update_index_data(symbol="000001")
     analysis.update_data.update_index_data(symbol="000852")
     str_pos_ctl_zh = analysis.position(index="sh000001")
@@ -173,7 +179,12 @@ def chip() -> object | DataFrame:
             df_chip.at[symbol, "dividend_rate"] = 0
     analysis.base.write_obj_to_db(obj=df_chip, key=name, filename=filename_chip_shelve)
     df_g_price_1 = df_chip[
-        (df_chip["now_price_ratio"] <= 71.8) & (df_chip["now_price_ratio"] >= 51.8)
+        (df_chip["gold_section_volume"].between(19.1, 38.2))
+        & (df_chip[f"gold_price_min"] < df_chip[f"now_price"])
+        & (df_chip[f"gold_pct_max_min"] >= 50)
+        & (df_chip[f"gold_date_max"] > df_chip[f"gold_date_min"])
+        & (df_chip["gold_section_price"].between(19.1, 38.2))
+        & (df_chip["G_price"] <= G_PRICE_MAX)
     ]
     df_limit_2 = df_chip[
         (df_chip["correct_3pct_times"] >= 30)
@@ -184,6 +195,7 @@ def chip() -> object | DataFrame:
     df_exceed_industry_3 = df_chip[
         (df_chip["times_exceed_correct_industry"] >= 60)
         & (df_chip["mean_exceed_correct_industry"] >= 1.3)
+        & (df_chip["industry_code"].isin(values=list_industry_code_deviation))
     ]
     df_concentration_4 = df_chip[
         (df_chip["rate_concentration"] >= 60)
@@ -201,23 +213,19 @@ def chip() -> object | DataFrame:
     )
     df_stocks_pool = df_stocks_pool[~df_stocks_pool.index.duplicated(keep="first")]
     list_st = ["A+", "A-", "B+", "C+"]
-    # list_ssb_index = ["ssb_tail", "ssb_2000"]
     df_stocks_pool = df_stocks_pool[
-        (df_stocks_pool["list_days"] > lIST_DAYS_MAX)
+        (df_stocks_pool["list_days"] >= lIST_DAYS_MAX)
         & (df_stocks_pool["correct_7pct_times"] > 1)
-        & (df_stocks_pool["now_price_ratio"].between(36.8, 86.8))
-        & (df_stocks_pool["G_price"] <= G_PRICE_MAX)
         & (df_stocks_pool["total_mv_E"] <= TOTAL_MV_E_MAX)
-        & (df_stocks_pool["industry_code"].isin(values=list_industry_code_deviation))
         & (~df_stocks_pool["name"].str.contains("ST").fillna(False))
         & (df_stocks_pool["ST"].isin(values=list_st))
         & (~df_stocks_pool.index.str.contains("sh68"))
         & (~df_stocks_pool.index.str.contains("bj"))
-        & (df_stocks_pool["times_exceed_correct_industry"] >= 35)
-        & (df_stocks_pool["mean_exceed_correct_industry"] >= 0.7)
-        & (df_stocks_pool["profit_rate"] > phi_b_neg)
+        & (df_stocks_pool["profit_rate"] >= phi_b_neg)
         & (df_stocks_pool["dividend_rate"] > 0)
         & (df_stocks_pool["cash_div_end_dt"] >= dt_recent_fiscal_start)
+        & (df_stocks_pool["G_price"] >= df_stocks_pool["now_price"])
+        & (df_stocks_pool["now_price"] <= NOW_PRICE_MAX)
     ]
     df_stocks_pool["factor_count"] = 1
     df_stocks_pool["factor"] = None
@@ -255,8 +263,10 @@ def chip() -> object | DataFrame:
             "name",
             "list_days",
             "correct_7pct_times",
-            "now_price_ratio",
+            "gold_section_volume",
             "G_price",
+            "gold_section_price",
+            "gold_pct_max_min",
             "total_mv_E",
             "industry_code",
             "industry_name",

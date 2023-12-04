@@ -75,22 +75,25 @@ def capital() -> bool:
         df_cap["total_mv_E"].fillna(value=0.0, inplace=True)
         df_cap["list_days"] = df_cap["trade_date"] - df_cap["list_date"]
         df_cap["list_days"] = df_cap["list_days"].apply(func=lambda x: x.days)
-        df_cap["total_cap"] = df_cap["total_cap"] * 10000
-        df_cap["circ_cap"] = df_cap["circ_cap"] * 10000
+        df_cap["total_cap"] = (df_cap["total_cap"] * 10000).round(0)
+        df_cap["circ_cap"] = (df_cap["circ_cap"] * 10000).round(0)
         df_cap["total_mv_E"] = round(df_cap["total_mv_E"] / 10000, 2)
     if df_cap.empty:
         return False
     df_cap = df_cap.sample(frac=1)
     dt_delta = dt_history - datetime.timedelta(days=366)
     str_delta = dt_delta.strftime("%Y%m%d")
+    list_others = df_cap[df_cap["trade_date"] == dt_init].index.to_list()
     i = 0
-    count = len(df_cap)
-    for symbol in df_cap.index:
+    count = len(list_others)
+    for symbol in list_others:
         i += 1
         str_msg_bar = f"Capital Update: [{i:4d}/{count:4d}] - [{symbol}]"
+        """
         if df_cap.at[symbol, "trade_date"] != dt_init:
             print(f"\r{str_msg_bar} - Exist\033[K", end="")
             continue
+        """
         if random.randint(0, 5) == 3:
             feather.write_dataframe(df=df_cap, dest=filename_cap_feather_temp)
         ts_code = symbol[2:] + "." + symbol[:2].upper()
@@ -131,15 +134,19 @@ def capital() -> bool:
         df_daily_basic.set_index(keys="trade_date", inplace=True)
         dt_max = df_daily_basic.index.max()
         df_cap.at[symbol, "trade_date"] = dt_max
-        df_cap.at[symbol, "total_cap"] = df_daily_basic.at[dt_max, "total_share"]
-        df_cap.at[symbol, "circ_cap"] = df_daily_basic.at[dt_max, "float_share"]
+        df_cap.at[symbol, "total_cap"] = (
+            df_daily_basic.at[dt_max, "total_share"] * 10000
+        ).round(0)
+        df_cap.at[symbol, "circ_cap"] = (
+            df_daily_basic.at[dt_max, "float_share"] * 10000
+        ).round(0)
         df_cap.at[symbol, "total_mv_E"] = round(
             df_daily_basic.at[dt_max, "total_mv"] / 10000, 2
         )
         df_cap.at[symbol, "list_days"] = (
             dt_pm_end - df_cap.at[symbol, "list_date"]
         ).days
-        print(f"\r{str_msg_bar} - {dt_max.date()}\033[K", end="")
+        print(f"\r{str_msg_bar} - {dt_max.date()} - Update.\033[K")
     dt_trader = df_cap["trade_date"].max()
     if i >= count:
         print("\n", end="")  # 格式处理

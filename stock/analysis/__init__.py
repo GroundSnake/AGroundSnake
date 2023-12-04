@@ -9,6 +9,7 @@ from analysis.concentration import concentration_rate
 from analysis.wcuse import volume_price_rise
 from analysis.news import update_news, get_news, get_stock_news
 from analysis.limit_up_today import limit_up_today
+from analysis.convertible_bonds import realtime_cb
 from analysis.base import (
     is_trading_day,
     code_ths_to_ts,

@@ -1,4 +1,5 @@
 # modified at 2023/05/18 22::25
+import dbm
 import os
 import sys
 import time
@@ -99,12 +100,17 @@ class IndexSSB(object):
         logger.trace(f"__init__ End")
 
     def __read_df_from_dbm(self, key: str) -> pd.DataFrame:
-        with shelve.open(filename=self.filename_shelve, flag="r") as py_dbm:
-            try:
-                return py_dbm[key]
-            except KeyError as e:
-                logger.error(f"{repr(e.args[0])} does not exist and returns empty df")
-                return pd.DataFrame()
+        try:
+            with shelve.open(filename=self.filename_shelve, flag="r") as py_dbm:
+                try:
+                    return py_dbm[key]
+                except KeyError as e:
+                    logger.error(
+                        f"{repr(e.args[0])} does not exist and returns empty df"
+                    )
+                    return pd.DataFrame()
+        except dbm.error:
+            return pd.DataFrame()
 
     def __write_df_from_dbm(self, df: pd.DataFrame, key: str):
         if isinstance(df, pd.DataFrame):

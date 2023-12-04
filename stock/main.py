@@ -1,5 +1,4 @@
 # modified at 2023/05/18 22::25
-from __future__ import annotations
 import os
 import sys
 import datetime
@@ -59,13 +58,27 @@ def main() -> None:
     scan_interval = 20
     str_msg_concentration_rate = ""
     str_msg_concentration_additional = ""
-    # str_wc_use = ""
     str_limit_up = ""
     str_index_ssb_now = dict()
     int_news_id = 0
     int_news_id_latest = 0
     news_update_frq = 4  # 4 Hours
     list_all_code = all_chs_code()
+    str_stock_market_activity_items = ""
+    str_stock_market_activity_value = ""
+    # 加载df_trader Begin
+    df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
+    if df_trader.empty:
+        list_trader_columns = analysis.const.get_trader_columns(data_type="list")
+        list_trader_symbol = ["sh600519", "sz300750"]
+        df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
+        df_trader.index.rename(name="code", inplace=True)
+        df_trader = analysis.init_trader(df_trader=df_trader, sort=True)
+        analysis.write_obj_to_db(obj=df_trader, key="df_trader", filename=filename_chip_shelve)
+        logger.error("create df_trader and save.")
+    else:
+        df_trader["news"] = ""
+        df_trader["remark"] = ""
     # 加载df_industry_class Begin
     df_industry_member = analysis.read_df_from_db(
         key="df_industry_member", filename=filename_chip_shelve
@@ -101,46 +114,19 @@ def main() -> None:
         key="df_industry_rank", filename=filename_chip_shelve
     )
     # 加载df_industry_rank_pool End
-    # 加载df_trader Begin
-    df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
-    if df_trader.empty:
-        time.sleep(20)
-        list_trader_columns = [
-            "name",
-            "recent_price",
-            "position",
-            "position_unit",
-            "trx_unit_share",
-            "now_price",
-            "pct_chg",
-            "rise",
-            "fall",
-            "total_mv_E",
-            "ssb_index",
-            "stock_index",
-            "grade",
-            "recent_trading",
-            "ST",
-            "industry_code",
-            "industry_name",
-            "date_of_inclusion_first",
-            "date_of_inclusion_latest",
-            "times_of_inclusion",
-            "rate_of_inclusion",
-            "price_of_inclusion",
-            "pct_of_inclusion",
-            "remark",
-        ]
-        list_trader_symbol = ["sh600519", "sz300750"]
-        df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
-        df_trader.index.rename(name="code", inplace=True)
     df_stocks_pool = analysis.read_df_from_db(
         key="df_stocks_pool", filename=filename_chip_shelve
     )
+    str_add_stocks = ""
     if not df_stocks_pool.empty:
+        line_len = 5
         dt_inclusion = dt_pm_end
+        i = 0
         for code in df_stocks_pool.index:
+            i += 1
+            str_add_stock = f"[{df_stocks_pool.at[code, 'name']}({code})]"
             if code not in df_trader.index:
+                str_add_stock = fg.yellow(str_add_stock)
                 df_trader.at[code, "date_of_inclusion_first"] = dt_inclusion
                 df_trader.at[code, "price_of_inclusion"] = df_trader.at[
                     code, "recent_price"
@@ -152,6 +138,14 @@ def main() -> None:
                     code, "factor_count"
                 ]
             else:
+                if df_trader.at[code, "position"] > 0:
+                    str_add_stock = fg.purple(str_add_stock)
+                elif (
+                    df_trader.at[code, "date_of_inclusion_first"]
+                    == df_trader.at[code, "date_of_inclusion_latest"]
+                    == dt_inclusion
+                ):
+                    str_add_stock = fg.yellow(str_add_stock)
                 if (
                     df_trader.at[code, "date_of_inclusion_first"] == dt_init
                     or df_trader.at[code, "date_of_inclusion_latest"] == dt_init
@@ -170,6 +164,12 @@ def main() -> None:
                 df_trader.at[code, "factor_count"] = df_stocks_pool.at[
                     code, "factor_count"
                 ]
+            if str_add_stocks == "":
+                str_add_stocks = f"{str_add_stock}"
+            elif i % line_len == 1:
+                str_add_stocks += f"\n\r{str_add_stock}"
+            else:
+                str_add_stocks += f", {str_add_stock}"
     df_trader = analysis.init_trader(df_trader=df_trader, sort=True)
     # 保存df_trader----Begin
     analysis.write_obj_to_db(
@@ -318,44 +318,49 @@ def main() -> None:
                     os.rename(src=filename_input, dst=file_name_input_rename)
                 except Exception as e:
                     logger.error(f"[{filename_input}] rename file fail - {repr(e)}")
+                    time.sleep(2)
             # 增加修改删除df_data中的项目 End
-            df_stock_market_activity_legu = ak.stock_market_activity_legu()
-            df_stock_market_activity_legu.at[10, "value"] = (
-                df_stock_market_activity_legu.at[10, "value"]
-                .replace("\n", "")
-                .replace("\t", "")
-            )
-            df_stock_market_activity_legu.at[11, "value"] = pd.to_datetime(
-                df_stock_market_activity_legu.at[11, "value"]
-            )
-            str_stock_market_activity_items = (
-                fg.red(f"{df_stock_market_activity_legu.at[0, 'item']}   ")
-                + fg.green(f"{df_stock_market_activity_legu.at[4, 'item']}   ")
-                + f"{df_stock_market_activity_legu.at[1, 'item']}   "
-                f"{df_stock_market_activity_legu.at[5, 'item']}   "
-                f"{df_stock_market_activity_legu.at[2, 'item']}   "
-                f"{df_stock_market_activity_legu.at[6, 'item']}   "
-                f"{df_stock_market_activity_legu.at[3, 'item']}   "
-                f"{df_stock_market_activity_legu.at[7, 'item']}   "
-                f"{df_stock_market_activity_legu.at[8, 'item']}   "
-                f"{df_stock_market_activity_legu.at[9, 'item']}   "
-                f"{df_stock_market_activity_legu.at[10, 'item']}   "
-                f"{df_stock_market_activity_legu.at[11, 'value'].date()}"
-            )
-            str_stock_market_activity_value = (
-                fg.red(f"{df_stock_market_activity_legu.at[0, 'value']:4.0f}   ")
-                + fg.green(f"{df_stock_market_activity_legu.at[4, 'value']:4.0f}  ")
-                + f"{df_stock_market_activity_legu.at[1, 'value']:4.0f}   "
-                f"{df_stock_market_activity_legu.at[5, 'value']:4.0f}     "
-                f"{df_stock_market_activity_legu.at[2, 'value']:4.0f}       "
-                f"{df_stock_market_activity_legu.at[6, 'value']:4.0f}         "
-                f"{df_stock_market_activity_legu.at[3, 'value']:4.0f}        "
-                f"{df_stock_market_activity_legu.at[7, 'value']:4.0f}      "
-                f"{df_stock_market_activity_legu.at[8, 'value']:4.0f}  "
-                f"{df_stock_market_activity_legu.at[9, 'value']:4.0f}     "
-                f"{df_stock_market_activity_legu.at[10, 'value']}   "
-                f"{df_stock_market_activity_legu.at[11, 'value'].time()}"
-            )
+            try:
+                df_stock_market_activity_legu = ak.stock_market_activity_legu()
+            except TypeError as e:
+                print(f"{e}\a")
+            else:
+                df_stock_market_activity_legu.at[10, "value"] = (
+                    df_stock_market_activity_legu.at[10, "value"]
+                    .replace("\n", "")
+                    .replace("\t", "")
+                )
+                df_stock_market_activity_legu.at[11, "value"] = pd.to_datetime(
+                    df_stock_market_activity_legu.at[11, "value"]
+                )
+                str_stock_market_activity_items = (
+                    fg.red(f"{df_stock_market_activity_legu.at[0, 'item']}   ")
+                    + fg.green(f"{df_stock_market_activity_legu.at[4, 'item']}   ")
+                    + f"{df_stock_market_activity_legu.at[1, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[5, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[2, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[6, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[3, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[7, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[8, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[9, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[10, 'item']}   "
+                    f"{df_stock_market_activity_legu.at[11, 'value'].date()}"
+                )
+                str_stock_market_activity_value = (
+                    fg.red(f"{df_stock_market_activity_legu.at[0, 'value']:4.0f}   ")
+                    + fg.green(f"{df_stock_market_activity_legu.at[4, 'value']:4.0f}  ")
+                    + f"{df_stock_market_activity_legu.at[1, 'value']:4.0f}   "
+                    f"{df_stock_market_activity_legu.at[5, 'value']:4.0f}     "
+                    f"{df_stock_market_activity_legu.at[2, 'value']:4.0f}       "
+                    f"{df_stock_market_activity_legu.at[6, 'value']:4.0f}         "
+                    f"{df_stock_market_activity_legu.at[3, 'value']:4.0f}        "
+                    f"{df_stock_market_activity_legu.at[7, 'value']:4.0f}      "
+                    f"{df_stock_market_activity_legu.at[8, 'value']:4.0f}  "
+                    f"{df_stock_market_activity_legu.at[9, 'value']:4.0f}     "
+                    f"{df_stock_market_activity_legu.at[10, 'value']}   "
+                    f"{df_stock_market_activity_legu.at[11, 'value'].time()}"
+                )
             # 更新df_data，str_msg_rise，str_msg_fall------Begin
             # 调用实时数据接口，更新df_realtime Begin
             i_realtime = 0
@@ -429,6 +434,20 @@ def main() -> None:
                 elif pct_chg <= df_trader.at[code, "fall"]:
                     df_signal_buy.loc[code] = df_trader.loc[code]
                     list_signal_on_buy.append(code)
+                elif (
+                    df_trader.at[code, "recent_trading"] <= dt_init
+                    and 19.1 <= df_trader.at[code, "gold_section_price"] <= 38.2
+                    and 19.1 <= df_trader.at[code, "gold_section_volume"] <= 38.2
+                    and df_trader.at[code, "gold_pct_max_min"] >= 50
+                    and df_trader.at[code, "gold_date_max"]
+                    > df_trader.at[code, "gold_date_min"]
+                    and df_trader.at[code, "gold_price_min"]
+                    < now_price
+                    < df_trader.at[code, "G_price"]
+                ):
+                    df_trader.at[code, "remark"] = "Gold Section"
+                    df_signal_buy.loc[code] = df_trader.loc[code]
+                    list_signal_on_buy.append(code)
                 if code in df_signal_sell.index:
                     df_signal_sell.loc[code] = df_trader.loc[code]
                 if code in df_signal_buy.index:
@@ -462,6 +481,9 @@ def main() -> None:
                     by=[
                         "position_unit",
                         "recent_trading",
+                        "max_min",
+                        "gold_section_volume",
+                        "gold_pct_max_min",
                         "dividend_rate",
                         "factor_count",
                         "profit_rate",
@@ -469,7 +491,19 @@ def main() -> None:
                         "times_of_inclusion",
                         "pct_chg",
                     ],
-                    ascending=[True, True, True, True, True, True, True, False],
+                    ascending=[
+                        True,
+                        True,
+                        True,
+                        False,
+                        True,
+                        True,
+                        True,
+                        True,
+                        True,
+                        True,
+                        False,
+                    ],
                     inplace=True,
                 )
             if not df_signal_sell.empty:
@@ -525,16 +559,15 @@ def main() -> None:
                     if df_item.at[code, "position"] > 0:
                         msg_signal_code_2 = fg.purple(msg_signal_code_2)
                     msg_signal_code_3 = (
-                        f"[{df_trader.at[code, 'ST']}]"
-                        f"_({df_trader.at[code, 'profit_rate']}%PR"
-                        f" / {df_trader.at[code, 'dividend_rate']}%DR)"
+                        f"[{df_item.at[code, 'ST']}]"
+                        f"_({df_item.at[code, 'profit_rate']}%PR"
+                        f" / {df_item.at[code, 'dividend_rate']}%DR)"
                         f"_({int(df_item.at[code, 'cash_div_period'])}"
                         f"/{int(df_item.at[code, 'cash_div_excepted_period'])})Y"
                     )
-
                     if (
-                        df_trader.at[code, "profit_rate"] >= 5
-                        and df_trader.at[code, "dividend_rate"] >= 1
+                        df_item.at[code, "profit_rate"] >= 5
+                        and df_item.at[code, "dividend_rate"] >= 1
                         and df_item.at[code, "cash_div_year_times"] >= 2
                     ):
                         msg_signal_code_3 = fg.purple(msg_signal_code_3)
@@ -544,8 +577,14 @@ def main() -> None:
                         msg_signal_code_3 = fg.red(msg_signal_code_3)
                     industry_code = df_item.at[code, "industry_code"]
                     msg_signal_code_4 = (
-                        f"[{df_trader.at[code, 'industry_name']}] - [{industry_code}]"
+                        f"[{df_item.at[code, 'industry_name']}_({industry_code})]"
                     )
+                    if industry_code in df_industry_rank_pool.index:
+                        if (
+                            df_industry_rank_pool.at[industry_code, "T5_rank"] >= 56
+                            and df_industry_rank.at[industry_code, "T1_rank"] >= 66
+                        ):
+                            msg_signal_code_4 = fg.red(msg_signal_code_4)
                     msg_signal_code_5 = (
                         f"[Diff={df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
                     )
@@ -559,74 +598,98 @@ def main() -> None:
                         f"{df_industry_rank.at[industry_code, 'T60_rank']:02.0f} - "
                         f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}]"
                     )
-                    msg_signal_code_7 = (
-                        f"[{df_trader.at[code, 'times_exceed_correct_industry']}"
-                        f" - {df_trader.at[code, 'mean_exceed_correct_industry']:5.2f}]"
-                    )
-                    if industry_code in df_industry_rank_pool.index:
-                        if (
-                            df_industry_rank_pool.at[industry_code, "T5_rank"] >= 56
-                            and df_industry_rank.at[industry_code, "T1_rank"] >= 66
-                        ):
-                            msg_signal_code_4 = fg.purple(msg_signal_code_4)
                     if df_item.at[code, "max_min"] >= 45:
+                        msg_signal_code_5 = fg.red(msg_signal_code_5)
                         if df_industry_rank.at[industry_code, "T5_rank"] >= 60:
                             msg_signal_code_6 = fg.red(msg_signal_code_6)
                         elif df_industry_rank.at[industry_code, "T5_rank"] <= 16:
                             msg_signal_code_6 = fg.green(msg_signal_code_6)
-                    if (
-                        df_trader.at[code, "times_exceed_correct_industry"] >= 60
-                        and df_trader.at[code, "mean_exceed_correct_industry"] >= 1.3
-                    ):
-                        msg_signal_code_7 = fg.red(msg_signal_code_7)
-                    msg_signal_code_8 = f"[{df_trader.at[code, 'grade']}]"
-                    msg_signal_code_9 = f"{df_trader.at[code, 'stock_index']}"
-                    if df_trader.at[code, "G_price"] > df_trader.at[code, "now_price"]:
-                        msg_signal_code_9 = fg.red(msg_signal_code_9)
-                    msg_signal_code_10 = (
-                        f"[Rate:{df_trader.at[code, 'rate_of_inclusion']:6.2f}%]"
-                        f" - ({df_trader.at[code, 'times_of_inclusion']:3.0f})]"
+                    msg_signal_code_7 = (
+                        f"[{df_item.at[code, 'times_exceed_correct_industry']}"
+                        f" - {df_item.at[code, 'mean_exceed_correct_industry']:5.2f}]"
                     )
                     if (
-                        df_trader.at[code, "times_of_inclusion"] >= 5
-                        and df_trader.at[code, "rate_of_inclusion"] > phi_a
+                        df_item.at[code, "times_exceed_correct_industry"] >= 60
+                        and df_item.at[code, "mean_exceed_correct_industry"] >= 1.3
+                    ):
+                        msg_signal_code_7 = fg.red(msg_signal_code_7)
+                    msg_signal_code_amplitude = (
+                        f"[7pct_T:{int(df_item.at[code, '7Pct_T'])} - "
+                        f"T5_pct:{df_item.at[code, 'T5_pct']:.2f} - "
+                        f"T5_amp:{df_item.at[code, 'T5_amplitude']:.2f}]"
+                    )
+                    if (
+                        df_item.at[code, "7Pct_T"] > 1
+                        and df_item.at[code, "T5_pct"] > 5
+                        and df_item.at[code, "T5_amplitude"] > 3
+                    ):
+                        msg_signal_code_amplitude = fg.red(msg_signal_code_amplitude)
+                    msg_signal_code_10 = (
+                        f"[Rate:{df_item.at[code, 'rate_of_inclusion']:6.2f}%"
+                        f" - Inclusion:{int(df_item.at[code, 'times_of_inclusion'])}]"
+                    )
+                    if (
+                        df_item.at[code, "times_of_inclusion"] >= 5
+                        and df_item.at[code, "rate_of_inclusion"] > phi_a
                     ):
                         msg_signal_code_10 = fg.red(msg_signal_code_10)
                     msg_signal_code_11 = (
-                        f"[RT: {df_trader.at[code, 'recent_trading'].date()}]"
-                        f" - [FD: {df_trader.at[code, 'date_of_inclusion_first'].date()}]"
-                        f" - [LD: {df_trader.at[code, 'date_of_inclusion_latest'].date()}]"
+                        f"[RT: {df_item.at[code, 'recent_trading'].date()}]"
+                        f" - [FD: {df_item.at[code, 'date_of_inclusion_first'].date()}]"
+                        f" - [LD: {df_item.at[code, 'date_of_inclusion_latest'].date()}]"
                     )
-                    if df_trader.at[code, "recent_trading"] != dt_init:
+                    if df_item.at[code, "recent_trading"] != dt_init:
                         msg_signal_code_11 = fg.purple(msg_signal_code_11)
                     msg_signal_code_12 = (
-                        f"CON:[{df_trader.at[code, 'rate_concentration']:5.2f}%"
-                        f" - {df_trader.at[code, 'times_concentration']:3.0f}]"
-                        f" - [SSB:{df_trader.at[code, 'ssb_index']}"
-                        f" - {df_trader.at[code, 'total_mv_E']}E]"
+                        f"CON:[{df_item.at[code, 'rate_concentration']:5.2f}%"
+                        f" - {df_item.at[code, 'times_concentration']:3.0f}]"
+                        f" - [SSB:{df_item.at[code, 'ssb_index']}"
+                        f" - {df_item.at[code, 'total_mv_E']}E]"
                     )
-                    if pd.notnull(df_trader.at[code, "remark"]):
-                        msg_signal_code_13 = fg.red(
-                            f" * {df_trader.at[code, 'remark']}"
+                    msg_signal_code_gold = (
+                        f"[GS_p:{df_item.at[code, 'gold_section_price']:.2f}% - "
+                        f"GS_v:{df_item.at[code, 'gold_section_volume']:.2f}% - "
+                        f"PCT_MAX:{df_item.at[code, 'gold_pct_max_min']:.2f}%"
+                    )
+                    if (
+                        df_item.at[code, "gold_date_max"]
+                        > df_item.at[code, "gold_date_min"]
+                    ):
+                        msg_signal_code_gold += " - 〇]"
+                    else:
+                        msg_signal_code_gold += " - X]"
+                    if (
+                        19.1 <= df_item.at[code, "gold_section_price"] <= 38.2
+                        and 19.1 <= df_item.at[code, "gold_section_volume"] <= 38.2
+                        and df_item.at[code, "gold_pct_max_min"] >= 50
+                        and df_item.at[code, "gold_date_max"]
+                        > df_item.at[code, "gold_date_min"]
+                        and df_item.at[code, "gold_price_min"]
+                        < df_item.at[code, "now_price"]
+                        < df_trader.at[code, "G_price"]
+                    ):
+                        msg_signal_code_gold = fg.purple(msg_signal_code_gold)
+                    if df_item.at[code, "remark"] != "":
+                        msg_signal_code_remark = fg.purple(
+                            f" - Remark:{df_item.at[code, 'remark']}"
                         )
                     else:
-                        msg_signal_code_13 = ""
-                    if df_trader.at[code, "factor_count"] >= 2:
+                        msg_signal_code_remark = ""
+
+                    if df_item.at[code, "factor"] != "":
                         msg_signal_code_14 = fg.red(
-                            f"\n**** {df_trader.at[code, 'factor']}"
+                            f"\n**** {df_item.at[code, 'factor']}"
                         )
                     else:
                         msg_signal_code_14 = ""
-                    if pd.notnull(df_trader.at[code, "news"]):
-                        msg_signal_code_15 = f"\n**** {df_trader.at[code, 'news']}"
+                    if df_item.at[code, "news"] != "":
+                        msg_signal_code_15 = f"\nNews: {df_item.at[code, 'news']}"
                     else:
                         msg_signal_code_15 = ""
                     if item in "Buy":
                         msg_signal_code_1 = fg.lightgreen(msg_signal_code_1)
                     elif item in "Sell":
                         msg_signal_code_1 = fg.red(msg_signal_code_1)
-                    if "A" in msg_signal_code_8 and "Z" not in msg_signal_code_8:
-                        msg_signal_code_8 = fg.red(msg_signal_code_8)
                     msg_signal_code = (
                         "\n"
                         + msg_signal_code_1
@@ -643,17 +706,17 @@ def main() -> None:
                         + " - "
                         + msg_signal_code_7
                         + "\n---- "
-                        + msg_signal_code_8
-                        + " - "
-                        + msg_signal_code_9
+                        + msg_signal_code_amplitude
                         + "\n---- "
                         + msg_signal_code_10
                         + " - "
                         + msg_signal_code_11
                         + "\n---- "
                         + msg_signal_code_12
-                        + msg_signal_code_13
+                        + " - "
+                        + msg_signal_code_gold
                         + msg_signal_code_14
+                        + msg_signal_code_remark
                         + msg_signal_code_15
                         + "\n"
                     )
@@ -681,23 +744,32 @@ def main() -> None:
                     f"{str_dt_now_time}----modified: {fg.blue(str_msg_modified)}"
                 )
                 print("=" * 86)
-                print(str_msg_modified)
+                print(str_msg_modified,"\a")
             if str_msg_add:
                 str_msg_add = f"{str_dt_now_time}----add: {fg.red(str_msg_add)}"
                 print("=" * 86)
-                print(str_msg_add)
+                print(str_msg_add, "\a")
             if str_msg_del:
                 str_msg_del = f"{str_dt_now_time}----remove: {fg.green(str_msg_del)}"
                 print("=" * 86)
-                print(str_msg_del)
+                print(str_msg_del, "\a")
             if str_index_ssb_now:
-                print("=" * 86)
+                print("=" * 108)
                 print(str_index_ssb_now)
             if str_stock_market_activity_items or str_stock_market_activity_value:
                 print("#" * 108)
                 print(str_stock_market_activity_items)
                 print(str_stock_market_activity_value)
                 print("#" * 108)
+            str_cb = analysis.realtime_cb()
+            if str_cb:
+                print(f"===Convertible Bonds==={dt_now}", "=" * 58)
+                print(str_cb)
+                print("=" * 108)
+            if str_add_stocks:
+                print(f"===Add Stocks pool==={dt_now}", "=" * 60)
+                print(str_add_stocks)
+                print("=" * 108)
             if frq % 3 == 0:
                 filename_data_csv = os.path.join(
                     path_check, f"trader_{str_trading_path()}.csv"
@@ -709,7 +781,9 @@ def main() -> None:
                     str_msg_concentration_additional,
                 ) = analysis.concentration_rate()
             if frq % 6 == 0:  # 3 = 1 minutes, 6 = 2 minutes, 15 = 5 minutes
-                str_limit_up = analysis.limit_up_today(df_trader)
+                str_limit_up = analysis.limit_up_today(
+                    df_trader=df_trader, df_stocks_pool=df_stocks_pool
+                )
             """
             if frq % 15 == 0:  # 3 = 1 minutes, 6 = 2 minutes, 15 = 5 minutes
                 str_wc_use = analysis.volume_price_rise(df_trader)
@@ -729,7 +803,7 @@ def main() -> None:
                 print("=" * 108)
             """
             if str_wc_use:
-                print("===WC Use===", "=" * 95)
+                print("===Convertible_Bonds===", "=" * 65)
                 print(str_wc_use)
                 print("=" * 108)
             """

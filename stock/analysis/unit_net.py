@@ -1,5 +1,4 @@
 # modified at 2023/05/18 22::25
-import sys
 import datetime
 import pandas as pd
 from loguru import logger
@@ -21,23 +20,23 @@ def unit_net(sort: bool = False):
     )
     if df_trader.empty:
         logger.trace("df_trader empty")
-        sys.exit()
-    for code in df_trader.index:
-        if pd.notnull(df_trader.at[code, "position"]):
-            total_market_value += (
-                df_trader.at[code, "position"] * df_trader.at[code, "now_price"]
-            )
-    dt_now = datetime.datetime.now()
-    if dt_now < dt_am_start:
-        dt_date_trading = dt_date_trading_last_1T
     else:
-        dt_date_trading = dt_date_trading_last_T0
-    df_unit_net.at[dt_date_trading, "total_market_value"] = total_market_value
-    if sort:
-        df_unit_net.sort_index(inplace=True)
-    print(df_unit_net.tail(5))
-    analysis.base.write_obj_to_db(
-        obj=df_unit_net,
-        key=name,
-        filename=filename_chip_shelve,
-    )
+        for code in df_trader.index:
+            if pd.notnull(df_trader.at[code, "position"]):
+                total_market_value += (
+                    df_trader.at[code, "position"] * df_trader.at[code, "now_price"]
+                )
+        dt_now = datetime.datetime.now()
+        if dt_now < dt_am_start:
+            dt_date_trading = dt_date_trading_last_1T
+        else:
+            dt_date_trading = dt_date_trading_last_T0
+        df_unit_net.at[dt_date_trading, "total_market_value"] = total_market_value
+        if sort:
+            df_unit_net.sort_index(inplace=True)
+        print(df_unit_net.tail(5))
+        analysis.base.write_obj_to_db(
+            obj=df_unit_net,
+            key=name,
+            filename=filename_chip_shelve,
+        )

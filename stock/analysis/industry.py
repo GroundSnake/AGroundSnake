@@ -61,6 +61,8 @@ def reset_industry_member() -> bool:
     df_industry_member = analysis.base.read_df_from_db(
         key="df_industry_member", filename=filename_chip_shelve
     )
+    if df_industry_member.empty:
+        df_industry_member = pd.read_excel(io="df_industry_member.xlsx", index_col=0, header=0)
     df_industry_index = analysis.base.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
@@ -84,7 +86,24 @@ def reset_industry_member() -> bool:
     for industry_code in df_industry_index.index:
         i += 1
         srt_msg = f"[{i:02d}/{count_industry_code}] - [{industry_code}]"
-        df_ths_member = client_ts_pro.ths_member(ts_code=industry_code)
+        df_ths_member = pd.DataFrame()
+        i_times = 0
+        while i_times < 1:
+            i_times += 1
+            try:
+                df_ths_member = client_ts_pro.ths_member(ts_code=industry_code)
+            except Exception as e:
+                print(f"\r{srt_msg} - Sleep({i_times}) - {repr(e)}\033[K")
+                time.sleep(3)
+            else:
+                if df_ths_member.empty:
+                    print(f"\r{srt_msg} - Sleep({i_times}) - empty\033[K")
+                    time.sleep(1)
+                else:
+                    break
+        if df_ths_member.empty:
+            print(f"\r{srt_msg} df_ths_member is empty\033[K")
+            break
         df_ths_member["symbol"] = df_ths_member["code"].apply(
             func=analysis.base.code_ts_to_ths
         )
@@ -205,7 +224,6 @@ def update_industry_index_ths() -> bool:
     if i >= count_industry_index:
         print("\n", end="")  # 格式处理
     analysis.base.set_version(key=name, dt=dt_index_kline_industry)
-    print(dt_index_kline_industry)
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -417,14 +435,20 @@ def industry_rank():
         obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve
     )
     analysis.base.set_version(key=name, dt=dt_industry_rank)
-    df_industry_rank_pool = df_industry_rank[df_industry_rank["max_min"] >= 45]
-    df_industry_rank_pool = df_industry_rank_pool[
-        (df_industry_rank_pool["T5_rank"] >= 56)
-        | (df_industry_rank_pool["T5_rank"] <= 20)
+    const_diff = 50
+    const_max = 76 - const_diff / 2  # 49
+    const_min = const_diff / 2  # 49
+    const_max_min = const_diff - 20
+    df_industry_rank_pool = df_industry_rank[
+        df_industry_rank["max_min"] >= const_max_min
     ]
     df_industry_rank_pool = df_industry_rank_pool[
-        (df_industry_rank_pool["T20_rank"] >= 56)
-        | (df_industry_rank_pool["T20_rank"] <= 20)
+        (df_industry_rank_pool["T5_rank"] >= const_max)
+        | (df_industry_rank_pool["T5_rank"] <= const_min)
+    ]
+    df_industry_rank_pool = df_industry_rank_pool[
+        (df_industry_rank_pool["T20_rank"] >= const_max)
+        | (df_industry_rank_pool["T20_rank"] <= const_min)
     ]
     df_industry_rank_pool = df_industry_rank_pool[
         (df_industry_rank_pool["T40_rank"] >= 56)
@@ -435,8 +459,8 @@ def industry_rank():
         | (df_industry_rank_pool["T60_rank"] <= 20)
     ]
     df_industry_rank_pool = df_industry_rank_pool[
-        (df_industry_rank_pool["T80_rank"] >= 56)
-        | (df_industry_rank_pool["T80_rank"] <= 20)
+        (df_industry_rank_pool["T80_rank"] >= const_max)
+        | (df_industry_rank_pool["T80_rank"] <= const_min)
     ]
     if not df_industry_rank_pool.empty:
         df_industry_rank_pool.sort_values(

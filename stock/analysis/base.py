@@ -188,7 +188,7 @@ def read_df_from_db(key: str, filename: str) -> DataFrame:
                 return pd.DataFrame()
     except dbm.error as e:
         print(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
-        logger.trace(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
+        logger.trace(f"[{filename}] - [{key}] is not exist - Error[{repr(e)}]")
         return pd.DataFrame()
 
 

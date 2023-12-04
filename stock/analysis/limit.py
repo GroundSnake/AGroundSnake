@@ -85,6 +85,7 @@ def limit_count() -> bool:
                     start_date=str_delta,
                     end_date=str_date_trading,
                 )
+                time.sleep(0.01)
             except KeyError as e:
                 print(f"\r{str_msg_bar} - Sleep({i_times}) - {repr(e)}\033[K")
                 time.sleep(1)
@@ -200,12 +201,19 @@ def limit_count() -> bool:
 
 def worth_etf(frequency: str = "day") -> bool:
     name: str = f"df_worth_etf_{frequency}"
+    kline: str = f"update_kline_{frequency}"
     logger.trace(f"{name} Begin")
     if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
         logger.trace("Worth etf Break End")
         return True
-    if analysis.update_data.update_stock_data(frequency=frequency):
-        logger.trace("{kline} Update finish")
+    if analysis.base.is_latest_version(key=kline, filename=filename_chip_shelve):
+        pass
+    else:
+        logger.trace(f"Update the {frequency}_Kline")
+        if analysis.update_data.update_stock_data(frequency=frequency):
+            logger.trace(f"{frequency}_Kline Update finish")
+        else:
+            return False
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     file_name_dt_worth_etf = os.path.join(
         path_data, f"df_limit_etf_{str_dt_history_path}_{frequency}.ftr"
@@ -256,7 +264,6 @@ def worth_etf(frequency: str = "day") -> bool:
         )
     df_worth_etf.fillna(method="ffill", inplace=True)
     df_worth_etf.fillna(method="bfill", inplace=True)
-    df_worth_etf.sort_values(axis=1, by=df_worth_etf.index.max(), inplace=True)
     df_statistics_etf = pd.DataFrame(
         index=df_worth_etf.columns, columns=["max", "min", "diff"]
     )
@@ -270,9 +277,10 @@ def worth_etf(frequency: str = "day") -> bool:
         df_worth_etf[column] = round(df_worth_etf[column] / origin_worth, 4)
         df_statistics_etf.at[column, "max"] = df_worth_etf[column].max()
         df_statistics_etf.at[column, "min"] = df_worth_etf[column].min()
-        print(f"\r{msg_bar} net value \033[K", end="")
+        print(f"\r{msg_bar} net value\033[K", end="")
+    df_worth_etf.sort_values(axis=1, by=df_worth_etf.index.max(), inplace=True)
     if i >= len_worth_etf_columns:
-        print("\n", end="")  # 格式处理
+        print("\n\r\033[K", end="")  # 格式处理
         logger.trace(f"For loop End")
         df_statistics_etf["diff"] = df_statistics_etf["max"] - df_statistics_etf["min"]
         df_statistics_etf.sort_values(

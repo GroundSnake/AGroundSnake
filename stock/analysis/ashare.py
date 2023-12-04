@@ -475,7 +475,6 @@ def realtime_quotations(stock_codes: str | list) -> pd.DataFrame:
 
 
 def realtime_tdx(stock_codes: str | list) -> pd.DataFrame:
-    print(len(stock_codes))
     if not isinstance(stock_codes, list):
         list_stock_codes = [stock_codes]
     else:
@@ -576,7 +575,7 @@ def index_code_id_map_em() -> dict:
     return code_id_dict
 
 
-def index_zh_a_hist_min_em(symbol: str = "000001") -> pd.DataFrame:
+def index_zh_a_hist_min_em(symbol: str = "000001", today: bool = True) -> pd.DataFrame:
     code_id_dict = index_code_id_map_em()
     url = "http://push2his.eastmoney.com/api/qt/stock/trends2/get"
     try:
@@ -638,11 +637,12 @@ def index_zh_a_hist_min_em(symbol: str = "000001") -> pd.DataFrame:
     ]
     temp_df["day"] = pd.to_datetime(temp_df["day"])
     temp_df.set_index(keys=["day"], inplace=True)
-    dt_now_date = datetime.datetime.now().date()
-    time_start = datetime.time(hour=9, minute=30)
-    time_end = datetime.time(hour=15)
-    dt_start = datetime.datetime.combine(dt_now_date, time_start)
-    dt_end = datetime.datetime.combine(dt_now_date, time_end)
-    temp_df = temp_df[dt_start:dt_end]
-    temp_df = temp_df.applymap(func=float)
+    temp_df = temp_df.map(func=float)
+    if today:
+        dt_now_date = datetime.datetime.now().date()
+        time_start = datetime.time(hour=9, minute=30)
+        time_end = datetime.time(hour=15)
+        dt_start = datetime.datetime.combine(dt_now_date, time_start)
+        dt_end = datetime.datetime.combine(dt_now_date, time_end)
+        temp_df = temp_df[dt_start:dt_end]
     return temp_df
