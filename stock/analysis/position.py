@@ -1,6 +1,5 @@
 # modified at 2023/05/18 22::25
 import datetime
-import numpy as np
 import pandas as pd
 from loguru import logger
 import akshare as ak
@@ -20,7 +19,7 @@ def position(index: str = "sh000001") -> str:
     logger.trace(f"position_control-[{name}] Begin")
     rank = 0
     i_rank = 0
-    position_rate = 0.75
+    position_rate = 0.7
     # 取得实时上证指数
     df_index_realtime = ak.stock_zh_index_spot()
     df_index_realtime.set_index(keys="代码", inplace=True)
@@ -72,14 +71,10 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl = pd.pivot_table(
         data=df_index, index=["close"], aggfunc={"volume": "sum", "close": "count"}
     )
-    print(df_pos_ctl)
-    import sys
-    sys.exit()
     dt_index_max = df_index.index.max()
     dt_index_max_date = dt_index_max.date()
     if dt_index_max < dt_pm_end:
         logger.error(f"{name} is not update - [{dt_index_max}]")
-
     df_pos_ctl.rename(columns={"close": "count"}, inplace=True)  # _descending
     df_pos_ctl.sort_index(ascending=False, inplace=True)
     count_all = df_pos_ctl["count"].sum()

@@ -45,27 +45,27 @@ def top10_float_holders():
         path_data, f"df_top10_float_holders_temp_{str_dt_history_path}.ftr"
     )
     list_columns_basic = [
-            "hold_float_ratio_0Q",
-            "hold_float_ratio_1Q",
-            "hold_float_ratio_2Q",
-            "hold_float_ratio_3Q",
-            "hold_ratio_0Q",
-            "hold_ratio_1Q",
-            "hold_ratio_2Q",
-            "hold_ratio_3Q",
-            "hold_amount_E_0Q",
-            "hold_amount_E_1Q",
-            "hold_amount_E_2Q",
-            "hold_amount_E_3Q",
-            "hold_change_ratio_0Q",
-            "hold_change_ratio_1Q",
-            "hold_change_ratio_2Q",
-            "hold_change_ratio_3Q",
-            "hold_date_0Q",
-            "hold_date_1Q",
-            "hold_date_2Q",
-            "hold_date_3Q",
-        ]
+        "hold_float_ratio_0Q",
+        "hold_float_ratio_1Q",
+        "hold_float_ratio_2Q",
+        "hold_float_ratio_3Q",
+        "hold_ratio_0Q",
+        "hold_ratio_1Q",
+        "hold_ratio_2Q",
+        "hold_ratio_3Q",
+        "hold_amount_E_0Q",
+        "hold_amount_E_1Q",
+        "hold_amount_E_2Q",
+        "hold_amount_E_3Q",
+        "hold_change_ratio_0Q",
+        "hold_change_ratio_1Q",
+        "hold_change_ratio_2Q",
+        "hold_change_ratio_3Q",
+        "hold_date_0Q",
+        "hold_date_1Q",
+        "hold_date_2Q",
+        "hold_date_3Q",
+    ]
     if os.path.exists(filename_df_top10_float_holders_temp):
         df_top10_float_holders = feather.read_dataframe(
             source=filename_df_top10_float_holders_temp
@@ -155,12 +155,16 @@ def top10_float_holders():
                 hold_amount / 100000000
             ).__round__(2)
             if circ_cap > 0:
-                df_top10_float_holders.at[symbol, f"hold_change_ratio_{i_pivot}Q"] = float(
+                df_top10_float_holders.at[
+                    symbol, f"hold_change_ratio_{i_pivot}Q"
+                ] = float(
                     df_pivot.at[i_pivot, "hold_change"] / circ_cap * 100
-                ).__round__(2)
-                df_top10_float_holders.at[symbol, f"hold_float_ratio_{i_pivot}Q"] = float(
-                    hold_amount / circ_cap * 100
-                ).__round__(2)
+                ).__round__(
+                    2
+                )
+                df_top10_float_holders.at[
+                    symbol, f"hold_float_ratio_{i_pivot}Q"
+                ] = float(hold_amount / circ_cap * 100).__round__(2)
             if total_cap > 0:
                 df_top10_float_holders.at[symbol, f"hold_ratio_{i_pivot}Q"] = float(
                     hold_amount / total_cap * 100

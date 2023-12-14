@@ -20,17 +20,20 @@ from analysis.const import (
 )
 
 
-def init_trader(df_trader: pd.DataFrame, sort: bool = False, drop_count: int = 15) -> pd.DataFrame:
+def init_trader(
+    df_trader: pd.DataFrame, sort: bool = False, drop_count: int = 15
+) -> pd.DataFrame:
     logger.trace("init_trader Begin")
     df_chip = analysis.base.read_df_from_db(
         key="df_chip", filename=filename_chip_shelve
     )
-    i_chip = 1
-    while i_chip >= 0:
-        i_chip -= 1
+    if df_chip.empty:
         df_chip = analysis.chip()
-        if not df_chip.empty:
-            break
+    if df_chip.empty:
+        logger.error("df_chip is empty.")
+        import sys
+
+        sys.exit()
     i_realtime = 0
     df_realtime = pd.DataFrame()
     filename_drop_stock = os.path.join(
@@ -189,14 +192,17 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False, drop_count: int = 1
         for code in df_trader.index:
             days_recent_trading = (dt_now - df_trader.at[code, "recent_trading"]).days
             days_of_inclusion_latest = (
-                    dt_now - df_trader.at[code, "date_of_inclusion_latest"]
+                dt_now - df_trader.at[code, "date_of_inclusion_latest"]
             ).days
             if (
-                    df_trader.at[code, "position"] == 0
-                    and days_recent_trading > 60
-                    and days_of_inclusion_latest > 30
+                df_trader.at[code, "position"] == 0
+                and days_recent_trading > 60
+                and days_of_inclusion_latest > 30
             ):
-                if "ST" in df_trader.at[code, "ST"] or "ST" in df_trader.at[code, "name"]:
+                if (
+                    "ST" in df_trader.at[code, "ST"]
+                    or "ST" in df_trader.at[code, "name"]
+                ):
                     df_drop_stock.loc[code] = df_trader.loc[code]
                     df_trader.drop(index=code, inplace=True)
                 elif df_trader.at[code, "rate_of_inclusion"] < phi_a:
@@ -216,8 +222,8 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False, drop_count: int = 1
                     df_drop_stock.at[code, "drop"] = "profit_rate"
                     df_trader.drop(index=code, inplace=True)
                 elif (
-                        df_trader.at[code, "times_exceed_correct_industry"] < 35
-                        or df_trader.at[code, "mean_exceed_correct_industry"] < 0.7
+                    df_trader.at[code, "times_exceed_correct_industry"] < 35
+                    or df_trader.at[code, "mean_exceed_correct_industry"] < 0.7
                 ):
                     df_drop_stock.loc[code] = df_trader.loc[code]
                     df_drop_stock.at[code, "drop"] = "times_exceed_correct"
@@ -225,6 +231,11 @@ def init_trader(df_trader: pd.DataFrame, sort: bool = False, drop_count: int = 1
                 elif df_trader.at[code, "max_min"] < INDUSTRY_MAX_MIN:
                     df_drop_stock.loc[code] = df_trader.loc[code]
                     df_drop_stock.at[code, "drop"] = "max_min"
+                    df_trader.drop(index=code, inplace=True)
+                elif pd.isnull(df_trader.at[code, "factor"]):
+                    # Temporary conditions 2023-12-18 30days
+                    df_drop_stock.loc[code] = df_trader.loc[code]
+                    df_drop_stock.at[code, "drop"] = "factor_null"
                     df_trader.drop(index=code, inplace=True)
     if not df_drop_stock.empty:
         df_drop_stock.to_csv(path_or_buf=filename_drop_stock)

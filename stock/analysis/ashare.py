@@ -7,6 +7,7 @@ from functools import lru_cache
 import requests
 import datetime
 import pandas as pd
+from tqdm import tqdm
 from loguru import logger
 from fake_useragent import UserAgent
 import analysis
@@ -637,7 +638,7 @@ def index_zh_a_hist_min_em(symbol: str = "000001", today: bool = True) -> pd.Dat
     ]
     temp_df["day"] = pd.to_datetime(temp_df["day"])
     temp_df.set_index(keys=["day"], inplace=True)
-    temp_df = temp_df.map(func=float)
+    temp_df = temp_df.applymap(func=float)
     if today:
         dt_now_date = datetime.datetime.now().date()
         time_start = datetime.time(hour=9, minute=30)

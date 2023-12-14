@@ -9,7 +9,7 @@ import analysis
 from analysis.const import (
     time_pm_end,
     dt_init,
-    path_data,
+    path_temp,
     dt_trading_last_1T,
     dt_trading_last_T0,
     filename_chip_shelve,
@@ -32,7 +32,7 @@ def capital() -> bool:
     str_dt_history = dt_history.strftime("%Y%m%d")
     str_history_path = dt_history.strftime("%Y_%m_%d")
     filename_cap_feather_temp = os.path.join(
-        path_data, f"capital_temp_{str_history_path}.ftr"
+        path_temp, f"capital_temp_{str_history_path}.ftr"
     )
     if os.path.exists(filename_cap_feather_temp):
         df_cap = feather.read_dataframe(source=filename_cap_feather_temp)

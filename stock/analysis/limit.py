@@ -13,6 +13,7 @@ import analysis.update_data
 from analysis.const import (
     dt_init,
     path_data,
+    path_temp,
     dt_trading_last_T0,
     time_pm_end,
     filename_chip_shelve,
@@ -29,7 +30,7 @@ def limit_count() -> bool:
     logger.trace(f"{name} Begin")
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     file_name_df_limit_temp = os.path.join(
-        path_data, f"df_limit_count_temp_{str_dt_history_path}.ftr"
+        path_temp, f"df_limit_count_temp_{str_dt_history_path}.ftr"
     )
     dt_delta = dt_trading_last_T0 - datetime.timedelta(days=366)
     str_date_trading = dt_history().strftime("%Y%m%d")

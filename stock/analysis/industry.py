@@ -13,6 +13,7 @@ import analysis.base
 from analysis.const import (
     dt_init,
     path_data,
+    path_temp,
     dt_pm_end,
     time_pm_end,
     dt_history,
@@ -62,7 +63,9 @@ def reset_industry_member() -> bool:
         key="df_industry_member", filename=filename_chip_shelve
     )
     if df_industry_member.empty:
-        df_industry_member = pd.read_excel(io="df_industry_member.xlsx", index_col=0, header=0)
+        df_industry_member = pd.read_excel(
+            io="df_industry_member.xlsx", index_col=0, header=0
+        )
     df_industry_index = analysis.base.read_df_from_db(
         key="df_industry_index", filename=filename_chip_shelve
     )
@@ -250,7 +253,7 @@ def industry_pct() -> bool:
     )
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_pct = os.path.join(
-        path_data, f"industry_pct_temp_{str_dt_history_path}.ftr"
+        path_temp, f"industry_pct_temp_{str_dt_history_path}.ftr"
     )
     if os.path.exists(filename_industry_pct):
         df_industry_pct = feather.read_dataframe(source=filename_industry_pct)
@@ -490,7 +493,7 @@ def ths_industry() -> bool:
         return True
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_temp = os.path.join(
-        path_data, f"industry_temp_{str_dt_history_path}.ftr"
+        path_temp, f"industry_temp_{str_dt_history_path}.ftr"
     )
     if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
         if not update_industry_index_ths():
@@ -560,7 +563,10 @@ def ths_industry() -> bool:
                     end_date=str_date_trading,
                 )
             except requests.exceptions.ConnectionError as e:
-                print(f"\r{str_msg_bar} - {repr(e)}\033[K")
+                print(f"\r{str_msg_bar} - {repr(e)}.\033[K")
+                time.sleep(1)
+            except requests.exceptions.ReadTimeout as e:
+                print(f"\r{str_msg_bar} - {repr(e)}.\033[K")
                 time.sleep(1)
             else:
                 if df_daily.empty:

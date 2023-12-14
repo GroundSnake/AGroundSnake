@@ -9,7 +9,7 @@ from analysis.const import (
     dt_init,
     dt_history,
     filename_chip_shelve,
-    path_data,
+    path_temp,
     all_chs_code,
     dt_pm_end,
     client_ts_pro,
@@ -22,7 +22,7 @@ def cash_dividend(debug: bool = False):
     logger.trace(f"{name} Begin")
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     file_name_df_cash_div = os.path.join(
-        path_data, f"df_cash_div_{str_dt_history_path}.ftr"
+        path_temp, f"df_cash_div_{str_dt_history_path}.ftr"
     )
     if debug:
         print(f"debug {name}")

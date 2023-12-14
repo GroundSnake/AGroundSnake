@@ -105,6 +105,12 @@ if not os.path.exists(path_log):
 path_mv = os.path.join(path_data, f"mv")
 if not os.path.exists(path_mv):
     os.mkdir(path_mv)
+path_temp = os.path.join(path_data, f"temp")
+if not os.path.exists(path_temp):
+    os.mkdir(path_temp)
+path_chip = os.path.join(path_data, f"chip")
+if not os.path.exists(path_chip):
+    os.mkdir(path_chip)
 dt_trading_last_1T = latest_trading_day(days=-1)
 dt_trading_last_T0 = latest_trading_day()
 dt_trading_last_T1 = latest_trading_day(days=1)

@@ -3,6 +3,7 @@ import os
 import sys
 import datetime
 import time
+import pyttsx3
 import pandas as pd
 import akshare as ak
 from loguru import logger
@@ -74,7 +75,9 @@ def main() -> None:
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
         df_trader = analysis.init_trader(df_trader=df_trader, sort=True)
-        analysis.write_obj_to_db(obj=df_trader, key="df_trader", filename=filename_chip_shelve)
+        analysis.write_obj_to_db(
+            obj=df_trader, key="df_trader", filename=filename_chip_shelve
+        )
         logger.error("create df_trader and save.")
     else:
         df_trader["news"] = ""
@@ -323,7 +326,7 @@ def main() -> None:
             try:
                 df_stock_market_activity_legu = ak.stock_market_activity_legu()
             except TypeError as e:
-                print(f"{e}\a")
+                print(f"{e}")
             else:
                 df_stock_market_activity_legu.at[10, "value"] = (
                     df_stock_market_activity_legu.at[10, "value"]
@@ -557,7 +560,7 @@ def main() -> None:
                         f"{int(df_item.at[code, 'trx_unit_share']):3d})]"
                     )
                     if df_item.at[code, "position"] > 0:
-                        msg_signal_code_2 = fg.purple(msg_signal_code_2)
+                        msg_signal_code_2 = fg.red(msg_signal_code_2)
                     msg_signal_code_3 = (
                         f"[{df_item.at[code, 'ST']}]"
                         f"_({df_item.at[code, 'profit_rate']}%PR"
@@ -567,14 +570,15 @@ def main() -> None:
                     )
                     if (
                         df_item.at[code, "profit_rate"] >= 5
-                        and df_item.at[code, "dividend_rate"] >= 1
-                        and df_item.at[code, "cash_div_year_times"] >= 2
+                        and df_item.at[code, "dividend_rate"] >= 0.05
+                        and df_item.at[code, "cash_div_period"]
+                        >= df_item.at[code, "cash_div_excepted_period"]
                     ):
                         msg_signal_code_3 = fg.purple(msg_signal_code_3)
                     elif "ST" in msg_signal_code_3:
                         msg_signal_code_3 = fg.green(msg_signal_code_3)
                     elif "A+" in msg_signal_code_3:
-                        msg_signal_code_3 = fg.red(msg_signal_code_3)
+                        msg_signal_code_3 = fg.yellow(msg_signal_code_3)
                     industry_code = df_item.at[code, "industry_code"]
                     msg_signal_code_4 = (
                         f"[{df_item.at[code, 'industry_name']}_({industry_code})]"
@@ -584,12 +588,13 @@ def main() -> None:
                             df_industry_rank_pool.at[industry_code, "T5_rank"] >= 56
                             and df_industry_rank.at[industry_code, "T1_rank"] >= 66
                         ):
-                            msg_signal_code_4 = fg.red(msg_signal_code_4)
+                            msg_signal_code_4 = fg.purple(msg_signal_code_4)
+                            msg_signal_code_4 = fg.purple(msg_signal_code_4)
                     msg_signal_code_5 = (
                         f"[Diff={df_industry_rank.at[industry_code, 'max_min']:02.0f}]"
                     )
                     if df_industry_rank.at[industry_code, "max_min"] >= 60:
-                        msg_signal_code_5 = fg.red(msg_signal_code_5)
+                        msg_signal_code_5 = fg.purple(msg_signal_code_5)
                     msg_signal_code_6 = (
                         f"[{df_industry_rank.at[industry_code, 'T1_rank']:2.0f} - "
                         f"{df_industry_rank.at[industry_code, 'T5_rank']:02.0f} - "
@@ -599,22 +604,22 @@ def main() -> None:
                         f"{df_industry_rank.at[industry_code, 'T80_rank']:02.0f}]"
                     )
                     if df_item.at[code, "max_min"] >= 45:
-                        msg_signal_code_5 = fg.red(msg_signal_code_5)
+                        msg_signal_code_5 = fg.yellow(msg_signal_code_5)
                         if df_industry_rank.at[industry_code, "T5_rank"] >= 60:
-                            msg_signal_code_6 = fg.red(msg_signal_code_6)
+                            msg_signal_code_6 = fg.purple(msg_signal_code_6)
                         elif df_industry_rank.at[industry_code, "T5_rank"] <= 16:
                             msg_signal_code_6 = fg.green(msg_signal_code_6)
                     msg_signal_code_7 = (
-                        f"[{df_item.at[code, 'times_exceed_correct_industry']}"
-                        f" - {df_item.at[code, 'mean_exceed_correct_industry']:5.2f}]"
+                        f"[EX_ts:{df_item.at[code, 'times_exceed_correct_industry']}"
+                        f" - EX_avg:{df_item.at[code, 'mean_exceed_correct_industry']:5.2f}]"
                     )
                     if (
                         df_item.at[code, "times_exceed_correct_industry"] >= 60
                         and df_item.at[code, "mean_exceed_correct_industry"] >= 1.3
                     ):
-                        msg_signal_code_7 = fg.red(msg_signal_code_7)
+                        msg_signal_code_7 = fg.purple(msg_signal_code_7)
                     msg_signal_code_amplitude = (
-                        f"[7pct_T:{int(df_item.at[code, '7Pct_T'])} - "
+                        f"[7pct_Ts:{int(df_item.at[code, '7Pct_T']):2d} - "
                         f"T5_pct:{df_item.at[code, 'T5_pct']:.2f} - "
                         f"T5_amp:{df_item.at[code, 'T5_amplitude']:.2f}]"
                     )
@@ -623,7 +628,7 @@ def main() -> None:
                         and df_item.at[code, "T5_pct"] > 5
                         and df_item.at[code, "T5_amplitude"] > 3
                     ):
-                        msg_signal_code_amplitude = fg.red(msg_signal_code_amplitude)
+                        msg_signal_code_amplitude = fg.purple(msg_signal_code_amplitude)
                     msg_signal_code_10 = (
                         f"[Rate:{df_item.at[code, 'rate_of_inclusion']:6.2f}%"
                         f" - Inclusion:{int(df_item.at[code, 'times_of_inclusion'])}]"
@@ -632,7 +637,7 @@ def main() -> None:
                         df_item.at[code, "times_of_inclusion"] >= 5
                         and df_item.at[code, "rate_of_inclusion"] > phi_a
                     ):
-                        msg_signal_code_10 = fg.red(msg_signal_code_10)
+                        msg_signal_code_10 = fg.purple(msg_signal_code_10)
                     msg_signal_code_11 = (
                         f"[RT: {df_item.at[code, 'recent_trading'].date()}]"
                         f" - [FD: {df_item.at[code, 'date_of_inclusion_first'].date()}]"
@@ -659,8 +664,8 @@ def main() -> None:
                     else:
                         msg_signal_code_gold += " - X]"
                     if (
-                        19.1 <= df_item.at[code, "gold_section_price"] <= 38.2
-                        and 19.1 <= df_item.at[code, "gold_section_volume"] <= 38.2
+                        19.1 <= df_item.at[code, "gold_section_price"] <= 28.65
+                        and 19.1 <= df_item.at[code, "gold_section_volume"] <= 28.65
                         and df_item.at[code, "gold_pct_max_min"] >= 50
                         and df_item.at[code, "gold_date_max"]
                         > df_item.at[code, "gold_date_min"]
@@ -670,7 +675,7 @@ def main() -> None:
                     ):
                         msg_signal_code_gold = fg.purple(msg_signal_code_gold)
                     if df_item.at[code, "remark"] != "":
-                        msg_signal_code_remark = fg.purple(
+                        msg_signal_code_remark = fg.red(
                             f" - Remark:{df_item.at[code, 'remark']}"
                         )
                     else:
@@ -707,14 +712,14 @@ def main() -> None:
                         + msg_signal_code_7
                         + "\n---- "
                         + msg_signal_code_amplitude
+                        + " - "
+                        + msg_signal_code_gold
                         + "\n---- "
                         + msg_signal_code_10
                         + " - "
                         + msg_signal_code_11
                         + "\n---- "
                         + msg_signal_code_12
-                        + " - "
-                        + msg_signal_code_gold
                         + msg_signal_code_14
                         + msg_signal_code_remark
                         + msg_signal_code_15
@@ -729,30 +734,36 @@ def main() -> None:
                 if msg_signal:
                     if item in "Sell":
                         print(f"====<Suggest {item}>====\a", "=" * 60)
+                        pyttsx3.speak("Sell signal")
                     else:
                         print(f"====<Suggest {item}>====", "=" * 61)
                     print(msg_signal)
             if msg_signal_t0:
                 print(f"====<T0>====", "=" * 74)
                 print(msg_signal_t0)
+                pyttsx3.speak("Reverse trading signal")
             if msg_signal_chg:
-                print(f"====<Change>====\a", "=" * 70)
+                print(f"====<Change>====", "=" * 70)
                 print(msg_signal_chg)
+                pyttsx3.speak("Changing trading signals")
             # 更新df_data，str_msg_rise，str_msg_fall------End
             if str_msg_modified:
                 str_msg_modified = (
                     f"{str_dt_now_time}----modified: {fg.blue(str_msg_modified)}"
                 )
                 print("=" * 86)
-                print(str_msg_modified,"\a")
+                print(str_msg_modified)
+                pyttsx3.speak("Record modified")
             if str_msg_add:
                 str_msg_add = f"{str_dt_now_time}----add: {fg.red(str_msg_add)}"
                 print("=" * 86)
-                print(str_msg_add, "\a")
+                print(str_msg_add)
+                pyttsx3.speak("Record add")
             if str_msg_del:
                 str_msg_del = f"{str_dt_now_time}----remove: {fg.green(str_msg_del)}"
                 print("=" * 86)
-                print(str_msg_del, "\a")
+                print(str_msg_del)
+                pyttsx3.speak("Record deleted")
             if str_index_ssb_now:
                 print("=" * 108)
                 print(str_index_ssb_now)
@@ -815,7 +826,7 @@ def main() -> None:
             print(str_msg_loop_end)
             # 收盘前集合竟价：14:57 -- 15:00 响玲
             if dt_pm_1457 < dt_now <= dt_pm_end:
-                print("\a", end="")
+                pyttsx3.speak("Collective bidding time.")
                 scan_interval = 60
             dt_now = datetime.datetime.now()
             dt_now_delta = dt_now + datetime.timedelta(seconds=scan_interval)
@@ -826,9 +837,9 @@ def main() -> None:
             sleep_to_time(dt_time=dt_pm_start, seconds=4)
             # -----当前时间与当日指定时间的间隔时间计算-----
         else:
-            print("\a\r", end="")
+            pyttsx3.speak("Outside of trading hours and Update chip.")
             df_chip = analysis.chip()
-            print(df_chip)
+            print("\n", df_chip)
             dt_now = datetime.datetime.now()
             if dt_now < dt_am_0910:
                 sleep_to_time(dt_time=dt_am_start, seconds=2)
@@ -838,18 +849,18 @@ def main() -> None:
                 logger.trace(f"Program End")
                 print(f"Program End")
                 if running_state == "NORMAL":
+                    print(f"The program will shut down the computer.")
                     time.sleep(30)
                     os.system("shutdown -s -t 15")
-                    time.sleep(30)
                 else:
                     sys.exit()
             elif dt_now > dt_pm_2215:
-                logger.trace(f"Program End")
-                print(f"Program End")
+                logger.trace(f"The Program End")
+                print(f"The Program End")
                 if running_state == "NORMAL":
+                    print(f"The program will shut down the computer.")
                     time.sleep(30)
                     os.system("shutdown -s -t 15")
-                    time.sleep(30)
                 else:
                     sys.exit()
         frq += 1

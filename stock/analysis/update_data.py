@@ -13,6 +13,7 @@ from analysis.const import (
     dt_history,
     path_data,
     path_index,
+    path_temp,
     dt_init,
     dt_pm_end,
     filename_chip_shelve,
@@ -39,7 +40,7 @@ def update_stock_data(
         os.mkdir(path_kline)
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     file_name_catalogue_temp = os.path.join(
-        path_data, f"df_catalogue_temp_{str_dt_history_path}_{frequency}.ftr"
+        path_temp, f"df_catalogue_temp_{str_dt_history_path}_{frequency}.ftr"
     )
     if reset_catalogue:
         analysis.base.delete_obj_from_db(
@@ -94,7 +95,7 @@ def update_stock_data(
             if df_catalogue.at[symbol, "end"] == dt_pm_end:
                 print(
                     f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Latest[Reset].\033[K",
-                    end=""
+                    end="",
                 )
                 continue
         df_delta = pd.DataFrame()
@@ -162,8 +163,7 @@ def update_stock_data(
         if random.randint(a=0, b=9) == 5:
             feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         print(
-            f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update.\033[K",
-            end=""
+            f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update.\033[K", end=""
         )
     if i >= count:
         print("\n", end="")
@@ -201,7 +201,13 @@ def update_index_data(symbol: str = "000001") -> pd.DataFrame:
         # 读取腌制数据 catalogue
         df_index = feather.read_dataframe(source=file_name_index_feather)
         logger.trace(f"Load index[{symbol}] feather from [{file_name_index_feather}]")
-        df_index_delta = analysis.ashare.index_zh_a_hist_min_em(symbol=symbol, today=True)
+        df_index_delta = analysis.ashare.index_zh_a_hist_min_em(
+            symbol=symbol, today=True
+        )
+        if df_index_delta.empty:
+            df_index_delta = analysis.ashare.index_zh_a_hist_min_em(
+                symbol=symbol, today=False
+            )
         df_index = pd.concat(objs=[df_index, df_index_delta], axis=0, join="outer")
         df_index = df_index[~df_index.index.duplicated(keep="last")]
         df_index.fillna(value=0.0, inplace=True)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 import time
+import math
 import datetime
 import random
 import feather
@@ -13,7 +14,7 @@ import analysis.base
 from analysis.const import (
     phi,
     path_main,
-    path_data,
+    path_temp,
     dt_history,
     filename_chip_shelve,
     dt_init,
@@ -56,7 +57,7 @@ def golden_price(
         os.mkdir(path_kline)
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_df_golden_temp = os.path.join(
-        path_data, f"df_golden_temp_{str_dt_history_path}.ftr"
+        path_temp, f"df_golden_temp_{str_dt_history_path}.ftr"
     )
     if os.path.exists(filename_df_golden_temp):
         df_golden = feather.read_dataframe(source=filename_df_golden_temp)
@@ -65,6 +66,7 @@ def golden_price(
         list_columns = [
             "dt",
             "total_volume",
+            "gold_section",
             "now_price",
             "gold_section_volume",
             "G_price",
@@ -76,7 +78,7 @@ def golden_price(
         ]
         df_golden = pd.DataFrame(index=list_code, columns=list_columns)
         df_golden["dt"].fillna(value=dt_init, inplace=True)
-        df_golden.fillna(value=0, inplace=True)
+        df_golden.fillna(value=0.0, inplace=True)
         feather.write_dataframe(df=df_golden, dest=filename_df_golden_temp)
     if df_golden.empty:
         logger.error("df_golden empty")
@@ -166,6 +168,18 @@ def golden_price(
                 signal_volume = False
             if not signal_price and not signal_volume:
                 break
+        alpha_gs_min = min(
+            df_golden.at[symbol, "gold_section_price"],
+            df_golden.at[symbol, "gold_section_volume"],
+        )
+        alpha_gs_max = max(
+            df_golden.at[symbol, "gold_section_price"],
+            df_golden.at[symbol, "gold_section_volume"],
+        )
+        if alpha_gs_max > 0 and alpha_gs_min > 0:
+            df_golden.at[symbol, "gold_section"] = math.floor(
+                pow(alpha_gs_min, 2) / alpha_gs_max
+            )
         if random.randint(a=0, b=9) == 5:
             feather.write_dataframe(df=df_golden, dest=filename_df_golden_temp)
     if i >= all_record:
