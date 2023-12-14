@@ -1,5 +1,4 @@
 # modified at 2023/05/18 22::25
-import dbm
 import os
 import sys
 import time
@@ -11,6 +10,7 @@ import random
 import win32file
 import shelve
 import pandas as pd
+from pathlib import Path
 from loguru import logger
 from pyecharts.charts import Line, Page
 import pyecharts.options as opts
@@ -31,15 +31,25 @@ class IndexSSB(object):
         self.__name = "IndexSSB"
         logger.trace(f"__init__ Begin")
         self.__pro = client_ts_pro
-        self.date_origin = datetime.date(year=origin, month=1, day=1)
+        self.date_origin = datetime.date(year=origin, month=12, day=1)
         self.dt_time_1500 = datetime.time(hour=15, minute=0, second=0, microsecond=0)
         self.str_date_origin = self.date_origin.strftime("%Y%m%d")
         self.date_now = datetime.datetime.now().date()
         self.str_date_now = self.date_now.strftime("%Y%m%d")
         path_main = os.getcwd()
         self.path_mv = os.path.join(path_main, "data", "mv")
+        if not os.path.exists(self.path_mv):
+            os.mkdir(self.path_mv)
+        self.path_data = os.path.join(path_main, "data", "mv", "data")
+        if not os.path.exists(self.path_data):
+            os.mkdir(self.path_data)
+        self.path_temp = os.path.join(path_main, "data", "mv", "temp")
+        if not os.path.exists(self.path_temp):
+            os.mkdir(self.path_temp)
         self.path_check = os.path.join(path_main, "check")
-        self.filename_shelve = os.path.join(self.path_mv, f"mv")
+        if not os.path.exists(self.path_check):
+            os.mkdir(self.path_check)
+        # self.filename_shelve = os.path.join(self.path_mv, f"mv")
         self.filename_index_charts = os.path.join(self.path_check, "index_charts.html")
         self.filename_index_charts_min = os.path.join(
             self.path_check, "index_charts_min.html"
@@ -57,7 +67,9 @@ class IndexSSB(object):
             )
         )
         df_trade_cal.set_index(keys=["cal_date"], inplace=True)
-        self.df_index_exist = self.__read_df_from_dbm(key="df_index_exist")
+        self.df_index_exist = self.__feather_from_file(
+            key="df_index_exist", path_folder=self.path_mv
+        )
         if self.df_index_exist.empty:
             logger.error("df_index_exist is not exist")
             self.df_index_exist = df_trade_cal
@@ -68,7 +80,9 @@ class IndexSSB(object):
             self.df_index_exist = self.df_index_exist.reindex(index=df_trade_cal.index)
             self.df_index_exist["is_open"] = df_trade_cal["is_open"]
         self.df_index_exist.fillna(value=0, inplace=True)
-        self.__write_df_from_dbm(df=self.df_index_exist, key="df_index_exist")
+        self.__feather_to_file(
+            df=self.df_index_exist, key="df_index_exist", path_folder=self.path_mv
+        )
         self.df_mv = self.__pro.stock_basic(
             exchange="",
             list_status="L",
@@ -99,23 +113,23 @@ class IndexSSB(object):
             self.shelve_to_excel()
         logger.trace(f"__init__ End")
 
-    def __read_df_from_dbm(self, key: str) -> pd.DataFrame:
-        try:
-            with shelve.open(filename=self.filename_shelve, flag="r") as py_dbm:
-                try:
-                    return py_dbm[key]
-                except KeyError as e:
-                    logger.error(
-                        f"{repr(e.args[0])} does not exist and returns empty df"
-                    )
-                    return pd.DataFrame()
-        except dbm.error:
+    @staticmethod
+    def __feather_from_file(key: str, path_folder: str) -> pd.DataFrame:
+        filename_df = os.path.join(path_folder, f"{key}.ftr")
+        if os.path.exists(filename_df):
+            df = feather.read_dataframe(source=filename_df)
+            if isinstance(df, pd.DataFrame):
+                return df
+            else:
+                return pd.DataFrame()
+        else:
             return pd.DataFrame()
 
-    def __write_df_from_dbm(self, df: pd.DataFrame, key: str):
+    @staticmethod
+    def __feather_to_file(df: pd.DataFrame, key: str, path_folder: str):
         if isinstance(df, pd.DataFrame):
-            with shelve.open(filename=self.filename_shelve, flag="c") as py_dbm:
-                py_dbm[key] = df
+            filename_df = os.path.join(path_folder, f"{key}.ftr")
+            feather.write_dataframe(df=df, dest=filename_df)
         else:
             logger.error(f"{key} is not DataFrame")
 
@@ -143,11 +157,11 @@ class IndexSSB(object):
         str_df_mv = f"mv_{str_date_pos_ul}"
         str_date_pos = dt_pos.strftime("%Y%m%d")
         filename_df_mv_temp = os.path.join(
-            self.path_mv, f"df_mv_temp_{str_date_pos_ul}.ftr"
+            self.path_temp, f"df_mv_temp_{str_date_pos_ul}.ftr"
         )
-        df_mv = self.__read_df_from_dbm(key=str_df_mv)
+        df_mv = self.__feather_from_file(key=str_df_mv, path_folder=self.path_data)
         if df_mv.empty:
-            print(f"{name} - [{str_df_mv}] not in shelve")
+            print(f"{name} - [{str_df_mv}] is not exist.")
             if os.path.exists(filename_df_mv_temp):
                 df_mv = feather.read_dataframe(source=filename_df_mv_temp)
             else:
@@ -376,7 +390,7 @@ class IndexSSB(object):
         if i >= count:
             print("\n", end="")  # 格式处理
             df_mv.dropna(inplace=True)
-            df_mv.applymap(
+            df_mv.map(
                 func=lambda x: round(x / 10000, 2)
                 if (isinstance(x, (int, float)) and x > 100)
                 else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x)
@@ -384,8 +398,14 @@ class IndexSSB(object):
             date_mv_max = df_mv["now_dt"].max()
             if date_mv_max == dt_pos:
                 self.df_index_exist.at[dt_pos, name] = 1
-                self.__write_df_from_dbm(df=self.df_index_exist, key="df_index_exist")
-                self.__write_df_from_dbm(df=df_mv, key=str_df_mv)
+                self.__feather_to_file(
+                    df=self.df_index_exist,
+                    key="df_index_exist",
+                    path_folder=self.path_mv,
+                )
+                self.__feather_to_file(
+                    df=df_mv, key=str_df_mv, path_folder=self.path_data
+                )
             if os.path.exists(filename_df_mv_temp):
                 os.remove(path=filename_df_mv_temp)
         logger.trace(f"{name} End")
@@ -405,7 +425,7 @@ class IndexSSB(object):
             return True
         bool_get_mv = self.__get_market_values(dt_pos=dt_pos)
         if bool_get_mv:
-            df_mv = self.__read_df_from_dbm(key=str_df_mv)
+            df_mv = self.__feather_from_file(key=str_df_mv, path_folder=self.path_data)
             if df_mv.empty:
                 logger.error(f"{str_df_mv} is not exist, sys exit")
                 sys.exit()
@@ -414,7 +434,9 @@ class IndexSSB(object):
             return False
         df_mv_non_st = df_mv[~df_mv["name"].str.contains("ST").fillna(False)].copy()
         df_mv_st = df_mv[df_mv["name"].str.contains("ST").fillna(False)].copy()
-        df_index_ssb = self.__read_df_from_dbm(key="df_index_ssb")
+        df_index_ssb = self.__feather_from_file(
+            key="df_index_ssb", path_folder=self.path_mv
+        )
         if df_index_ssb.empty:
             logger.error(f"load df_index_ssb from py_dbm fail - [non exist]")
             df_index_ssb = pd.DataFrame(
@@ -503,28 +525,33 @@ class IndexSSB(object):
                 ascending=False,
                 inplace=True,
             )
-            df_mv_n = df_mv_n.applymap(
+            df_mv_n = df_mv_n.map(
                 func=lambda x: round(x / 10000, 2)
                 if (isinstance(x, (int, float)) and x > 100)
                 else (round(x, 4) if (isinstance(x, (int, float)) and x < 100) else x)
             )
             dict_df_index_n[key] = df_mv_n
-        with shelve.open(filename=self.filename_shelve, flag="c") as py_dbm:
-            i = 0
-            count = len(dict_df_index_n)
-            for key in dict_df_index_n:
-                i += 1
-                df_mv_n_name = f"df_mv_{key}"
-                py_dbm[df_mv_n_name] = dict_df_index_n[key]
-                print(
-                    f"\r{name} - {dt_pos.date()} - [{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K",
-                    end="",
-                )
+        i = 0
+        count = len(dict_df_index_n)
+        for key in dict_df_index_n:
+            i += 1
+            df_mv_n_name = f"df_mv_{key}"
+            self.__feather_to_file(
+                df=dict_df_index_n[key], key=df_mv_n_name, path_folder=self.path_mv
+            )
+            print(
+                f"\r{name} - {dt_pos.date()} - [{i:2d}/{count:2d}] - {df_mv_n_name} - save\033[K",
+                end="",
+            )
         if i >= count:
             print("\n", end="")
             self.df_index_exist.at[dt_pos, name] = 1
-            self.__write_df_from_dbm(df=self.df_index_exist, key="df_index_exist")
-            self.__write_df_from_dbm(df=df_index_ssb, key="df_index_ssb")
+            self.__feather_to_file(
+                df=self.df_index_exist, key="df_index_exist", path_folder=self.path_mv
+            )
+            self.__feather_to_file(
+                df=df_index_ssb, key="df_index_ssb", path_folder=self.path_mv
+            )
         logger.trace(f"{name} End")
         return True
 
@@ -556,7 +583,9 @@ class IndexSSB(object):
     def __make_charts(self):
         name = "make_charts"
         logger.trace(f"{name} Begin")
-        df_index_ssb = self.__read_df_from_dbm(key="df_index_ssb")
+        df_index_ssb = self.__feather_from_file(
+            key="df_index_ssb", path_folder=self.path_mv
+        )
         if df_index_ssb.empty:
             logger.error(f"df_index_ssb is not exist")
             return
@@ -662,18 +691,19 @@ class IndexSSB(object):
     def stocks_in_ssb(self) -> pd.DataFrame:
         name = "stocks_in_ssb"
         logger.trace(f"{name} Begin")
-        with shelve.open(filename=self.filename_shelve, flag="r") as py_dbm:
-            try:
-                df_mv_50 = py_dbm["df_mv_50"]
-                df_mv_300 = py_dbm["df_mv_300"]
-                df_mv_500 = py_dbm["df_mv_500"]
-                df_mv_1000 = py_dbm["df_mv_1000"]
-                df_mv_2000 = py_dbm["df_mv_2000"]
-                df_mv_tail = py_dbm["df_mv_tail"]
-                df_mv_st = py_dbm["df_mv_st"]
-            except KeyError as e:
-                logger.error(f"df_mv_n is not exist - {repr(e)}")
-                return pd.DataFrame()
+        df_mv_50 = self.__feather_from_file(key="df_mv_50", path_folder=self.path_mv)
+        df_mv_300 = self.__feather_from_file(key="df_mv_300", path_folder=self.path_mv)
+        df_mv_500 = self.__feather_from_file(key="df_mv_500", path_folder=self.path_mv)
+        df_mv_1000 = self.__feather_from_file(
+            key="df_mv_1000", path_folder=self.path_mv
+        )
+        df_mv_2000 = self.__feather_from_file(
+            key="df_mv_2000", path_folder=self.path_mv
+        )
+        df_mv_tail = self.__feather_from_file(
+            key="df_mv_tail", path_folder=self.path_mv
+        )
+        df_mv_st = self.__feather_from_file(key="df_mv_st", path_folder=self.path_mv)
         list_all_stocks = self.df_mv.index.tolist()
         random.shuffle(list_all_stocks)
         df_stocks_in_ssb = pd.DataFrame(index=list_all_stocks, columns=["ssb_index"])
@@ -695,17 +725,21 @@ class IndexSSB(object):
                 df_stocks_in_ssb.at[symbol, "ssb_index"] = "ssb_st"
             else:
                 df_stocks_in_ssb.at[symbol, "ssb_index"] = "NON"
-        self.__write_df_from_dbm(df=df_stocks_in_ssb, key="df_stocks_in_ssb")
+        self.__feather_to_file(
+            df=df_stocks_in_ssb, key="df_stocks_in_ssb", path_folder=self.path_mv
+        )
         logger.trace(f"{name} End")
         return df_stocks_in_ssb
 
     def realtime_index(self) -> str:
-        df_stocks_in_ssb = self.__read_df_from_dbm(key="df_stocks_in_ssb")
+        df_stocks_in_ssb = self.__feather_from_file(
+            key="df_stocks_in_ssb", path_folder=self.path_mv
+        )
         if df_stocks_in_ssb.empty:
             logger.error("df_stocks_in_ssb not exist")
             df_stocks_in_ssb = self.stocks_in_ssb()
         df_realtime = analysis.ashare.stock_zh_a_spot_em()[["total_mv"]]  # 调用实时数据接口
-        df_mv_all = self.__read_df_from_dbm(key="df_mv_all")
+        df_mv_all = self.__feather_from_file(key="df_mv_all", path_folder=self.path_mv)
         str_return = ""
         if df_mv_all.empty:
             return str_return
@@ -730,7 +764,7 @@ class IndexSSB(object):
         df_index_now = pd.pivot_table(
             data=df_mv_now,
             index=["ssb_index"],
-            aggfunc=np.sum,
+            aggfunc="sum",
         )
         if "NON" in df_index_now.index:
             df_index_now.drop(index=["NON"], inplace=True)
@@ -759,7 +793,9 @@ class IndexSSB(object):
             func=lambda x: round(x, 2)
         )
         # df_index_now["index_1t"] = df_index_now["index_1t"].apply(func=lambda x: round(x, 2))
-        df_index_ssb_min = self.__read_df_from_dbm(key="df_index_ssb_min")
+        df_index_ssb_min = self.__feather_from_file(
+            key="df_index_ssb_min", path_folder=self.path_mv
+        )
         if df_index_ssb_min.empty:
             logger.error(f"df_index_ssb_min is not exist")
             df_index_ssb_min = pd.DataFrame(columns=df_index_now.index)
@@ -780,7 +816,9 @@ class IndexSSB(object):
                 ]
             )
         if dt_am_start < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
-            self.__write_df_from_dbm(df=df_index_ssb_min, key="df_index_ssb_min")
+            self.__feather_to_file(
+                df=df_index_ssb_min, key="df_index_ssb_min", path_folder=self.path_mv
+            )
         if not df_index_ssb_min.empty:
             self.__make_charts_min()
         dict_return = df_index_ssb_min.iloc[-1].to_dict()
@@ -803,8 +841,12 @@ class IndexSSB(object):
     def __make_charts_min(self):
         name = "make_charts"
         logger.trace(f"{name} Begin")
-        df_index_ssb = self.__read_df_from_dbm(key="df_index_ssb")
-        df_index_ssb_min = self.__read_df_from_dbm(key="df_index_ssb_min")
+        df_index_ssb = self.__feather_from_file(
+            key="df_index_ssb", path_folder=self.path_mv
+        )
+        df_index_ssb_min = self.__feather_from_file(
+            key="df_index_ssb_min", path_folder=self.path_mv
+        )
         if df_index_ssb.empty:
             logger.error(f"{name} Error End - df_index_ssb empty")
             return
@@ -997,44 +1039,41 @@ class IndexSSB(object):
                 return False
 
         filename_excel = os.path.join(self.path_check, f"chip_SSB.xlsx")
+        filename_excel_old = filename_excel
         i_file = 0
-        while True:
+        while i_file <= 5:
+            i_file += 1
             if is_open(filename=filename_excel):
                 logger.trace(f"[{filename_excel}] is open")
             else:
                 logger.trace(f"[{filename_excel}] is not open")
                 break
-            i_file += 1
-            filename_excel = os.path.join(self.path_check, f"chip_SSB_{i_file}.xlsx")
-        with shelve.open(filename=self.filename_shelve, flag="r") as py_dbm:
-            keys_df = list(py_dbm.keys())
-            keys_df = [x for x in keys_df if "df" in x]
-            key_random = random.choice(keys_df)
-            try:
-                writer = pd.ExcelWriter(
-                    path=filename_excel, mode="a", if_sheet_exists="replace"
-                )
-            except FileNotFoundError as e:
-                logger.error(f"{repr(e)}")
-                with pd.ExcelWriter(path=filename_excel, mode="w") as writer_e:
-                    if isinstance(py_dbm[key_random], pd.DataFrame):
-                        py_dbm[key_random].to_excel(
-                            excel_writer=writer_e, sheet_name=key_random
-                        )
-                writer = pd.ExcelWriter(
-                    path=filename_excel, mode="a", if_sheet_exists="replace"
-                )
-            count = len(keys_df)
-            i = 0
-            for key in keys_df:
-                i += 1
-                str_shelve_to_excel = f"[{i}/{count}] - {key}"
-                df_key = py_dbm[key]
-                print(f"\r{str_shelve_to_excel}\033[K", end="")
-                if key != key_random:
-                    if isinstance(df_key, pd.DataFrame):
-                        df_key.to_excel(excel_writer=writer, sheet_name=key)
-        writer.close()
+            path, ext = os.path.splitext(filename_excel_old)
+            path += f"_{i_file}"
+            filename_excel = path + ext
+        path = Path(self.path_mv)
+        files = [p.name for p in path.iterdir() if p.is_file()]
+        count = len(files)
+        try:
+            writer = pd.ExcelWriter(
+                path=filename_excel, mode="a", if_sheet_exists="replace"
+            )
+        except FileNotFoundError:
+            writer = pd.ExcelWriter(path=filename_excel, mode="w")
+        i = 0
+        print()
+        for file in files:
+            i += 1
+            file_name = os.path.join(self.path_mv, file)
+            postfix = os.path.splitext(file_name)[1]
+            key = os.path.splitext(file)[0]
+            if postfix == ".ftr":
+                df = feather.read_dataframe(source=file_name)
+                if isinstance(df, pd.DataFrame):
+                    print(f"\r[{i}/{count}] - [{key}]\033[K", end="")
+                    df.to_excel(excel_writer=writer, sheet_name=key)
+                else:
+                    print(f"\r[{i}/{count}] - [{key}] - No DataFrame\033[K")
         if i >= count:
             print("\n", end="")  # 格式处理
         logger.trace("shelve_to_excel End")
@@ -1047,7 +1086,7 @@ class IndexSSB(object):
 
     def test(self):
         pass
-        df = self.__read_df_from_dbm(key="df_index_exist")
+        df = self.__feather_from_file(key="df_index_exist", path_folder=self.path_mv)
         """
         df.iloc[-1 ,1] = 0
         df.iloc[-1 ,2] = 0

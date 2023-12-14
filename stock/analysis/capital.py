@@ -12,7 +12,6 @@ from analysis.const import (
     path_temp,
     dt_trading_last_1T,
     dt_trading_last_T0,
-    filename_chip_shelve,
     dt_pm_end,
     client_ts_pro,
 )
@@ -21,7 +20,7 @@ from analysis.const import (
 def capital() -> bool:
     name: str = "df_cap"
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"capital Break End")
         return True
     dt_now = datetime.datetime.now()
@@ -153,8 +152,9 @@ def capital() -> bool:
         df_cap = df_cap.reindex(
             columns=["name", "list_days", "total_cap", "circ_cap", "total_mv_E"]
         )
-        analysis.base.write_obj_to_db(
-            obj=df_cap, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_cap,
+            key=name,
         )
         analysis.base.set_version(key=name, dt=dt_trader)
         if os.path.exists(filename_cap_feather_temp):  # 删除临时文件

@@ -3,6 +3,7 @@ import os
 import sys
 import datetime
 import time
+import numpy as np
 import pyttsx3
 import pandas as pd
 import akshare as ak
@@ -24,11 +25,11 @@ from analysis import (
     filename_log,
     filename_input,
     path_check,
-    filename_chip_shelve,
     sleep_to_time,
     str_trading_path,
     phi_a,
     all_chs_code,
+    get_trader_columns,
 )
 
 __version__ = "3.0.0"
@@ -68,23 +69,27 @@ def main() -> None:
     str_stock_market_activity_items = ""
     str_stock_market_activity_value = ""
     # 加载df_trader Begin
-    df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
+    df_trader = analysis.feather_from_file(
+        key="df_trader",
+    )
     if df_trader.empty:
-        list_trader_columns = analysis.const.get_trader_columns(data_type="list")
+        list_trader_columns = get_trader_columns(data_type="list")
         list_trader_symbol = ["sh600519", "sz300750"]
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
+        df_trader["recent_trading"] = datetime.datetime.now()
         df_trader = analysis.init_trader(df_trader=df_trader, sort=True)
-        analysis.write_obj_to_db(
-            obj=df_trader, key="df_trader", filename=filename_chip_shelve
+        analysis.feather_to_file(
+            df=df_trader,
+            key="df_trader",
         )
         logger.error("create df_trader and save.")
-    else:
-        df_trader["news"] = ""
-        df_trader["remark"] = ""
+    df_trader["news"] = ""
+    df_trader["remark"] = ""
+    df_trader["factor"] = ""
     # 加载df_industry_class Begin
-    df_industry_member = analysis.read_df_from_db(
-        key="df_industry_member", filename=filename_chip_shelve
+    df_industry_member = analysis.feather_from_file(
+        key="df_industry_member",
     )
     if df_industry_member.empty:
         try:
@@ -101,24 +106,23 @@ def main() -> None:
                 )
                 sys.exit()
             else:
-                analysis.write_obj_to_db(
-                    obj=df_industry_member,
+                analysis.feather_to_file(
+                    df=df_industry_member,
                     key="df_industry_member",
-                    filename=filename_chip_shelve,
                 )
     # 加载df_industry_class End
     index_ssb = analysis.IndexSSB(update=False)
     # 加载df_industry_rank_pool Begin
-    df_industry_rank_pool = analysis.read_df_from_db(
-        key="df_industry_rank_pool", filename=filename_chip_shelve
+    df_industry_rank_pool = analysis.feather_from_file(
+        key="df_industry_rank_pool",
     )
     # 加载df_industry_rank_pool End
-    df_industry_rank = analysis.read_df_from_db(
-        key="df_industry_rank", filename=filename_chip_shelve
+    df_industry_rank = analysis.feather_from_file(
+        key="df_industry_rank",
     )
     # 加载df_industry_rank_pool End
-    df_stocks_pool = analysis.read_df_from_db(
-        key="df_stocks_pool", filename=filename_chip_shelve
+    df_stocks_pool = analysis.feather_from_file(
+        key="df_stocks_pool",
     )
     str_add_stocks = ""
     if not df_stocks_pool.empty:
@@ -175,8 +179,9 @@ def main() -> None:
                 str_add_stocks += f", {str_add_stock}"
     df_trader = analysis.init_trader(df_trader=df_trader, sort=True)
     # 保存df_trader----Begin
-    analysis.write_obj_to_db(
-        obj=df_trader, key="df_trader", filename=filename_chip_shelve
+    analysis.feather_to_file(
+        df=df_trader,
+        key="df_trader",
     )
     filename_data_csv = os.path.join(path_check, f"trader_{str_trading_path()}.csv")
     df_trader = df_trader.sort_values(by=["position", "pct_chg"], ascending=False)
@@ -200,6 +205,11 @@ def main() -> None:
         df_signal_buy = pd.DataFrame(columns=df_trader.columns)
     list_signal_buy_before = df_signal_buy.index.tolist()
     list_signal_sell_before = df_signal_sell.index.tolist()
+    dict_trader_dtype = get_trader_columns(data_type="dtype")
+    for colums in df_signal_buy.columns:
+        df_signal_buy[colums] = df_signal_buy[colums].astype(
+            dtype=dict_trader_dtype[colums]
+        )
     # 创建df_signal----End
     # 创建空的交易员模板 file_name_trader_template Begin
     df_modified = pd.DataFrame(columns=df_trader.columns)
@@ -386,8 +396,8 @@ def main() -> None:
                     start_id=int_news_id_latest, hours=news_update_frq
                 )
                 str_index_ssb_now = index_ssb.realtime_index()
-            df_news = analysis.base.read_df_from_db(
-                key="df_news", filename=filename_chip_shelve
+            df_news = analysis.base.feather_from_file(
+                key="df_news",
             )
             list_signal_on_sell = list()
             list_signal_on_buy = list()
@@ -458,8 +468,9 @@ def main() -> None:
             if int_news_id > int_news_id_latest:
                 print(f"{str_dt_now_time}----{fg.red('News Update.')}")
                 int_news_id_latest = int_news_id
-            analysis.write_obj_to_db(
-                obj=df_trader, key="df_trader", filename=filename_chip_shelve
+            analysis.feather_to_file(
+                df=df_trader,
+                key="df_trader",
             )
             list_signal_buy_after = df_signal_buy.index.tolist()
             list_signal_sell_after = df_signal_sell.index.tolist()

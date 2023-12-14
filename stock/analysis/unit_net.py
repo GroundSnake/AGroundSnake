@@ -4,7 +4,6 @@ import pandas as pd
 from loguru import logger
 import analysis.base
 from analysis.const import (
-    filename_chip_shelve,
     dt_date_trading_last_1T,
     dt_date_trading_last_T0,
     dt_am_start,
@@ -14,10 +13,8 @@ from analysis.const import (
 def unit_net(sort: bool = False):
     name: str = f"df_unit_net"
     total_market_value = 0
-    df_unit_net = analysis.base.read_df_from_db(key=name, filename=filename_chip_shelve)
-    df_trader = analysis.base.read_df_from_db(
-        key="df_trader", filename=filename_chip_shelve
-    )
+    df_unit_net = analysis.base.feather_from_file(key=name)
+    df_trader = analysis.base.feather_from_file(key="df_trader")
     if df_trader.empty:
         logger.trace("df_trader empty")
     else:
@@ -35,8 +32,7 @@ def unit_net(sort: bool = False):
         if sort:
             df_unit_net.sort_index(inplace=True)
         print(df_unit_net.tail(5))
-        analysis.base.write_obj_to_db(
-            obj=df_unit_net,
+        analysis.base.feather_to_file(
+            df=df_unit_net,
             key=name,
-            filename=filename_chip_shelve,
         )

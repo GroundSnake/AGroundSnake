@@ -10,7 +10,6 @@ import analysis.update_data
 from analysis.const import (
     path_data,
     dt_trading_last_T0,
-    filename_chip_shelve,
     dt_history,
     all_chs_code,
     path_main,
@@ -26,10 +25,10 @@ def gold_section(days: int = 180, frequency: str = "day") -> bool:
     filename_df_gold_grade_temp = os.path.join(
         path_data, f"df_gold_grade_temp_{days}_{str_dt_history_path}.ftr"
     )
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace("Gold_Grade Break End")
         return True
-    if analysis.base.is_latest_version(key=kline, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=kline):
         pass
     else:
         logger.trace(f"Update the {frequency}_Kline")
@@ -118,7 +117,7 @@ def gold_section(days: int = 180, frequency: str = "day") -> bool:
     print(df_gold_grade)
     df_gold_grade.sort_values(by=[f"gold_section_{days}"], inplace=True)
     df_gold_grade.to_csv("df_gold_grade.csv")
-    df_cap = analysis.base.read_df_from_db(key="df_cap", filename=filename_chip_shelve)
+    df_cap = analysis.base.feather_from_file(key="df_cap")
     df_gold_grade = pd.concat(objs=[df_cap, df_gold_grade], axis=1, join="outer")
     days_average = np.average(df_gold_grade[f"days_{days}"].tolist())
     df_gold_grade = df_gold_grade[
@@ -130,3 +129,7 @@ def gold_section(days: int = 180, frequency: str = "day") -> bool:
         & (df_gold_grade[f"days_{days}"] >= days_average)
     ].copy()
     df_gold_grade.to_csv(f"df_gold_grade_{days}_{str_dt_history_path}.csv")
+    end_loop_time = time.perf_counter_ns()
+    interval_time = (end_loop_time - start_loop_time) / 1000000000
+    str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
+    print(f"{name} analysis takes [{str_gm}]")

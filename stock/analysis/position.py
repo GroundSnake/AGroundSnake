@@ -6,7 +6,7 @@ import akshare as ak
 from console import fg
 import analysis.base
 import analysis.update_data
-from analysis.const import time_pm_end, filename_chip_shelve, dt_pm_end, client_ts_pro
+from analysis.const import time_pm_end, dt_pm_end, client_ts_pro
 
 
 def position(index: str = "sh000001") -> str:
@@ -25,10 +25,8 @@ def position(index: str = "sh000001") -> str:
     df_index_realtime.set_index(keys="代码", inplace=True)
     close_ssb = close_ssb_gap = int(df_index_realtime.at[index, "最新价"]) // 10 * 10
     nane_ssb = df_index_realtime.at[index, "名称"]
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        df_pos_ctl = analysis.base.read_df_from_db(
-            key=name, filename=filename_chip_shelve
-        )
+    if analysis.base.is_latest_version(key=name):
+        df_pos_ctl = analysis.base.feather_from_file(key=name)
         len_df_pos_ctl = len(df_pos_ctl)
         while i_rank < 5:
             try:
@@ -112,8 +110,9 @@ def position(index: str = "sh000001") -> str:
     df_pos_ctl["rank"] = df_pos_ctl["weight_volume"].rank(
         axis=0, method="min", ascending=False
     )
-    analysis.base.write_obj_to_db(
-        obj=df_pos_ctl, key=name, filename=filename_chip_shelve
+    analysis.base.feather_to_file(
+        df=df_pos_ctl,
+        key=name,
     )
     len_df_pos_ctl = len(df_pos_ctl)
     while i_rank < 5:

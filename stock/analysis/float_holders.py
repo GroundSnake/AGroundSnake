@@ -11,7 +11,6 @@ import analysis.capital
 import analysis.base
 from analysis.const import (
     client_ts_pro,
-    filename_chip_shelve,
     dt_trading_last_T0,
     path_data,
     dt_history,
@@ -23,7 +22,7 @@ def top10_float_holders():
     name: str = "df_top10_float_holders"
     logger.trace(f"{name} Begin")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"{name} Break and End")
         return True
     dt_period_year = dt_trading_last_T0.year
@@ -72,8 +71,8 @@ def top10_float_holders():
         )
     else:
         if analysis.capital.capital():
-            df_top10_float_holders = analysis.base.read_df_from_db(
-                key="df_cap", filename=filename_chip_shelve
+            df_top10_float_holders = analysis.base.feather_from_file(
+                key="df_cap",
             )
             logger.trace("load df_cap success")
         else:

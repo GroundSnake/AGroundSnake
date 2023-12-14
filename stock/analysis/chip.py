@@ -1,9 +1,9 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
-import os
 import datetime
 import sys
 import time
+import feather
 import pandas as pd
 from pandas import DataFrame
 from loguru import logger
@@ -20,7 +20,6 @@ import analysis.concentration
 import analysis.dividend
 import analysis.convertible_bonds
 from analysis.const import (
-    filename_chip_shelve,
     path_check,
     dt_history,
     phi_b_neg,
@@ -30,6 +29,7 @@ from analysis.const import (
     NOW_PRICE_MAX,
     lIST_DAYS_MAX,
     TOTAL_MV_E_MAX,
+    filename_config,
 )
 
 
@@ -37,39 +37,39 @@ def chip() -> object | DataFrame:
     name: str = "df_chip"
     logger.trace(f"{name} Begin")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
-        df_chip = analysis.base.read_df_from_db(key=name, filename=filename_chip_shelve)
+    if analysis.base.is_latest_version(key=name):
+        df_chip = analysis.base.feather_from_file(key=name)
         logger.trace(f"{name} Break End")
         return df_chip
     logger.trace(f"Update {name}")
     analysis.unit_net.unit_net()
     if analysis.g_price.golden_price():
-        df_golden = analysis.base.read_df_from_db(
-            key="df_golden", filename=filename_chip_shelve
+        df_golden = analysis.base.feather_from_file(
+            key="df_golden",
         )
         logger.trace("load df_golden success")
     else:
         df_golden = pd.DataFrame()
         logger.error("load df_golden fail")
     if analysis.limit.limit_count():
-        df_limit = analysis.base.read_df_from_db(
-            key="df_limit", filename=filename_chip_shelve
+        df_limit = analysis.base.feather_from_file(
+            key="df_limit",
         )
         logger.trace("load df_limit success")
     else:
         df_limit = pd.DataFrame()
         logger.error("load df_limit fail")
     if analysis.st.st_income():
-        df_st = analysis.base.read_df_from_db(
-            key="df_st", filename=filename_chip_shelve
+        df_st = analysis.base.feather_from_file(
+            key="df_st",
         )
         logger.trace("load df_st success")
     else:
         df_st = pd.DataFrame()
         logger.error("load df_st fail")
     if analysis.dividend.cash_dividend():
-        df_cash_div = analysis.base.read_df_from_db(
-            key="df_cash_div", filename=filename_chip_shelve
+        df_cash_div = analysis.base.feather_from_file(
+            key="df_cash_div",
         )
         logger.trace("load df_cash_div success")
     else:
@@ -77,16 +77,16 @@ def chip() -> object | DataFrame:
         logger.error("load df_cash_div fail")
     while True:
         if analysis.industry.industry_rank():
-            df_industry_rank = analysis.base.read_df_from_db(
-                key="df_industry_rank", filename=filename_chip_shelve
+            df_industry_rank = analysis.base.feather_from_file(
+                key="df_industry_rank",
             )
             df_industry_rank_deviation = df_industry_rank[
                 df_industry_rank["max_min"] >= INDUSTRY_MAX_MIN
             ]
             list_industry_code_deviation = df_industry_rank_deviation.index.tolist()
             if analysis.industry.ths_industry():
-                df_industry = analysis.base.read_df_from_db(
-                    key="df_industry", filename=filename_chip_shelve
+                df_industry = analysis.base.feather_from_file(
+                    key="df_industry",
                 )
                 logger.trace("load df_industry success")
             else:
@@ -98,16 +98,14 @@ def chip() -> object | DataFrame:
             dt_now_delta = datetime.datetime.now() + datetime.timedelta(seconds=3600)
             analysis.base.sleep_to_time(dt_time=dt_now_delta, seconds=10)
     if analysis.capital.capital():
-        df_cap = analysis.base.read_df_from_db(
-            key="df_cap", filename=filename_chip_shelve
+        df_cap = analysis.base.feather_from_file(
+            key="df_cap",
         )
         logger.trace("load df_cap success")
     else:
         df_cap = pd.DataFrame()
         logger.error("load df_cap fail")
-    if analysis.base.is_latest_version(
-        key="df_stocks_in_ssb", filename=filename_chip_shelve
-    ):
+    if analysis.base.is_latest_version(key="df_stocks_in_ssb"):
         index_ssb = analysis.index.IndexSSB(update=False)
     else:
         index_ssb = analysis.index.IndexSSB(update=True)
@@ -115,8 +113,8 @@ def chip() -> object | DataFrame:
         analysis.base.set_version(key="df_stocks_in_ssb", dt=dt_stocks_in_ssb)
     df_stocks_in_ssb = index_ssb.stocks_in_ssb()
     if analysis.concentration.concentration():
-        df_concentration = analysis.base.read_df_from_db(
-            key="df_concentration", filename=filename_chip_shelve
+        df_concentration = analysis.base.feather_from_file(
+            key="df_concentration",
         )
     else:
         df_concentration = pd.DataFrame()
@@ -177,7 +175,7 @@ def chip() -> object | DataFrame:
             )
         else:
             df_chip.at[symbol, "dividend_rate"] = 0
-    analysis.base.write_obj_to_db(obj=df_chip, key=name, filename=filename_chip_shelve)
+    analysis.base.feather_to_file(df=df_chip, key=name)
     df_g_price_1 = df_chip[
         (df_chip["gold_section_volume"].between(19.1, 38.2))
         & (df_chip[f"gold_price_min"] < df_chip[f"now_price"])
@@ -281,12 +279,8 @@ def chip() -> object | DataFrame:
             "now_price",
         ]
     ]
-    analysis.base.write_obj_to_db(
-        obj=df_stocks_pool, key="df_stocks_pool", filename=filename_chip_shelve
-    )
-    df_config = analysis.base.read_df_from_db(
-        key="df_config", filename=filename_chip_shelve
-    )
+    analysis.base.feather_to_file(df=df_stocks_pool, key="df_stocks_pool")
+    df_config = feather.read_dataframe(source=filename_config)
     try:
         df_config_temp = df_config.drop(index=[name])
     except KeyError as e:
@@ -295,11 +289,7 @@ def chip() -> object | DataFrame:
         df_config_temp = df_config.copy()
     dt_chip = df_config_temp["date"].min()
     analysis.base.set_version(key=name, dt=dt_chip)
-    str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    filename_chip_excel = os.path.join(path_check, f"chip_{str_dt_history_path}.xlsx")
-    if not analysis.base.shelve_to_excel(
-        filename_shelve=filename_chip_shelve, filename_excel=filename_chip_excel
-    ):
+    if not analysis.base.feather_to_excel():
         logger.error(f"{name} Save Error")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000

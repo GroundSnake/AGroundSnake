@@ -9,7 +9,6 @@ import pandas as pd
 from console import fg
 import analysis.base
 from analysis.const import (
-    filename_chip_shelve,
     path_check,
     str_trading_path,
 )
@@ -91,8 +90,9 @@ def update_news(start_id: int = 0, hours: int = 8) -> int:
         end_id = start_id
     else:
         end_id = int(df_news.index.max())
-        analysis.base.write_obj_to_db(
-            obj=df_news, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_news,
+            key=name,
         )
     filename_news_csv = os.path.join(path_check, f"news_{str_trading_path()}.csv")
     df_news.to_csv(path_or_buf=filename_news_csv)
@@ -135,9 +135,9 @@ def get_stock_news(df_news: pd.DataFrame, stock: str = "开心汽车") -> str:
 
 
 def scan_all_stock_news(df_news: pd.DataFrame) -> str:
-    df_cap = analysis.base.read_df_from_db(key="df_cap", filename=filename_chip_shelve)
-    df_trader = analysis.base.read_df_from_db(
-        key="df_trader", filename=filename_chip_shelve
+    df_cap = analysis.base.feather_from_file(key="df_cap")
+    df_trader = analysis.base.feather_from_file(
+        key="df_trader",
     )
     stock_keyword = r".*?】"
     i = 0

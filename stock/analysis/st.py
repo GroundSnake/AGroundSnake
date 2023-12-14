@@ -10,7 +10,6 @@ from loguru import logger
 import analysis.base
 from analysis.const import (
     path_data,
-    filename_chip_shelve,
     dt_init,
     dt_trading_last_T0,
     dt_pm_end,
@@ -22,8 +21,8 @@ from analysis.const import (
 def fina_audit_vip(year: int):
     name: str = f"df_fina_audit_{year}"
     logger.trace(f"{name} Begin")
-    df_fina_audit = analysis.base.read_df_from_db(
-        key=name, filename=filename_chip_shelve
+    df_fina_audit = analysis.base.feather_from_file(
+        key=name,
     )
     if not df_fina_audit.empty:
         logger.trace(f"{name} Break and End")
@@ -102,8 +101,9 @@ def fina_audit_vip(year: int):
             df_fina_audit.at[symbol, "audit_result"] = ",".join(set_audit_result)
     if i >= count:
         print("\n", end="")  # 格式处理
-        analysis.base.write_obj_to_db(
-            obj=df_fina_audit, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_fina_audit,
+            key=name,
         )
         if os.path.exists(filename_df_fina_audit):
             os.remove(path=filename_df_fina_audit)
@@ -114,7 +114,7 @@ def st_income() -> bool:
     name: str = "df_st"
     logger.trace(f"{name} Begin")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"{name} Break and End")
         return True
     list_symbol = all_chs_code()
@@ -251,6 +251,7 @@ def st_income() -> bool:
                 "dt_forecast",
                 "net_profit_min",
                 "net_profit_max",
+                "profit_rate",
             ]
         )
         df_forecast["net_profit"] = (
@@ -284,7 +285,6 @@ def st_income() -> bool:
         df_st["dt_forecast"].fillna(value=dt_init, inplace=True)
         df_st["dt_ann"].fillna(value=dt_init, inplace=True)
         df_st["audit_result"].fillna(value=audit_result_init, inplace=True)
-        df_st["profit_rate"] = 0
         df_st["ST"] = st_init
         df_st.fillna(value=0.0, inplace=True)
         df_st["revenue"] = df_st["revenue"] / 100000000
@@ -377,8 +377,9 @@ def st_income() -> bool:
     if i >= count:
         print("\n", end="")  # 格式处理
         df_st.sort_values(by=["ST"], ascending=False, inplace=True)
-        analysis.base.write_obj_to_db(
-            obj=df_st, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_st,
+            key=name,
         )
         analysis.base.set_version(key=name, dt=dt_pm_end)
         if os.path.exists(filename_df_st):

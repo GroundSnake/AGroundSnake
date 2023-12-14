@@ -16,7 +16,6 @@ from analysis.const import (
     path_main,
     path_temp,
     dt_history,
-    filename_chip_shelve,
     dt_init,
     dt_pm_end,
     all_chs_code,
@@ -37,7 +36,7 @@ def golden_price(
     kline: str = f"update_kline_{frequency}"
     name: str = f"df_golden"
     # 判断Kline是不是最新的
-    if analysis.base.is_latest_version(key=kline, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=kline):
         pass
     else:
         logger.trace("Update the Kline")
@@ -45,7 +44,7 @@ def golden_price(
             logger.trace("{kline} Update finish")
         else:
             return False
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace("Golden Price Analysis Break End")
         return True
     list_code = all_chs_code()
@@ -78,6 +77,8 @@ def golden_price(
         ]
         df_golden = pd.DataFrame(index=list_code, columns=list_columns)
         df_golden["dt"].fillna(value=dt_init, inplace=True)
+        df_golden["gold_date_max"].fillna(value=dt_init, inplace=True)
+        df_golden["gold_date_min"].fillna(value=dt_init, inplace=True)
         df_golden.fillna(value=0.0, inplace=True)
         feather.write_dataframe(df=df_golden, dest=filename_df_golden_temp)
     if df_golden.empty:
@@ -140,7 +141,7 @@ def golden_price(
             if dt_pm_end < dt_golden:
                 dt_golden = dt_pm_end
         df_pivot = pd.pivot_table(
-            df_data_240, index=["close"], aggfunc={"volume": np.sum, "close": len}
+            df_data_240, index=["close"], aggfunc={"volume": "sum", "close": "count"}
         )
         df_pivot.rename(columns={"close": "count"}, inplace=True)
         df_pivot.sort_values(by=["close"], ascending=False, inplace=True)
@@ -186,8 +187,9 @@ def golden_price(
         print("\n", end="")  # 格式处理
         df_golden.index.rename(name="symbol", inplace=True)
         df_golden.sort_values(by=["gold_section_volume"], ascending=False, inplace=True)
-        analysis.base.write_obj_to_db(
-            obj=df_golden, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_golden,
+            key=name,
         )
         analysis.base.set_version(key=name, dt=dt_golden)
         if os.path.exists(filename_df_golden_temp):  # 删除临时文件

@@ -1,5 +1,6 @@
 # modified at 2023/05/18 22::25
 import os
+import sys
 import datetime
 from loguru import logger
 import pandas as pd
@@ -9,7 +10,6 @@ from analysis.const import (
     path_check,
     str_trading_path,
     rise,
-    filename_chip_shelve,
     dt_init,
     dt_date_trading_last_T0,
     phi_a,
@@ -17,6 +17,7 @@ from analysis.const import (
     INDUSTRY_MAX_MIN,
     NOW_PRICE_MAX,
     G_PRICE_MAX,
+    get_trader_columns,
 )
 
 
@@ -24,15 +25,11 @@ def init_trader(
     df_trader: pd.DataFrame, sort: bool = False, drop_count: int = 15
 ) -> pd.DataFrame:
     logger.trace("init_trader Begin")
-    df_chip = analysis.base.read_df_from_db(
-        key="df_chip", filename=filename_chip_shelve
-    )
+    df_chip = analysis.base.feather_from_file(key="df_chip")
     if df_chip.empty:
         df_chip = analysis.chip()
     if df_chip.empty:
         logger.error("df_chip is empty.")
-        import sys
-
         sys.exit()
     i_realtime = 0
     df_realtime = pd.DataFrame()
@@ -54,7 +51,7 @@ def init_trader(
             logger.trace("df_realtime is empty")
         else:
             break
-    dict_trader_default = analysis.const.get_trader_columns(data_type="dict")
+    dict_trader_default = get_trader_columns(data_type="dict")
     for column in df_trader.columns:
         if column not in dict_trader_default:
             df_trader.drop(columns=column, inplace=True)

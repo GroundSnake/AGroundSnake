@@ -16,7 +16,6 @@ from analysis.const import (
     dt_pm_end,
     dt_pm_end_last_1T,
     all_chs_code,
-    filename_chip_shelve,
     filename_concentration_rate_charts,
     path_check,
 )
@@ -73,8 +72,8 @@ def concentration_rate() -> tuple:
         f" - Mean:[{mean_all}]"
     )
     tuple_str = (str_msg_concentration, str_msg_additional)
-    df_concentration_rate = analysis.base.read_df_from_db(
-        key=name, filename=filename_chip_shelve
+    df_concentration_rate = analysis.base.feather_from_file(
+        key=name,
     )
     dt_now = datetime.datetime.now()
     if dt_am_1015 < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
@@ -109,10 +108,9 @@ def concentration_rate() -> tuple:
             dt_now, "rate_amount_mv_sort_top5"
         ] = rate_amount_mv_sort_top5
 
-        analysis.base.write_obj_to_db(
-            obj=df_concentration_rate,
+        analysis.base.feather_to_file(
+            df=df_concentration_rate,
             key=name,
-            filename=filename_chip_shelve,
         )
         filename_concentration_rate = os.path.join(
             path_check, f"concentration_rate.csv"
@@ -279,7 +277,7 @@ def concentration_rate() -> tuple:
 
 def concentration() -> bool:
     name: str = "df_concentration"
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"{name},Break and End")
         return True
     df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
@@ -287,8 +285,8 @@ def concentration() -> bool:
     list_all_stocks = all_chs_code()
     top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
     df_realtime_top5 = df_realtime.iloc[:top5_stocks]
-    df_concentration_old = analysis.base.read_df_from_db(
-        key="df_concentration", filename=filename_chip_shelve
+    df_concentration_old = analysis.base.feather_from_file(
+        key="df_concentration",
     )
     if df_concentration_old.empty:
         df_concentration = pd.DataFrame(
@@ -357,10 +355,9 @@ def concentration() -> bool:
     df_concentration.sort_values(
         by=["times_concentration"], ascending=False, inplace=True
     )
-    analysis.base.write_obj_to_db(
-        obj=df_concentration,
+    analysis.base.feather_to_file(
+        df=df_concentration,
         key="df_concentration",
-        filename=filename_chip_shelve,
     )
     dt_concentration_date = df_concentration["latest_concentration"].max(skipna=True)
     if dt_concentration_date > dt_latest:

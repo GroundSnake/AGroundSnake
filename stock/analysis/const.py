@@ -5,7 +5,7 @@ import random
 import pandas as pd
 import tushare as ts
 from loguru import logger
-from mootdx.quotes import Quotes
+from analysis.mootdx.quotes import Quotes
 from scipy.constants import golden
 
 
@@ -111,6 +111,9 @@ if not os.path.exists(path_temp):
 path_chip = os.path.join(path_data, f"chip")
 if not os.path.exists(path_chip):
     os.mkdir(path_chip)
+path_config = os.path.join(path_data, f"config")
+if not os.path.exists(path_config):
+    os.mkdir(path_config)
 dt_trading_last_1T = latest_trading_day(days=-1)
 dt_trading_last_T0 = latest_trading_day()
 dt_trading_last_T1 = latest_trading_day(days=1)
@@ -171,12 +174,12 @@ def str_trading_path() -> str:
 filename_log = os.path.join(path_log, "log{time}.log")
 filename_input = os.path.join(path_main, f"input.xlsx")
 filename_trader_template = os.path.join(path_main, f"trader.xlsx")
-filename_chip_shelve = os.path.join(path_data, f"chip")
 filename_market_values_shelve = os.path.join(path_mv, f"mv")
 filename_index_charts = os.path.join(path_check, f"index_charts.html")
 filename_concentration_rate_charts = os.path.join(
     path_check, f"concentration_rate_charts.html"
 )
+filename_config = os.path.join(path_config, f"config.ftr")
 fall = -5
 rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
 phi = 1 / golden  # extreme and mean ratio 黄金分割常数
@@ -192,7 +195,7 @@ TOTAL_MV_E_MAX = 120
 
 def get_trader_columns(data_type=None) -> list | dict | None:
     """
-    :param data_type: e.g. "list","dict"
+    :param data_type: e.g. "list","dict","dtype"
     :return:
     """
     dict_trader_default = {
@@ -238,13 +241,62 @@ def get_trader_columns(data_type=None) -> list | dict | None:
         "rise": rise,
         "fall": fall,
         "factor_count": 0.0,
-        "factor": "",
-        "news": "",
-        "remark": "",
+        "factor": "factor",
+        "news": "news",
+        "remark": "remark",
+    }
+    dict_trader_dtype = {
+        "name": "object",
+        "recent_price": "float64",
+        "position": "float64",
+        "now_price": "float64",
+        "pct_chg": "float64",
+        "position_unit": "float64",
+        "trx_unit_share": "float64",
+        "position_unit_max": "float64",
+        "industry_code": "object",
+        "industry_name": "object",
+        "max_min": "float64",
+        "times_exceed_correct_industry": "float64",
+        "mean_exceed_correct_industry": "float64",
+        "total_mv_E": "float64",
+        "ssb_index": "object",
+        "7Pct_T": "float64",
+        "T5_pct": "float64",
+        "T5_amplitude": "float64",
+        "G_price": "float64",
+        "gold_section_volume": "float64",
+        "gold_section_price": "float64",
+        "gold_pct_max_min": "float64",
+        "gold_date_max": "datetime64[ns]",
+        "gold_date_min": "datetime64[ns]",
+        "gold_price_min": "float64",
+        "times_concentration": "float64",
+        "rate_concentration": "float64",
+        "recent_trading": "datetime64[ns]",
+        "ST": "object",
+        "profit_rate": "float64",
+        "dividend_rate": "float64",
+        "cash_div_period": "float64",
+        "cash_div_excepted_period": "float64",
+        "date_of_inclusion_first": "datetime64[ns]",
+        "date_of_inclusion_latest": "datetime64[ns]",
+        "times_of_inclusion": "float64",
+        "rate_of_inclusion": "float64",
+        "price_of_inclusion": "float64",
+        "pct_of_inclusion": "float64",
+        "rise": "float64",
+        "fall": "float64",
+        "factor_count": "float64",
+        "factor": "object",
+        "news": "object",
+        "remark": "object",
     }
     if data_type == "list":
         return list(dict_trader_default.keys())
     elif data_type == "dict":
         return dict_trader_default
+    elif data_type == "dtype":
+        return dict_trader_dtype
     else:
         return None

@@ -6,7 +6,6 @@ from console import fg
 import analysis.base
 from analysis.const import (
     client_ts_pro,
-    filename_chip_shelve,
     dt_pm_end,
     dt_pm_end_last_1T,
     path_check,
@@ -16,7 +15,7 @@ from analysis.const import (
 
 def update_convertible_bonds_basic() -> bool:
     name: str = f"df_cb_basic"
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace("Worth etf Break End")
         return True
     df_cb_basic = client_ts_pro.cb_basic()
@@ -44,8 +43,9 @@ def update_convertible_bonds_basic() -> bool:
             "stk_short_name",
         ]
     )
-    analysis.base.write_obj_to_db(
-        obj=df_cb_basic, key=name, filename=filename_chip_shelve
+    analysis.base.feather_to_file(
+        df=df_cb_basic,
+        key=name,
     )
     dt_now = datetime.datetime.now()
     if dt_now >= dt_pm_end:
@@ -57,9 +57,8 @@ def update_convertible_bonds_basic() -> bool:
 
 
 def realtime_cb() -> str:
-    df_cb = analysis.read_df_from_db(
+    df_cb = analysis.feather_from_file(
         key="df_cb_basic",
-        filename=filename_chip_shelve,
     )
     df_cb = df_cb.reindex(
         columns=[
@@ -121,7 +120,7 @@ def realtime_cb() -> str:
     df_cb.to_csv(path_or_buf=filename_cb_csv)
     df_cb = df_cb[df_cb["pnl"] >= 0.5]
     str_return = ""
-    df_trader = analysis.read_df_from_db(key="df_trader", filename=filename_chip_shelve)
+    df_trader = analysis.feather_from_file(key="df_trader")
     len_cb = df_cb.shape[0]
     i = 0
     for bond_symbol in df_cb.index:

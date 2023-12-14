@@ -16,7 +16,6 @@ from analysis.const import (
     path_temp,
     dt_init,
     dt_pm_end,
-    filename_chip_shelve,
     all_chs_code,
     all_stock_etf,
     client_mootdx,
@@ -31,7 +30,7 @@ def update_stock_data(
 ) -> bool:
     name: str = f"update_kline_{frequency}"
     logger.trace(f"[{frequency}] A Share Data Update Begin")
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace("update stock Kline Break and End")
         return True
     start_loop_time = time.perf_counter_ns()
@@ -43,9 +42,7 @@ def update_stock_data(
         path_temp, f"df_catalogue_temp_{str_dt_history_path}_{frequency}.ftr"
     )
     if reset_catalogue:
-        analysis.base.delete_obj_from_db(
-            key=f"df_catalogue_{frequency}", filename=filename_chip_shelve
-        )
+        analysis.base.delete_feather(key=f"df_catalogue_{frequency}")
         logger.trace("reset df_catalogue")
     list_all_code = list()
     if stock:
@@ -76,6 +73,8 @@ def update_stock_data(
     for symbol in df_catalogue.index:
         i += 1
         str_msg = f"Kline_{frequency} Update: [{i:4d}/{count:4d}] -- [{symbol}]"
+        if random.randint(a=0, b=9) == 5:
+            feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         if df_catalogue.at[symbol, "end"] == dt_pm_end:
             print(
                 f"\r{str_msg} - [{df_catalogue.at[symbol, 'end']}] - Latest.\033[K",
@@ -94,7 +93,7 @@ def update_stock_data(
             df_catalogue.loc[symbol, "count"] = len(df_data)
             if df_catalogue.at[symbol, "end"] == dt_pm_end:
                 print(
-                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Latest[Reset].\033[K",
+                    f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Latest - [Reset].\033[K",
                     end="",
                 )
                 continue
@@ -152,26 +151,37 @@ def update_stock_data(
                 df_data = pd.concat(objs=[df_data, df_delta], axis=0, join="outer")
                 df_data = df_data[~df_data.index.duplicated(keep="last")]
                 df_data.sort_index(ascending=True, inplace=True)
-        df_data.applymap(func=lambda x: round(x, 2))
+        df_data.map(func=lambda x: round(x, 2))
         feather.write_dataframe(df=df_data, dest=file_name_feather)
         dt_data_max = df_data.index.max()
         if dt_data_max > dt_pm_end:
             dt_data_max = dt_pm_end
+        elif dt_data_max < dt_pm_end:
+            dt_now = datetime.datetime.now()
+            if dt_now >= dt_pm_end:
+                dt_data_max = dt_pm_end
+        else:
+            dt_now = datetime.datetime.now()
+            if dt_now < dt_pm_end:
+                dt_data_max = dt_now
+                df_data.rename(
+                    index={
+                        dt_pm_end: dt_now,
+                    },
+                    inplace=True,
+                )
         df_catalogue.loc[symbol, "end"] = dt_data_max
         df_catalogue.loc[symbol, "start"] = df_data.index.min()
         df_catalogue.loc[symbol, "count"] = len(df_data)
-        if random.randint(a=0, b=9) == 5:
-            feather.write_dataframe(df=df_catalogue, dest=file_name_catalogue_temp)
         print(
             f"\r{str_msg} - [{df_catalogue.loc[symbol, 'end']}] - Update.\033[K", end=""
         )
     if i >= count:
         print("\n", end="")
         df_catalogue.sort_values(by=["count"], ascending=False, inplace=True)
-        analysis.base.write_obj_to_db(
-            obj=df_catalogue,
+        analysis.base.feather_to_file(
+            df=df_catalogue,
             key=f"df_catalogue_{frequency}",
-            filename=filename_chip_shelve,
         )
         analysis.base.set_version(key=name, dt=df_catalogue["end"].max())
         if os.path.exists(file_name_catalogue_temp):
@@ -193,7 +203,7 @@ def update_index_data(symbol: str = "000001") -> pd.DataFrame:
         name = "index_1kline_other"
     logger.trace(f"[{symbol}] update_index_data Begin")
     file_name_index_feather = os.path.join(path_index, f"sh{symbol}.ftr")
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         df_index = feather.read_dataframe(source=file_name_index_feather)
         logger.trace(f"[{symbol}] update_index_data Break and End")
         return df_index

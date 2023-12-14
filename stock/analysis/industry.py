@@ -17,7 +17,6 @@ from analysis.const import (
     dt_pm_end,
     time_pm_end,
     dt_history,
-    filename_chip_shelve,
     all_chs_code,
     client_ts_pro,
 )
@@ -44,10 +43,9 @@ def get_industry_index() -> pd.DataFrame:
         inplace=True,
     )
     df_industry_index.set_index(keys=["industry_code"], inplace=True)
-    analysis.base.write_obj_to_db(
-        obj=df_industry_index,
+    analysis.base.feather_to_file(
+        df=df_industry_index,
         key=name,
-        filename=filename_chip_shelve,
     )
     logger.trace(f"{name} End！")
     return df_industry_index
@@ -56,18 +54,18 @@ def get_industry_index() -> pd.DataFrame:
 def reset_industry_member() -> bool:
     name = "df_industry_member"
     logger.trace(f"{name} Begin")
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"df_industry_member,Break and End")
         return True
-    df_industry_member = analysis.base.read_df_from_db(
-        key="df_industry_member", filename=filename_chip_shelve
+    df_industry_member = analysis.base.feather_from_file(
+        key="df_industry_member",
     )
     if df_industry_member.empty:
         df_industry_member = pd.read_excel(
             io="df_industry_member.xlsx", index_col=0, header=0
         )
-    df_industry_index = analysis.base.read_df_from_db(
-        key="df_industry_index", filename=filename_chip_shelve
+    df_industry_index = analysis.base.feather_from_file(
+        key="df_industry_index",
     )
     if df_industry_index.empty:
         df_industry_index = get_industry_index()
@@ -123,10 +121,9 @@ def reset_industry_member() -> bool:
     print("\n", end="")  # 格式处理
     df_industry_member.sort_values(by=["industry_code"], inplace=True)
     if i >= count_industry_code:
-        analysis.base.write_obj_to_db(
-            obj=df_industry_member,
+        analysis.base.feather_to_file(
+            df=df_industry_member,
             key="df_industry_member",
-            filename=filename_chip_shelve,
         )
         with pd.ExcelWriter(path="df_industry_member.xlsx", mode="w") as writer_e:
             df_industry_member.to_excel(
@@ -141,11 +138,11 @@ def update_industry_index_ths() -> bool:
     name: str = f"index_kline_industry"
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"{name},Break and End")
         return True
-    df_industry_index = analysis.base.read_df_from_db(
-        key="df_industry_index", filename=filename_chip_shelve
+    df_industry_index = analysis.base.feather_from_file(
+        key="df_industry_index",
     )
     if df_industry_index.empty:
         df_industry_index = get_industry_index()
@@ -240,16 +237,16 @@ def industry_pct() -> bool:
     kdata: str = f"index_kline_industry"
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"{name},Break and End")
         return True
-    if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
+    if not analysis.base.is_latest_version(key=kdata):
         if update_industry_index_ths():
             pass
         else:
             return False
-    df_industry_index = analysis.base.read_df_from_db(
-        key="df_industry_index", filename=filename_chip_shelve
+    df_industry_index = analysis.base.feather_from_file(
+        key="df_industry_index",
     )
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_pct = os.path.join(
@@ -284,8 +281,8 @@ def industry_pct() -> bool:
         )
         dt_ths_daily = datetime.datetime.combine(df_ths_daily.index.max(), time_pm_end)
         print(f"{str_msg_bar} - {dt_ths_daily}", end="")
-    df_industry_pct.fillna(method="ffill", inplace=True)
-    df_industry_pct = df_industry_pct.applymap(func=lambda x: x + 100)
+    df_industry_pct.ffill(axis="index", inplace=True)
+    df_industry_pct = df_industry_pct.map(func=lambda x: x + 100)
     len_df_industry_pct = len(df_industry_pct)
     i = 0
     while i < len_df_industry_pct:
@@ -296,10 +293,9 @@ def industry_pct() -> bool:
         i += 1
     if i >= len_df_industry_pct:
         print("\n", end="")  # 格式处理
-        analysis.base.write_obj_to_db(
-            obj=df_industry_pct,
+        analysis.base.feather_to_file(
+            df=df_industry_pct,
             key=name,
-            filename=filename_chip_shelve,
         )
         dt_industry_pct = df_industry_pct.index.max()
         analysis.base.set_version(key=name, dt=dt_industry_pct)
@@ -318,9 +314,9 @@ def industry_rank():
     kdata: str = "df_industry_pct"
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         return True
-    if analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=kdata):
         pass
     else:
         if industry_pct():
@@ -353,8 +349,8 @@ def industry_rank():
             "max_min",
         ]
     )
-    df_industry_pct = analysis.base.read_df_from_db(
-        key="df_industry_pct", filename=filename_chip_shelve
+    df_industry_pct = analysis.base.feather_from_file(
+        key="df_industry_pct",
     )
     df_industry_pct.sort_index(inplace=True)
     dt_industry_rank = df_industry_pct.index.max()
@@ -434,8 +430,9 @@ def industry_rank():
                 pow(max_min_minus, 2) / max_min_plus
             )
     df_industry_rank.sort_values(by=["max_min"], axis=0, ascending=False, inplace=True)
-    analysis.base.write_obj_to_db(
-        obj=df_industry_rank, key="df_industry_rank", filename=filename_chip_shelve
+    analysis.base.feather_to_file(
+        df=df_industry_rank,
+        key="df_industry_rank",
     )
     analysis.base.set_version(key=name, dt=dt_industry_rank)
     const_diff = 50
@@ -469,10 +466,9 @@ def industry_rank():
         df_industry_rank_pool.sort_values(
             by=["T5_rank"], axis=0, ascending=False, inplace=True
         )
-        analysis.base.write_obj_to_db(
-            obj=df_industry_rank_pool,
+        analysis.base.feather_to_file(
+            df=df_industry_rank_pool,
             key="df_industry_rank_pool",
-            filename=filename_chip_shelve,
         )
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
@@ -488,22 +484,22 @@ def ths_industry() -> bool:
     rdata: str = f"df_industry_rank"
     logger.trace(f"{name} Begin！")
     start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace(f"ths_industry,Break and End")
         return True
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
     filename_industry_temp = os.path.join(
         path_temp, f"industry_temp_{str_dt_history_path}.ftr"
     )
-    if not analysis.base.is_latest_version(key=kdata, filename=filename_chip_shelve):
+    if not analysis.base.is_latest_version(key=kdata):
         if not update_industry_index_ths():
             return False
-    if not analysis.base.is_latest_version(key=rdata, filename=filename_chip_shelve):
+    if not analysis.base.is_latest_version(key=rdata):
         if not industry_rank():
             logger.error("industry_rank")
             return False
-    df_industry_rank = analysis.base.read_df_from_db(
-        key="df_industry_rank", filename=filename_chip_shelve
+    df_industry_rank = analysis.base.feather_from_file(
+        key="df_industry_rank",
     )
     if df_industry_rank.empty:
         logger.error("df_industry_rank empty")
@@ -513,8 +509,8 @@ def ths_industry() -> bool:
     else:
         if reset_industry_member():
             pass
-        df_industry = analysis.base.read_df_from_db(
-            key="df_industry_member", filename=filename_chip_shelve
+        df_industry = analysis.base.feather_from_file(
+            key="df_industry_member",
         )
         list_industry_columns = df_industry.columns.tolist() + [
             "max_min",
@@ -527,7 +523,7 @@ def ths_industry() -> bool:
             "times_exceed_correct_industry",
             "mean_exceed_correct_industry",
         ]
-        df_industry = df_industry.reindex(columns=list_industry_columns, fill_value=0)
+        df_industry = df_industry.reindex(columns=list_industry_columns, fill_value=0.0)
         feather.write_dataframe(df=df_industry, dest=filename_industry_temp)
     dt_date_daily_max = dt_init
     str_date_trading = dt_history().strftime("%Y%m%d")
@@ -613,7 +609,7 @@ def ths_industry() -> bool:
             axis=1,
             join="outer",
         )
-        df_daily.fillna(method="ffill", inplace=True)
+        df_daily.ffill(inplace=True)
         if df_daily.empty:
             print(f"\r{str_msg_bar} - No Data #2\033[K")
             continue
@@ -681,8 +677,9 @@ def ths_industry() -> bool:
             ascending=False,
             inplace=True,
         )
-        analysis.base.write_obj_to_db(
-            obj=df_industry, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_industry,
+            key=name,
         )
         dt_mow = datetime.datetime.now()
         dt_daily_max = dt_date_daily_max

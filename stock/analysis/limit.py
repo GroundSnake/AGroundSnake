@@ -16,7 +16,6 @@ from analysis.const import (
     path_temp,
     dt_trading_last_T0,
     time_pm_end,
-    filename_chip_shelve,
     dt_history,
     all_chs_code,
     all_stock_etf,
@@ -36,7 +35,7 @@ def limit_count() -> bool:
     str_date_trading = dt_history().strftime("%Y%m%d")
     str_delta = dt_delta.strftime("%Y%m%d")
     dt_limit = dt_init
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace("Limit Break End")
         return True
     if os.path.exists(file_name_df_limit_temp):
@@ -63,7 +62,7 @@ def limit_count() -> bool:
         list_symbol = all_chs_code()
         df_limit = pd.DataFrame(index=list_symbol, columns=list_columns)
     df_limit = df_limit.sample(frac=1)
-    df_limit.fillna(value=0, inplace=True)
+    df_limit.fillna(value=0.0, inplace=True)
     i = 0
     count = len(df_limit)
     logger.trace(f"For loop Begin")
@@ -186,8 +185,9 @@ def limit_count() -> bool:
             ascending=False,
             inplace=True,
         )
-        analysis.base.write_obj_to_db(
-            obj=df_limit, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_limit,
+            key=name,
         )
         analysis.base.set_version(key=name, dt=dt_limit)
         if os.path.exists(file_name_df_limit_temp):
@@ -204,10 +204,10 @@ def worth_etf(frequency: str = "day") -> bool:
     name: str = f"df_worth_etf_{frequency}"
     kline: str = f"update_kline_{frequency}"
     logger.trace(f"{name} Begin")
-    if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=name):
         logger.trace("Worth etf Break End")
         return True
-    if analysis.base.is_latest_version(key=kline, filename=filename_chip_shelve):
+    if analysis.base.is_latest_version(key=kline):
         pass
     else:
         logger.trace(f"Update the {frequency}_Kline")
@@ -263,8 +263,8 @@ def worth_etf(frequency: str = "day") -> bool:
             f"\r{str_msg} - [{index_min}] - [{index_delta_etf_max}] - Update\033[K",
             end="",
         )
-    df_worth_etf.fillna(method="ffill", inplace=True)
-    df_worth_etf.fillna(method="bfill", inplace=True)
+    df_worth_etf.ffill(axis="index", inplace=True)
+    df_worth_etf.bfill(axis="index", inplace=True)
     df_statistics_etf = pd.DataFrame(
         index=df_worth_etf.columns, columns=["max", "min", "diff"]
     )
@@ -287,13 +287,13 @@ def worth_etf(frequency: str = "day") -> bool:
         df_statistics_etf.sort_values(
             by=["min", "diff"], ascending=[False, False], inplace=True
         )
-        analysis.base.write_obj_to_db(
-            obj=df_worth_etf, key=name, filename=filename_chip_shelve
+        analysis.base.feather_to_file(
+            df=df_worth_etf,
+            key=name,
         )
-        analysis.base.write_obj_to_db(
-            obj=df_statistics_etf,
+        analysis.base.feather_to_file(
+            df=df_statistics_etf,
             key=f"df_statistics_etf_{frequency}",
-            filename=filename_chip_shelve,
         )
         dt_worth_etf = df_worth_etf.index.max()
         analysis.base.set_version(key=name, dt=dt_worth_etf)

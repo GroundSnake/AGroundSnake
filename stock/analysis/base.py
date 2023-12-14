@@ -9,19 +9,23 @@ import math
 import datetime
 import shelve
 import dbm
+import feather
 import win32file
 import pandas as pd
+from pathlib import Path
 from console import fg
 from pandas import DataFrame
 from loguru import logger
-from mootdx.consts import MARKET_SZ, MARKET_SH, MARKET_BJ
+from analysis.mootdx.consts import MARKET_SZ, MARKET_SH, MARKET_BJ
 from analysis.const import (
     dt_am_0910,
     dt_pm_end,
     dt_pm_end_last_1T,
-    filename_chip_shelve,
-    dt_init,
+    path_chip,
     client_ts_pro,
+    filename_config,
+    path_check,
+    dt_history,
 )
 
 
@@ -143,19 +147,32 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
     return pd_series_out
 
 
-def write_obj_to_db(obj: object, key: str, filename: str):
-    with shelve.open(filename=filename, flag="c") as py_dbm_chip:
-        py_dbm_chip[key] = obj
-        logger.trace(f"{key} save as pydb_chip-[{filename}]")
+def feather_to_file(df: DataFrame, key: str):
+    filename_df = os.path.join(path_chip, f"{key}.ftr")
+    feather.write_dataframe(df=df, dest=filename_df)
     return True
 
 
-def delete_obj_from_db(key: str, filename: str):
-    with shelve.open(filename=filename, flag="c") as py_dbm_chip:
-        if key in py_dbm_chip.keys():
-            del py_dbm_chip[key]
-            logger.trace(f"del {key} from pydb_chip-[{filename}]")
-    return True
+def feather_from_file(key: str) -> DataFrame:
+    filename_df = os.path.join(path_chip, f"{key}.ftr")
+    if os.path.exists(filename_df):
+        df = feather.read_dataframe(source=filename_df)
+        if not isinstance(df, DataFrame):
+            df = pd.DataFrame()
+    else:
+        df = pd.DataFrame()
+    return df
+
+
+def delete_feather(key: str, path_folder: str = path_chip) -> bool:
+    file_name = os.path.join(path_chip, f"{key}.ftr")
+    if os.path.exists(file_name):
+        os.remove(path=file_name)
+        logger.trace(f"[{file_name}] delete success.")
+        return True
+    else:
+        logger.error(f"[{file_name}] is not exist.")
+        return False
 
 
 def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
@@ -174,27 +191,14 @@ def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
     return True
 
 
-def read_df_from_db(key: str, filename: str) -> DataFrame:
-    try:
-        with shelve.open(filename=filename, flag="r") as py_dbm_chip:
-            logger.trace(f"loading {key} from [{filename}]....")
-            try:
-                df = py_dbm_chip[key]
-                isinstance(df, DataFrame)
-                return df
-            except KeyError as e:
-                print(f"[{key}] is not exist -Error[{repr(e)}]")
-                logger.trace(f"[{key}] is not exist - Error[{repr(e)}]")
-                return pd.DataFrame()
-    except dbm.error as e:
-        print(f"[{filename}-{key}] is not exist - Error[{repr(e)}]")
-        logger.trace(f"[{filename}] - [{key}] is not exist - Error[{repr(e)}]")
-        return pd.DataFrame()
-
-
-def is_latest_version(key: str, filename: str) -> bool:
+def is_latest_version(key: str) -> bool:
     dt_now = datetime.datetime.now()
-    df_config = read_df_from_db(key="df_config", filename=filename)
+    # df_config = read_df_from_db(key="df_config", filename=filename)
+    if os.path.exists(filename_config):
+        df_config = feather.read_dataframe(source=filename_config)
+    else:
+        logger.error(f"[{filename_config}] is not exist.")
+        return False
     if df_config.empty:
         return False
     if key not in df_config.index:
@@ -214,27 +218,19 @@ def is_latest_version(key: str, filename: str) -> bool:
                 return False
 
 
-def get_config(key: str):
-    df_config = read_df_from_db(key="df_config", filename=filename_chip_shelve)
-    if df_config.empty:
-        return dt_init
-    else:
-        try:
-            return df_config.at[key, "date"]
-        except KeyError:
-            return dt_init
-
-
 def set_version(key: str, dt: datetime.datetime) -> bool:
-    df_config = read_df_from_db(key="df_config", filename=filename_chip_shelve)
+    if os.path.exists(filename_config):
+        df_config = feather.read_dataframe(source=filename_config)
+    else:
+        df_config = pd.DataFrame(columns=["date"])
     df_config.at[key, "date"] = dt
     df_config.sort_values(by="date", ascending=False, inplace=True)
-    write_obj_to_db(obj=df_config, key="df_config", filename=filename_chip_shelve)
+    feather.write_dataframe(df=df_config, dest=filename_config)
     return True
 
 
-def is_exist(date_index: datetime.date, columns: str, filename: str) -> bool:
-    df_date_exist = read_df_from_db(key="df_index_exist", filename=filename)
+def is_exist(date_index: datetime.date, columns: str) -> bool:
+    df_date_exist = feather_from_file(key="df_index_exist")
     try:
         if df_date_exist.at[date_index, columns] == 1:
             return True
@@ -244,14 +240,17 @@ def is_exist(date_index: datetime.date, columns: str, filename: str) -> bool:
         return False
 
 
-def set_exist(date_index: datetime.date, columns: str, filename: str) -> bool:
-    df_date_exist = read_df_from_db(key="df_index_exist", filename=filename)
+def set_exist(date_index: datetime.date, columns: str) -> bool:
+    df_date_exist = feather_from_file(key="df_index_exist")
     df_date_exist.at[date_index, columns] = 1
-    write_obj_to_db(obj=df_date_exist, key="df_index_exist", filename=filename)
+    feather_to_file(df=df_date_exist, key="df_index_exist")
     return True
 
 
-def shelve_to_excel(filename_shelve: str, filename_excel: str):
+def feather_to_excel(path_folder: str = path_chip):
+    str_dt_history_path = dt_history().strftime("%Y_%m_%d")
+    filename_excel = os.path.join(path_check, f"chip_{str_dt_history_path}.xlsx")
+
     def is_open(filename) -> bool:
         if not os.access(path=filename, mode=os.F_OK):
             logger.trace(f"[{filename}] is not exist")
@@ -293,50 +292,24 @@ def shelve_to_excel(filename_shelve: str, filename_excel: str):
     if is_open(filename=filename_excel):
         logger.error(f"Loop Times out - ({i_file})")
         return False
+    path = Path(path_folder)
+    files = [p.name for p in path.iterdir() if p.is_file()]
     try:
-        logger.trace(f"try open [{filename_shelve}]")
-        with shelve.open(filename=filename_shelve, flag="r") as py_dbm_chip:
-            key_random = ""
-            try:
-                writer = pd.ExcelWriter(
-                    path=filename_excel, mode="a", if_sheet_exists="replace"
-                )
-            except FileNotFoundError:
-                with pd.ExcelWriter(path=filename_excel, mode="w") as writer_e:
-                    key_random = random.choice(list(py_dbm_chip.keys()))
-                    if isinstance(py_dbm_chip[key_random], DataFrame):
-                        py_dbm_chip[key_random].to_excel(
-                            excel_writer=writer_e, sheet_name=key_random
-                        )
-                    else:
-                        logger.trace(f"{key_random} is not DataFrame")
-                writer = pd.ExcelWriter(
-                    path=filename_excel, mode="a", if_sheet_exists="replace"
-                )
-                logger.trace(f"create file-[{filename_excel}]")
-            count = len(py_dbm_chip)
-            i = 0
-            for key in py_dbm_chip:
-                i += 1
-                str_shelve_to_excel = f"[{i}/{count}] - {key}"
-                print(f"\r{str_shelve_to_excel}\033[K", end="")
-                if key != key_random:
-                    if isinstance(py_dbm_chip[key], DataFrame):
-                        py_dbm_chip[key].to_excel(excel_writer=writer, sheet_name=key)
-                    else:
-                        logger.trace(f"{key} is not DataFrame")
-                        continue
-                else:
-                    logger.trace(f"{key} is exist")
-                    continue
-            writer.close()
-            if i >= count:
-                print("\n", end="")  # 格式处理
-                return True
-    except dbm.error as e:
-        print(f"[{filename_shelve}] is not exist - Error[{repr(e)}]")
-        logger.trace(f"[{filename_shelve}] is not exist - Error[{repr(e)}]")
-        return False
+        writer = pd.ExcelWriter(
+            path=filename_excel, mode="a", if_sheet_exists="replace"
+        )
+    except FileNotFoundError:
+        writer = pd.ExcelWriter(path=filename_excel, mode="w")
+    for file in files:
+        file_name = os.path.join(path_folder, file)
+        postfix = os.path.splitext(file_name)[1]
+        key = os.path.splitext(file)[0]
+        if postfix == ".ftr":
+            df = feather.read_dataframe(source=file_name)
+            df.to_excel(excel_writer=writer, sheet_name=key)
+            print(f"\r[{key}]\033[K", end="")
+    writer.close()
+    return True
 
 
 def stock_basic_v2() -> pd.DataFrame:

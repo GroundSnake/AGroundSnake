@@ -1,6 +1,7 @@
 import datetime
 import os
 import random
+import numpy as np
 import pandas as pd
 import feather
 from loguru import logger
@@ -8,7 +9,6 @@ import analysis.base
 from analysis.const import (
     dt_init,
     dt_history,
-    filename_chip_shelve,
     path_temp,
     all_chs_code,
     dt_pm_end,
@@ -27,7 +27,7 @@ def cash_dividend(debug: bool = False):
     if debug:
         print(f"debug {name}")
     else:
-        if analysis.base.is_latest_version(key=name, filename=filename_chip_shelve):
+        if analysis.base.is_latest_version(key=name):
             logger.trace("Limit Break End")
             return True
     list_symbol = all_chs_code()
@@ -63,16 +63,20 @@ def cash_dividend(debug: bool = False):
         df_cash_div = df_cash_div.reindex(
             columns=df_cash_div.columns.tolist() + list_columns
         )
-        df_cash_div["cash_div_tax"].fillna(value=0, inplace=True)
+        df_cash_div = df_cash_div.astype(
+            dtype={
+                "cash_div_end_dt": "datetime64[ns]",
+                "cash_div_period_list": "object",
+            }
+        )
         df_cash_div["cash_div_end_dt"].fillna(value=dt_init, inplace=True)
-        df_cash_div["cash_div_period"].fillna(value=0, inplace=True)
         df_cash_div["cash_div_excepted_period"].fillna(
             value=cash_div_excepted_period_init, inplace=True
         )
-        df_cash_div["cash_div_diff_period"].fillna(value=0, inplace=True)
         df_cash_div["cash_div_period_list"].fillna(
             value=set_cash_div_year, inplace=True
         )
+        df_cash_div.fillna(value=0.0, inplace=True)
     df_cash_div = df_cash_div.sample(frac=1)
     df_cash_div = df_cash_div[df_cash_div.index.isin(values=list_symbol)].copy()
     i = 0
@@ -102,6 +106,9 @@ def cash_dividend(debug: bool = False):
             ts_code=ts_code,
             fields="ts_code,end_date,ann_date,div_proc,cash_div_tax,record_date",
         )
+        if df_symbol.empty:
+            print(f"\r{str_msg_bar} - No data\033[K")
+            continue
         df_symbol = df_symbol[
             df_symbol["div_proc"].str.contains("实施").fillna(False)
             & (df_symbol["cash_div_tax"] > 0)
@@ -141,8 +148,9 @@ def cash_dividend(debug: bool = False):
             df_cash_div.to_csv("df_cash_div_debug.csv")
         else:
             df_cash_div = df_cash_div[list_columns]
-            analysis.base.write_obj_to_db(
-                obj=df_cash_div, key=name, filename=filename_chip_shelve
+            analysis.base.feather_to_file(
+                df=df_cash_div,
+                key=name,
             )
             analysis.base.set_version(key=name, dt=dt_pm_end)
             if os.path.exists(file_name_df_cash_div):
