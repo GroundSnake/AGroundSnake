@@ -43,7 +43,7 @@ def volume_price_rise(df: pd.DataFrame) -> str:
         df_vp = feather.read_dataframe(source=filename_vp_ftr)
     else:
         df_vp = pd.DataFrame()
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     df_current = pd.DataFrame(index=list_vp)
     df_current["chosen"] = 0
     df_current["dt"] = dt_now

@@ -23,7 +23,7 @@ def unit_net(sort: bool = False):
                 total_market_value += (
                     df_trader.at[code, "position"] * df_trader.at[code, "now_price"]
                 )
-        dt_now = datetime.datetime.now()
+        dt_now = datetime.datetime.now().replace(microsecond=0)
         if dt_now < dt_am_start:
             dt_date_trading = dt_date_trading_last_1T
         else:

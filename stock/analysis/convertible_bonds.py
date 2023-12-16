@@ -47,7 +47,7 @@ def update_convertible_bonds_basic() -> bool:
         df=df_cb_basic,
         key=name,
     )
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     if dt_now >= dt_pm_end:
         dt_cd_basic = dt_pm_end
     else:
@@ -136,13 +136,13 @@ def realtime_cb() -> str:
             f"[PNL:{df_cb.at[bond_symbol, 'pnl']:.2f}%]"
         )
         if df_cb.at[bond_symbol, "symbol"] in df_trader.index:
-            str_symbol = fg.red(str_symbol)
+            str_symbol = fg.purple(str_symbol)
         elif df_cb.at[bond_symbol, "pnl"] >= 5:
-            str_symbol = fg.red(str_symbol)
+            str_symbol = fg.blue(str_symbol)
         elif df_cb.at[bond_symbol, "pnl"] >= 7:
-            str_symbol = fg.purple(str_symbol)
+            str_symbol = fg.yellow(str_symbol)
         elif df_cb.at[bond_symbol, "pnl"] >= 9:
-            str_symbol = fg.purple(str_symbol)
+            str_symbol = fg.red(str_symbol)
             str_symbol += "\a"
         if i < len_cb:
             str_symbol += "\n"

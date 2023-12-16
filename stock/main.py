@@ -33,7 +33,7 @@ from analysis import (
 )
 
 __version__ = "3.0.0"
-running_state = "NORMAL"  # NORMAL ,DEBUG
+running_state = "DEBUG"  # NORMAL ,DEBUG
 
 
 def main() -> None:
@@ -66,6 +66,8 @@ def main() -> None:
     int_news_id_latest = 0
     news_update_frq = 4  # 4 Hours
     list_all_code = all_chs_code()
+    dict_trader_dtype = get_trader_columns(data_type="dtype")
+    dict_trader_default = get_trader_columns(data_type="dict")
     str_stock_market_activity_items = ""
     str_stock_market_activity_value = ""
     # 加载df_trader Begin
@@ -77,7 +79,7 @@ def main() -> None:
         list_trader_symbol = ["sh600519", "sz300750"]
         df_trader = pd.DataFrame(index=list_trader_symbol, columns=list_trader_columns)
         df_trader.index.rename(name="code", inplace=True)
-        df_trader["recent_trading"] = datetime.datetime.now()
+        df_trader["recent_trading"] = datetime.datetime.now().replace(microsecond=0)
         df_trader = analysis.init_trader(df_trader=df_trader, sort=True)
         analysis.feather_to_file(
             df=df_trader,
@@ -87,6 +89,18 @@ def main() -> None:
     df_trader["news"] = ""
     df_trader["remark"] = ""
     df_trader["factor"] = ""
+    # 创建空的交易员模板 file_name_trader_template Begin
+    df_modified = pd.DataFrame(columns=df_trader.columns)
+    df_modified.index.rename(name="code", inplace=True)
+    df_add = pd.DataFrame(columns=df_trader.columns)
+    df_add.index.rename(name="code", inplace=True)
+    df_delete = pd.DataFrame(columns=df_trader.columns)
+    df_delete.index.rename(name="code", inplace=True)
+    with pd.ExcelWriter(path=filename_trader_template, mode="w") as writer:
+        df_modified.to_excel(excel_writer=writer, sheet_name="modified")
+        df_add.to_excel(excel_writer=writer, sheet_name="add")
+        df_delete.to_excel(excel_writer=writer, sheet_name="delete")
+    # 创建空的交易员模板 file_name_trader End
     # 加载df_industry_class Begin
     df_industry_member = analysis.feather_from_file(
         key="df_industry_member",
@@ -205,31 +219,22 @@ def main() -> None:
         df_signal_buy = pd.DataFrame(columns=df_trader.columns)
     list_signal_buy_before = df_signal_buy.index.tolist()
     list_signal_sell_before = df_signal_sell.index.tolist()
-    dict_trader_dtype = get_trader_columns(data_type="dtype")
-    for colums in df_signal_buy.columns:
-        df_signal_buy[colums] = df_signal_buy[colums].astype(
-            dtype=dict_trader_dtype[colums]
+    for column_buy in df_signal_buy.columns:
+        df_signal_buy[column_buy] = df_signal_buy[column_buy].astype(
+            dtype=dict_trader_dtype[column_buy]
+        )
+    for column_sell in df_signal_sell.columns:
+        df_signal_sell[column_sell] = df_signal_sell[column_sell].astype(
+            dtype=dict_trader_dtype[column_sell]
         )
     # 创建df_signal----End
-    # 创建空的交易员模板 file_name_trader_template Begin
-    df_modified = pd.DataFrame(columns=df_trader.columns)
-    df_modified.index.rename(name="code", inplace=True)
-    df_add = pd.DataFrame(columns=df_trader.columns)
-    df_add.index.rename(name="code", inplace=True)
-    df_delete = pd.DataFrame(columns=df_trader.columns)
-    df_delete.index.rename(name="code", inplace=True)
-    with pd.ExcelWriter(path=filename_trader_template, mode="w") as writer:
-        df_modified.to_excel(excel_writer=writer, sheet_name="modified")
-        df_add.to_excel(excel_writer=writer, sheet_name="add")
-        df_delete.to_excel(excel_writer=writer, sheet_name="delete")
-    # 创建空的交易员模板 file_name_trader End
     # 取得仓位控制提示
     str_pos_ctl_zh = analysis.position(index="sh000001")
     str_pos_ctl_csi1000 = analysis.position(index="sh000852")
     """init End"""
     """loop Begin"""
     while True:
-        dt_now = datetime.datetime.now()
+        dt_now = datetime.datetime.now().replace(microsecond=0)
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
             print(f"The exchange will open at 9:30")
@@ -253,7 +258,7 @@ def main() -> None:
                     io=filename_input, sheet_name="modified", index_col=0
                 )
                 df_in_add = pd.read_excel(
-                    io=filename_input, sheet_name="add", index_col=0
+                    io=filename_input, sheet_name="add", index_col=0, header=0
                 )
                 df_in_del = pd.read_excel(
                     io=filename_input, sheet_name="delete", index_col=0
@@ -292,8 +297,23 @@ def main() -> None:
                         str_msg_modified = ""
                 if len(list_in_add) > 0:
                     df_in_add["recent_trading"] = dt_now
+                    for column_add in df_in_add.columns:
+                        if column_add not in dict_trader_default:
+                            df_in_add.drop(columns=column_add, inplace=True)
+                    for column_add in dict_trader_default:
+                        if column_add in df_trader.columns:
+                            df_in_add[column_add] = df_in_add[column_add].astype(
+                                dtype=dict_trader_dtype[column_add]
+                            )
+                            df_in_add[column_add].fillna(
+                                value=dict_trader_default[column_add], inplace=True
+                            )
+                        else:
+                            df_in_add[column_add] = dict_trader_default[column_add]
                     df_trader = pd.concat(
-                        objs=[df_trader, df_in_add], axis=0, join="outer"
+                        objs=[df_trader, df_in_add.astype(df_trader.dtypes)],
+                        axis=0,
+                        join="outer",
                     )
                     df_trader = df_trader[~df_trader.index.duplicated(keep="first")]
                     for code in df_trader.index:
@@ -401,7 +421,7 @@ def main() -> None:
             )
             list_signal_on_sell = list()
             list_signal_on_buy = list()
-            dt_now = datetime.datetime.now()
+            dt_now = datetime.datetime.now().replace(microsecond=0)
             str_dt_now_time = dt_now.strftime("<%H:%M:%S>")
             i = 0
             count_trader = df_trader.shape[0]
@@ -493,12 +513,13 @@ def main() -> None:
             if not df_signal_buy.empty:
                 df_signal_buy.sort_values(
                     by=[
-                        "position_unit",
+                        "position",
                         "recent_trading",
-                        "max_min",
+                        "gold_section",
                         "gold_section_volume",
                         "gold_pct_max_min",
                         "dividend_rate",
+                        "max_min",
                         "factor_count",
                         "profit_rate",
                         "rate_of_inclusion",
@@ -508,7 +529,8 @@ def main() -> None:
                     ascending=[
                         True,
                         True,
-                        True,
+                        False,
+                        False,
                         False,
                         True,
                         True,
@@ -663,26 +685,28 @@ def main() -> None:
                         f" - {df_item.at[code, 'total_mv_E']}E]"
                     )
                     msg_signal_code_gold = (
-                        f"[GS_p:{df_item.at[code, 'gold_section_price']:.2f}% - "
-                        f"GS_v:{df_item.at[code, 'gold_section_volume']:.2f}% - "
+                        f"[GS:{df_item.at[code, 'gold_section']:.2f}%-"
+                        f"(GS_p:{df_item.at[code, 'gold_section_price']:.2f}% - "
+                        f"GS_v:{df_item.at[code, 'gold_section_volume']:.2f}%) - "
                         f"PCT_MAX:{df_item.at[code, 'gold_pct_max_min']:.2f}%"
                     )
                     if (
                         df_item.at[code, "gold_date_max"]
                         > df_item.at[code, "gold_date_min"]
                     ):
-                        msg_signal_code_gold += " - 〇]"
+                        msg_signal_code_gold += " - O]"
                     else:
                         msg_signal_code_gold += " - X]"
                     if (
-                        19.1 <= df_item.at[code, "gold_section_price"] <= 28.65
-                        and 19.1 <= df_item.at[code, "gold_section_volume"] <= 28.65
+                        19.1 <= df_item.at[code, "gold_section"] <= 38.2
+                        and 19.1 <= df_item.at[code, "gold_section_price"] <= 38.2
+                        and 19.1 <= df_item.at[code, "gold_section_volume"] <= 38.2
                         and df_item.at[code, "gold_pct_max_min"] >= 50
                         and df_item.at[code, "gold_date_max"]
                         > df_item.at[code, "gold_date_min"]
                         and df_item.at[code, "gold_price_min"]
                         < df_item.at[code, "now_price"]
-                        < df_trader.at[code, "G_price"]
+                        < df_item.at[code, "G_price"]
                     ):
                         msg_signal_code_gold = fg.purple(msg_signal_code_gold)
                     if df_item.at[code, "remark"] != "":
@@ -745,10 +769,11 @@ def main() -> None:
                 if msg_signal:
                     if item in "Sell":
                         print(f"====<Suggest {item}>====\a", "=" * 60)
+                        print(msg_signal)
                         pyttsx3.speak("Sell signal")
                     else:
                         print(f"====<Suggest {item}>====", "=" * 61)
-                    print(msg_signal)
+                        print(msg_signal)
             if msg_signal_t0:
                 print(f"====<T0>====", "=" * 74)
                 print(msg_signal_t0)
@@ -777,6 +802,7 @@ def main() -> None:
                 pyttsx3.speak("Record deleted")
             if str_index_ssb_now:
                 print("=" * 108)
+                print(f"------{dt_now}------")
                 print(str_index_ssb_now)
             if str_stock_market_activity_items or str_stock_market_activity_value:
                 print("#" * 108)
@@ -839,7 +865,7 @@ def main() -> None:
             if dt_pm_1457 < dt_now <= dt_pm_end:
                 pyttsx3.speak("Collective bidding time.")
                 scan_interval = 60
-            dt_now = datetime.datetime.now()
+            dt_now = datetime.datetime.now().replace(microsecond=0)
             dt_now_delta = dt_now + datetime.timedelta(seconds=scan_interval)
             sleep_to_time(dt_time=dt_now_delta, seconds=2)
         # 中午休息时间： 11:30 -- 13:00
@@ -851,7 +877,7 @@ def main() -> None:
             pyttsx3.speak("Outside of trading hours and Update chip.")
             df_chip = analysis.chip()
             print("\n", df_chip)
-            dt_now = datetime.datetime.now()
+            dt_now = datetime.datetime.now().replace(microsecond=0)
             if dt_now < dt_am_0910:
                 sleep_to_time(dt_time=dt_am_start, seconds=2)
             elif dt_pm_end < dt_now < dt_pm_2215:

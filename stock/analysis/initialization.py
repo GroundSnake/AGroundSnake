@@ -60,7 +60,7 @@ def init_trader(
             df_trader[column].fillna(value=dict_trader_default[column], inplace=True)
         else:
             df_trader[column] = dict_trader_default[column]
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     for code in df_trader.index:
         if (
             df_trader.at[code, "date_of_inclusion_latest"] == dt_init
@@ -93,6 +93,7 @@ def init_trader(
             df_trader.at[code, "T5_pct"] = df_chip.at[code, "T5_pct"]
             df_trader.at[code, "7Pct_T"] = int(df_chip.at[code, "correct_7pct_times"])
             df_trader.at[code, "G_price"] = g_price = df_chip.at[code, "G_price"]
+            df_trader.at[code, "gold_section"] = df_chip.at[code, "gold_section"]
             df_trader.at[code, "gold_section_volume"] = df_chip.at[
                 code, "gold_section_volume"
             ]
@@ -228,11 +229,6 @@ def init_trader(
                 elif df_trader.at[code, "max_min"] < INDUSTRY_MAX_MIN:
                     df_drop_stock.loc[code] = df_trader.loc[code]
                     df_drop_stock.at[code, "drop"] = "max_min"
-                    df_trader.drop(index=code, inplace=True)
-                elif pd.isnull(df_trader.at[code, "factor"]):
-                    # Temporary conditions 2023-12-18 30days
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "factor_null"
                     df_trader.drop(index=code, inplace=True)
     if not df_drop_stock.empty:
         df_drop_stock.to_csv(path_or_buf=filename_drop_stock)

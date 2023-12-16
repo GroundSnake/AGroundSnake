@@ -14,7 +14,7 @@ from pathlib import Path
 from loguru import logger
 from pyecharts.charts import Line, Page
 import pyecharts.options as opts
-import tushare as ts
+import analysis.tushare as ts
 import analysis.ashare
 from analysis.const import (
     dt_am_start,
@@ -285,6 +285,7 @@ class IndexSSB(object):
                             try:
                                 df_pro_bar_symbol = ts.pro_bar(
                                     ts_code=ts_code,
+                                    api=self.__pro,
                                     adj="qfq",
                                     start_date=self.str_date_origin,
                                     end_date=str_date_pos,
@@ -561,7 +562,7 @@ class IndexSSB(object):
         count = len(self.df_index_exist.index)
         for dt_exist_index in self.df_index_exist.index:
             i += 1
-            dt_now = datetime.datetime.now()
+            dt_now = datetime.datetime.now().replace(microsecond=0)
             dt_date_now = dt_now.date()
             dt_date_exist_index = dt_exist_index.date()
             if dt_date_exist_index == dt_date_now and dt_now < dt_exist_index:
@@ -799,7 +800,7 @@ class IndexSSB(object):
         if df_index_ssb_min.empty:
             logger.error(f"df_index_ssb_min is not exist")
             df_index_ssb_min = pd.DataFrame(columns=df_index_now.index)
-        dt_now = datetime.datetime.now()
+        dt_now = datetime.datetime.now().replace(microsecond=0)
         df_index_ssb_min.loc[dt_now] = df_index_now["index_now"]
         if len(df_index_ssb_min) < 2:
             df_index_ssb_min = df_index_ssb_min.reindex(
@@ -1061,7 +1062,6 @@ class IndexSSB(object):
         except FileNotFoundError:
             writer = pd.ExcelWriter(path=filename_excel, mode="w")
         i = 0
-        print()
         for file in files:
             i += 1
             file_name = os.path.join(self.path_mv, file)
@@ -1074,6 +1074,7 @@ class IndexSSB(object):
                     df.to_excel(excel_writer=writer, sheet_name=key)
                 else:
                     print(f"\r[{i}/{count}] - [{key}] - No DataFrame\033[K")
+        writer.close()
         if i >= count:
             print("\n", end="")  # 格式处理
         logger.trace("shelve_to_excel End")

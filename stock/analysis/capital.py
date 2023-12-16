@@ -23,7 +23,7 @@ def capital() -> bool:
     if analysis.base.is_latest_version(key=name):
         logger.trace(f"capital Break End")
         return True
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     if dt_now > dt_pm_end:
         dt_history = dt_trading_last_T0
     else:

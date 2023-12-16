@@ -75,7 +75,7 @@ def concentration_rate() -> tuple:
     df_concentration_rate = analysis.base.feather_from_file(
         key=name,
     )
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     if dt_am_1015 < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
         df_concentration_rate.at[dt_now, "mv_all"] = mv_all
         df_concentration_rate.at[dt_now, "amount_all"] = amount_all
@@ -316,8 +316,8 @@ def concentration() -> bool:
     df_concentration["days_latest_concentration"].fillna(value=0, inplace=True)
     df_concentration["times_concentration"].fillna(value=0, inplace=True)
     df_concentration["rate_concentration"].fillna(value=0, inplace=True)
-    dt_now = datetime.datetime.now()
-    if dt_pm_end_last_1T < datetime.datetime.now() <= dt_pm_end:
+    dt_now = datetime.datetime.now().replace(microsecond=0)
+    if dt_pm_end_last_1T < dt_now <= dt_pm_end:
         dt_latest = dt_pm_end_last_1T
     else:
         dt_latest = dt_pm_end

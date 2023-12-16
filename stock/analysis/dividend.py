@@ -42,7 +42,7 @@ def cash_dividend(debug: bool = False):
         "cash_div_period_list",
     ]
     cash_div_excepted_period_init = -1
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     dt_cash_div_start_2y = datetime.datetime(
         year=dt_recent_fiscal_year - 1, month=1, day=1
     )

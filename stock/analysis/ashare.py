@@ -213,7 +213,7 @@ def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
     }
     r = requests.get(url, params=params, headers=headers)
     data_json = r.json()
-    dt = datetime.datetime.now()
+    dt = datetime.datetime.now().replace(microsecond=0)
     if not data_json["data"]["diff"]:
         return pd.DataFrame()
     temp_df = pd.DataFrame(data_json["data"]["diff"])

@@ -95,7 +95,9 @@ def chip() -> object | DataFrame:
             break
         else:
             print("Sleep 1 hour")
-            dt_now_delta = datetime.datetime.now() + datetime.timedelta(seconds=3600)
+            dt_now_delta = datetime.datetime.now().replace(
+                microsecond=0
+            ) + datetime.timedelta(seconds=3600)
             analysis.base.sleep_to_time(dt_time=dt_now_delta, seconds=10)
     if analysis.capital.capital():
         df_cap = analysis.base.feather_from_file(

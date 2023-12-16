@@ -157,11 +157,11 @@ def update_stock_data(
         if dt_data_max > dt_pm_end:
             dt_data_max = dt_pm_end
         elif dt_data_max < dt_pm_end:
-            dt_now = datetime.datetime.now()
+            dt_now = datetime.datetime.now().replace(microsecond=0)
             if dt_now >= dt_pm_end:
                 dt_data_max = dt_pm_end
         else:
-            dt_now = datetime.datetime.now()
+            dt_now = datetime.datetime.now().replace(microsecond=0)
             if dt_now < dt_pm_end:
                 dt_data_max = dt_now
                 df_data.rename(
@@ -195,12 +195,13 @@ def update_stock_data(
 
 
 def update_index_data(symbol: str = "000001") -> pd.DataFrame:
+    frequency = "1m"
     if symbol == "000001":
-        name = "index_1kline_sh"
+        name = f"index_{frequency}_kline_sh"
     elif symbol == "000852":
-        name = "index_1kline_csi1000"
+        name = f"index_{frequency}_kline_csi1000"
     else:
-        name = "index_1kline_other"
+        name = f"index_{frequency}_kline_other"
     logger.trace(f"[{symbol}] update_index_data Begin")
     file_name_index_feather = os.path.join(path_index, f"sh{symbol}.ftr")
     if analysis.base.is_latest_version(key=name):

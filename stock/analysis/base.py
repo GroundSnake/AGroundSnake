@@ -3,12 +3,9 @@ from __future__ import annotations
 import os
 import time
 import re
-import random
 import sys
 import math
 import datetime
-import shelve
-import dbm
 import feather
 import win32file
 import pandas as pd
@@ -31,7 +28,7 @@ from analysis.const import (
 
 def is_trading_day(dt: datetime.datetime = None) -> bool:
     if dt is None:
-        dt = datetime.datetime.now()
+        dt = datetime.datetime.now().replace(microsecond=0)
     dt_start = dt - datetime.timedelta(days=14)
     str_date_start = dt_start.strftime("%Y%m%d")
     str_date_now = dt.strftime("%Y%m%d")
@@ -176,7 +173,7 @@ def delete_feather(key: str, path_folder: str = path_chip) -> bool:
 
 
 def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
-    dt_now_sleep = datetime.datetime.now()
+    dt_now_sleep = datetime.datetime.now().replace(microsecond=0)
     while dt_now_sleep <= dt_time:
         int_delay = int((dt_time - dt_now_sleep).total_seconds())
         str_sleep_gm = time.strftime("%H:%M:%S", time.gmtime(int_delay))
@@ -186,13 +183,13 @@ def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
         str_sleep_msg = f"{str_dt_now_sleep}----" + str_sleep_msg
         print(f"\r{str_sleep_msg}\033[K", end="")  # 进度条
         time.sleep(seconds)
-        dt_now_sleep = datetime.datetime.now()
+        dt_now_sleep = datetime.datetime.now().replace(microsecond=0)
     print("\n", end="")
     return True
 
 
 def is_latest_version(key: str) -> bool:
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     # df_config = read_df_from_db(key="df_config", filename=filename)
     if os.path.exists(filename_config):
         df_config = feather.read_dataframe(source=filename_config)

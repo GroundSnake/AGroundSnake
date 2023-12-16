@@ -3,24 +3,18 @@ import os
 import datetime
 import random
 import pandas as pd
-import tushare as ts
+import analysis.tushare as ts
 from loguru import logger
 from analysis.mootdx.quotes import Quotes
 from scipy.constants import golden
 
 
-try:
-    client_ts_pro = ts.pro_api()
-except Exception:
-    logger.trace("set ts token")
-    ts_token = "33d8d6e047cd4bf1758942a9a1247a9d77ef7e44d5d7c2ce677bad84"
-    ts.set_token(ts_token)
-    client_ts_pro = ts.pro_api()
+client_ts_pro = ts.pro_api("fac4c0a5680be5aba00200a1f2c2fe3edc8c808bea9d51a510a734c5")
 client_mootdx = Quotes.factory(market="std")
 
 
 def latest_trading_day(days: int = None) -> datetime.datetime:
-    dt = datetime.datetime.now()
+    dt = datetime.datetime.now().replace(microsecond=0)
     if days is None:
         dt_pos = dt
     else:
@@ -218,6 +212,7 @@ def get_trader_columns(data_type=None) -> list | dict | None:
         "T5_pct": 0.0,
         "T5_amplitude": 0.0,
         "G_price": 0.0,
+        "gold_section": 0.0,
         "gold_section_volume": 0.0,
         "gold_section_price": 0.0,
         "gold_pct_max_min": 0.0,
@@ -265,6 +260,7 @@ def get_trader_columns(data_type=None) -> list | dict | None:
         "T5_pct": "float64",
         "T5_amplitude": "float64",
         "G_price": "float64",
+        "gold_section": "float64",
         "gold_section_volume": "float64",
         "gold_section_price": "float64",
         "gold_pct_max_min": "float64",

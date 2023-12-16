@@ -152,7 +152,7 @@ def update_industry_index_ths() -> bool:
     str_delta = dt_delta.strftime("%Y%m%d")
     not_latest = 0
     not_latest_i = 2
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     df_industry_index = df_industry_index.sample(frac=1)
     count_industry_index = len(df_industry_index)
     i = 0
@@ -681,7 +681,7 @@ def ths_industry() -> bool:
             df=df_industry,
             key=name,
         )
-        dt_mow = datetime.datetime.now()
+        dt_mow = datetime.datetime.now().replace(microsecond=0)
         dt_daily_max = dt_date_daily_max
         if (
             dt_mow > dt_pm_end

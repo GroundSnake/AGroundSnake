@@ -83,7 +83,9 @@ def update_news(start_id: int = 0, hours: int = 8) -> int:
         df_news = news_cls()
     except requests.exceptions.SSLError:
         return start_id
-    dt_start = datetime.datetime.now() - datetime.timedelta(hours=hours)
+    dt_start = datetime.datetime.now().replace(microsecond=0) - datetime.timedelta(
+        hours=hours
+    )
     df_news = df_news[df_news["ctime"] > dt_start]
     df_news = df_news[df_news.index > start_id]
     if df_news.empty:

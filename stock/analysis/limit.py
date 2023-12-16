@@ -226,7 +226,7 @@ def worth_etf(frequency: str = "day") -> bool:
         df_worth_etf = pd.DataFrame()
     list_etf = all_stock_etf()
     path_kline = os.path.join(path_main, "data", f"kline_{frequency}")
-    dt_now = datetime.datetime.now()
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     index_min = datetime.datetime(
         year=dt_trading_last_T0.year - 1, month=1, day=1, hour=15
     )
