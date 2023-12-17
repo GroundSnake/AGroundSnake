@@ -1,5 +1,4 @@
 # modified at 2023/09/09 08:23
-import os
 import time
 import requests
 import hashlib
@@ -96,7 +95,7 @@ def update_news(start_id: int = 0, hours: int = 8) -> int:
             df=df_news,
             key=name,
         )
-    filename_news_csv = os.path.join(path_check, f"news_{str_trading_path()}.csv")
+    filename_news_csv = path_check.joinpath(f"news_{str_trading_path()}.csv")
     df_news.to_csv(path_or_buf=filename_news_csv)
     return end_id
 

@@ -1,5 +1,4 @@
 # modified at 2023/05/18 22::25
-import os
 import sys
 import datetime
 from loguru import logger
@@ -33,9 +32,7 @@ def init_trader(
         sys.exit()
     i_realtime = 0
     df_realtime = pd.DataFrame()
-    filename_drop_stock = os.path.join(
-        path_check, f"drop_stock_{str_trading_path()}.csv"
-    )
+    filename_drop_stock = path_check.joinpath(f"drop_stock_{str_trading_path()}.csv")
     """
     if os.access(path=filename_drop_stock, mode=os.F_OK):
         df_drop_stock = pd.read_csv(filepath_or_buffer=filename_drop_stock, index_col=0)

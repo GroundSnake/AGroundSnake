@@ -1,5 +1,4 @@
 # modified at 2023/05/18 22::25
-import os
 import datetime
 import pandas as pd
 from pyecharts.charts import Line, Page
@@ -112,9 +111,7 @@ def concentration_rate() -> tuple:
             df=df_concentration_rate,
             key=name,
         )
-        filename_concentration_rate = os.path.join(
-            path_check, f"concentration_rate.csv"
-        )
+        filename_concentration_rate = path_check.joinpath(f"concentration_rate.csv")
         df_concentration_rate.to_csv(path_or_buf=filename_concentration_rate)
     if not df_concentration_rate.empty:
         x_dt = df_concentration_rate.index.tolist()

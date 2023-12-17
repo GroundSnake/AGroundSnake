@@ -1,6 +1,5 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
-import os
 import time
 import math
 import datetime
@@ -13,7 +12,7 @@ import analysis.update_data
 import analysis.base
 from analysis.const import (
     phi,
-    path_main,
+    path_data,
     path_temp,
     dt_history,
     dt_init,
@@ -51,14 +50,14 @@ def golden_price(
     dt_golden = dt_init
     dt_pass = datetime.datetime(year=1990, month=1, day=1, hour=15)
     start_loop_time = time.perf_counter_ns()
-    path_kline = os.path.join(path_main, "data", f"kline_{frequency}")
-    if not os.path.exists(path_kline):
-        os.mkdir(path_kline)
+    path_kline = path_data.joinpath(f"kline_{frequency}")
+    if not path_kline.exists():
+        path_kline.mkdir()
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    filename_df_golden_temp = os.path.join(
-        path_temp, f"df_golden_temp_{str_dt_history_path}.ftr"
+    filename_df_golden_temp = path_temp.joinpath(
+        f"df_golden_temp_{str_dt_history_path}.ftr"
     )
-    if os.path.exists(filename_df_golden_temp):
+    if filename_df_golden_temp.exists():
         df_golden = feather.read_dataframe(source=filename_df_golden_temp)
         df_golden = df_golden.sample(frac=1)
     else:
@@ -96,8 +95,8 @@ def golden_price(
         if df_golden.at[symbol, "dt"] != dt_init:
             print(f"\r{str_msg_bar} - exist\033[K", end="")
             continue
-        file_name_data_feather = os.path.join(path_kline, f"{symbol}.ftr")
-        if os.path.exists(file_name_data_feather):
+        file_name_data_feather = path_kline.joinpath(f"{symbol}.ftr")
+        if file_name_data_feather.exists():
             df_data = feather.read_dataframe(source=file_name_data_feather)
         else:
             df_golden.at[symbol, "dt"] = dt_pass
@@ -192,8 +191,8 @@ def golden_price(
             key=name,
         )
         analysis.base.set_version(key=name, dt=dt_golden)
-        if os.path.exists(filename_df_golden_temp):  # 删除临时文件
-            os.remove(path=filename_df_golden_temp)
+        if filename_df_golden_temp.exists():  # 删除临时文件
+            filename_df_golden_temp.unlink()
             logger.trace(f"[{filename_df_golden_temp}] remove")
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000

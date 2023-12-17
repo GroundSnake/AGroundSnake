@@ -1,6 +1,5 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
-import os
 import datetime
 import time
 import random
@@ -19,7 +18,6 @@ from analysis.const import (
     dt_history,
     all_chs_code,
     all_stock_etf,
-    path_main,
 )
 
 
@@ -28,8 +26,8 @@ def limit_count() -> bool:
     start_loop_time = time.perf_counter_ns()
     logger.trace(f"{name} Begin")
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    file_name_df_limit_temp = os.path.join(
-        path_temp, f"df_limit_count_temp_{str_dt_history_path}.ftr"
+    file_name_df_limit_temp = path_temp.joinpath(
+        f"df_limit_count_temp_{str_dt_history_path}.ftr"
     )
     dt_delta = dt_trading_last_T0 - datetime.timedelta(days=366)
     str_date_trading = dt_history().strftime("%Y%m%d")
@@ -38,7 +36,7 @@ def limit_count() -> bool:
     if analysis.base.is_latest_version(key=name):
         logger.trace("Limit Break End")
         return True
-    if os.path.exists(file_name_df_limit_temp):
+    if file_name_df_limit_temp.exists():
         df_limit = feather.read_dataframe(source=file_name_df_limit_temp)
     else:
         list_columns = [
@@ -190,8 +188,8 @@ def limit_count() -> bool:
             key=name,
         )
         analysis.base.set_version(key=name, dt=dt_limit)
-        if os.path.exists(file_name_df_limit_temp):
-            os.remove(path=file_name_df_limit_temp)
+        if file_name_df_limit_temp.exists():
+            file_name_df_limit_temp.unlink()
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -216,16 +214,16 @@ def worth_etf(frequency: str = "day") -> bool:
         else:
             return False
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    file_name_dt_worth_etf = os.path.join(
-        path_data, f"df_limit_etf_{str_dt_history_path}_{frequency}.ftr"
+    file_name_dt_worth_etf = path_data.joinpath(
+        f"df_limit_etf_{str_dt_history_path}_{frequency}.ftr"
     )
-    if os.path.exists(file_name_dt_worth_etf):
+    if file_name_dt_worth_etf.exists():
         logger.trace(f"{file_name_dt_worth_etf} is not exist.")
         df_worth_etf = feather.read_dataframe(source=file_name_dt_worth_etf)
     else:
         df_worth_etf = pd.DataFrame()
     list_etf = all_stock_etf()
-    path_kline = os.path.join(path_main, "data", f"kline_{frequency}")
+    path_kline = path_data.joinpath(f"kline_{frequency}")
     dt_now = datetime.datetime.now().replace(microsecond=0)
     index_min = datetime.datetime(
         year=dt_trading_last_T0.year - 1, month=1, day=1, hour=15
@@ -239,8 +237,8 @@ def worth_etf(frequency: str = "day") -> bool:
         if symbol in df_worth_etf.columns:
             print(f"\r{str_msg} - Exist\033[K", end="")
             continue
-        file_name_feather = os.path.join(path_kline, f"{symbol}.ftr")
-        if os.path.exists(file_name_feather):
+        file_name_feather = path_kline.joinpath(f"{symbol}.ftr")
+        if file_name_feather.exists():
             df_delta_etf = feather.read_dataframe(source=file_name_feather)
         else:
             print(f"\r{str_msg} - Kline data is not exist\033[K")
@@ -297,7 +295,7 @@ def worth_etf(frequency: str = "day") -> bool:
         )
         dt_worth_etf = df_worth_etf.index.max()
         analysis.base.set_version(key=name, dt=dt_worth_etf)
-        if os.path.exists(file_name_dt_worth_etf):
-            os.remove(path=file_name_dt_worth_etf)
+        if file_name_dt_worth_etf.exists():
+            file_name_dt_worth_etf.unlink()
     logger.trace(f"{name} End")
     return True

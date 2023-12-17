@@ -1,13 +1,11 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
-import os
 import time
 import re
 import sys
 import math
 import datetime
 import feather
-import win32file
 import pandas as pd
 from pathlib import Path
 from console import fg
@@ -145,14 +143,14 @@ def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
 
 
 def feather_to_file(df: DataFrame, key: str):
-    filename_df = os.path.join(path_chip, f"{key}.ftr")
+    filename_df = path_chip.joinpath(f"{key}.ftr")
     feather.write_dataframe(df=df, dest=filename_df)
     return True
 
 
 def feather_from_file(key: str) -> DataFrame:
-    filename_df = os.path.join(path_chip, f"{key}.ftr")
-    if os.path.exists(filename_df):
+    filename_df = path_chip.joinpath(f"{key}.ftr")
+    if filename_df.exists():
         df = feather.read_dataframe(source=filename_df)
         if not isinstance(df, DataFrame):
             df = pd.DataFrame()
@@ -162,9 +160,9 @@ def feather_from_file(key: str) -> DataFrame:
 
 
 def delete_feather(key: str, path_folder: str = path_chip) -> bool:
-    file_name = os.path.join(path_chip, f"{key}.ftr")
-    if os.path.exists(file_name):
-        os.remove(path=file_name)
+    file_name = path_chip.joinpath(f"{key}.ftr")
+    if file_name.exists():
+        file_name.unlink()
         logger.trace(f"[{file_name}] delete success.")
         return True
     else:
@@ -191,7 +189,7 @@ def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
 def is_latest_version(key: str) -> bool:
     dt_now = datetime.datetime.now().replace(microsecond=0)
     # df_config = read_df_from_db(key="df_config", filename=filename)
-    if os.path.exists(filename_config):
+    if filename_config.exists():
         df_config = feather.read_dataframe(source=filename_config)
     else:
         logger.error(f"[{filename_config}] is not exist.")
@@ -216,7 +214,7 @@ def is_latest_version(key: str) -> bool:
 
 
 def set_version(key: str, dt: datetime.datetime) -> bool:
-    if os.path.exists(filename_config):
+    if filename_config.exists():
         df_config = feather.read_dataframe(source=filename_config)
     else:
         df_config = pd.DataFrame(columns=["date"])
@@ -244,64 +242,32 @@ def set_exist(date_index: datetime.date, columns: str) -> bool:
     return True
 
 
-def feather_to_excel(path_folder: str = path_chip):
+def feather_to_excel(path_folder: Path = path_chip):
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    filename_excel = os.path.join(path_check, f"chip_{str_dt_history_path}.xlsx")
-
-    def is_open(filename) -> bool:
-        if not os.access(path=filename, mode=os.F_OK):
-            logger.trace(f"[{filename}] is not exist")
-            return False
-        else:
-            logger.trace(f"[{filename}] is exist")
-        try:
-            v_handle = win32file.CreateFile(
-                filename,
-                win32file.GENERIC_READ,
-                0,
-                None,
-                win32file.OPEN_EXISTING,
-                win32file.FILE_ATTRIBUTE_NORMAL,
-                None,
-            )
-        except Exception as e_in:
-            print(f"{filename} - {repr(e_in)}")
-            logger.trace(f"{filename} - {repr(e_in)}")
-            return True
-        else:
-            v_handle.close()
-            logger.trace("close Handle")
-            logger.trace(f"[{filename}] not in use")
-            return False
-
-    i_file = 0
+    filename_excel = path_check.joinpath(f"chip_{str_dt_history_path}.xlsx")
+    files = [p.name for p in path_folder.iterdir() if p.is_file()]
     filename_excel_old = filename_excel
+    i_file = 0
     while i_file <= 5:
         i_file += 1
-        if is_open(filename=filename_excel):
-            logger.trace(f"[{filename_excel}] is open")
-        else:
-            logger.trace(f"[{filename_excel}] is not open")
+        try:
+            writer = pd.ExcelWriter(
+                path=filename_excel, mode="a", if_sheet_exists="replace"
+            )
+        except FileNotFoundError:
+            writer = pd.ExcelWriter(path=filename_excel, mode="w")
             break
-        path, ext = os.path.splitext(filename_excel_old)
-        path += f"_{i_file}"
-        filename_excel = path + ext
-    if is_open(filename=filename_excel):
-        logger.error(f"Loop Times out - ({i_file})")
-        return False
-    path = Path(path_folder)
-    files = [p.name for p in path.iterdir() if p.is_file()]
-    try:
-        writer = pd.ExcelWriter(
-            path=filename_excel, mode="a", if_sheet_exists="replace"
-        )
-    except FileNotFoundError:
-        writer = pd.ExcelWriter(path=filename_excel, mode="w")
+        except PermissionError:
+            file = filename_excel_old.stem + f"_{i_file}" + filename_excel_old.suffix
+            parent = filename_excel_old.parent
+            filename_excel = parent.joinpath(file)
+        else:
+            break
     for file in files:
-        file_name = os.path.join(path_folder, file)
-        postfix = os.path.splitext(file_name)[1]
-        key = os.path.splitext(file)[0]
-        if postfix == ".ftr":
+        file_name = path_folder.joinpath(file)
+        # suffix = file_name.suffix
+        key = file_name.stem
+        if file_name.match(path_pattern="*.ftr"):
             df = feather.read_dataframe(source=file_name)
             df.to_excel(excel_writer=writer, sheet_name=key)
             print(f"\r[{key}]\033[K", end="")

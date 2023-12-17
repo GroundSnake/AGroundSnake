@@ -1,19 +1,18 @@
 import datetime
-import os
 import pandas as pd
 import pywencai
 import feather
 from console import fg
 from loguru import logger
 import analysis.base
-from analysis.const import path_check, path_main, str_trading_path
+from analysis.const import path_check, path_data, str_trading_path
 
 
 # Rising on Both Volume and Price
 def volume_price_rise(df: pd.DataFrame) -> str:
     logger.trace("volume_price_rise Begin")
     str_return = ""
-    path_kline = os.path.join(path_main, "data", f"kline_1m")
+    path_kline = path_data.joinpath("kline_1m")
     try:
         df_price = pywencai.get(loop=True, query="主升浪量化分析系统早盘竞价选强势妖股")
     except AttributeError:
@@ -38,8 +37,8 @@ def volume_price_rise(df: pd.DataFrame) -> str:
             set_volume = set(df_volume["股票代码"].tolist())
     set_vp = set_price & set_volume
     list_vp = [item[-2:].lower() + item[:6] for item in set_vp]
-    filename_vp_ftr = os.path.join(path_main, "volume_price_rise.ftr")
-    if os.path.exists(filename_vp_ftr):
+    filename_vp_ftr = path_data.join("volume_price_rise.ftr")
+    if filename_vp_ftr.exists():
         df_vp = feather.read_dataframe(source=filename_vp_ftr)
     else:
         df_vp = pd.DataFrame()
@@ -64,8 +63,8 @@ def volume_price_rise(df: pd.DataFrame) -> str:
             else:
                 chosen = df_vp.at[index, "chosen"]
             df_vp.at[index, "pct_chg"] = round((now / chosen - 1) * 100, 2)
-            file_name_data_feather = os.path.join(path_kline, f"{index}.ftr")
-            if os.path.exists(file_name_data_feather):
+            file_name_data_feather = path_kline.joinpath(f"{index}.ftr")
+            if file_name_data_feather.exists():
                 df_data = feather.read_dataframe(source=file_name_data_feather)
                 df_data = df_data[dt_start:]
                 df_vp.at[index, "low"] = df_data["low"].min()
@@ -81,7 +80,7 @@ def volume_price_rise(df: pd.DataFrame) -> str:
             df_vp.at[index, "name"] = "NON"
     df_vp.sort_values(by=["pct_chg"], ascending=False, inplace=True)
     feather.write_dataframe(df=df_vp, dest=filename_vp_ftr)
-    filename_vp_csv = os.path.join(path_check, f"wc_use_{str_trading_path()}.csv")
+    filename_vp_csv = path_check.joinpath(f"wc_use_{str_trading_path()}.csv")
     df_vp.to_csv(path_or_buf=filename_vp_csv)
     count = len(list_vp)
     if count == 0:

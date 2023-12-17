@@ -1,6 +1,5 @@
 # modified at 2023/05/18 22::25
 import datetime
-import os
 import time
 import httpx
 import random
@@ -34,12 +33,12 @@ def update_stock_data(
         logger.trace("update stock Kline Break and End")
         return True
     start_loop_time = time.perf_counter_ns()
-    path_kline = os.path.join(path_data, f"kline_{frequency}")
-    if not os.path.exists(path_kline):
-        os.mkdir(path_kline)
+    path_kline = path_data.joinpath(f"kline_{frequency}")
+    if not path_kline.exists():
+        path_kline.mkdir()
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    file_name_catalogue_temp = os.path.join(
-        path_temp, f"df_catalogue_temp_{str_dt_history_path}_{frequency}.ftr"
+    file_name_catalogue_temp = path_temp.joinpath(
+        f"df_catalogue_temp_{str_dt_history_path}_{frequency}.ftr"
     )
     if reset_catalogue:
         analysis.base.delete_feather(key=f"df_catalogue_{frequency}")
@@ -55,7 +54,7 @@ def update_stock_data(
         list_all_code += list_all_etf
     else:
         list_all_etf = list()
-    if os.path.exists(file_name_catalogue_temp):
+    if file_name_catalogue_temp.exists():
         # 读取腌制数据 catalogue
         df_catalogue = feather.read_dataframe(source=file_name_catalogue_temp)
     else:
@@ -81,8 +80,8 @@ def update_stock_data(
                 end="",
             )
             continue
-        file_name_feather = os.path.join(path_kline, f"{symbol}.ftr")
-        if os.path.exists(file_name_feather):
+        file_name_feather = path_kline.joinpath(f"{symbol}.ftr")
+        if file_name_feather.exists():
             df_data = feather.read_dataframe(source=file_name_feather)
         else:
             # print(f"\r{str_msg} - Kline data is not exist\033[K", end="")
@@ -184,8 +183,8 @@ def update_stock_data(
             key=f"df_catalogue_{frequency}",
         )
         analysis.base.set_version(key=name, dt=df_catalogue["end"].max())
-        if os.path.exists(file_name_catalogue_temp):
-            os.remove(path=file_name_catalogue_temp)
+        if file_name_catalogue_temp.exists():
+            file_name_catalogue_temp.unlink()
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
@@ -203,12 +202,12 @@ def update_index_data(symbol: str = "000001") -> pd.DataFrame:
     else:
         name = f"index_{frequency}_kline_other"
     logger.trace(f"[{symbol}] update_index_data Begin")
-    file_name_index_feather = os.path.join(path_index, f"sh{symbol}.ftr")
+    file_name_index_feather = path_index.joinpath(f"sh{symbol}.ftr")
     if analysis.base.is_latest_version(key=name):
         df_index = feather.read_dataframe(source=file_name_index_feather)
         logger.trace(f"[{symbol}] update_index_data Break and End")
         return df_index
-    if os.path.exists(file_name_index_feather):
+    if file_name_index_feather.exists():
         # 读取腌制数据 catalogue
         df_index = feather.read_dataframe(source=file_name_index_feather)
         logger.trace(f"Load index[{symbol}] feather from [{file_name_index_feather}]")
@@ -229,7 +228,7 @@ def update_index_data(symbol: str = "000001") -> pd.DataFrame:
     else:
         df_index.sort_index(inplace=True)
         feather.write_dataframe(df=df_index, dest=file_name_index_feather)
-        if not os.path.exists(file_name_index_feather):
+        if not file_name_index_feather.exists():
             logger.trace(f"Create and feather index_[{symbol}]")
         dt_update_index_data = df_index.index.max()
         analysis.base.set_version(key=name, dt=dt_update_index_data)

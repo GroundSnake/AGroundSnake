@@ -20,8 +20,6 @@ import analysis.concentration
 import analysis.dividend
 import analysis.convertible_bonds
 from analysis.const import (
-    path_check,
-    dt_history,
     phi_b_neg,
     dt_recent_fiscal_start,
     INDUSTRY_MAX_MIN,

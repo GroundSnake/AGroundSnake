@@ -1,6 +1,5 @@
 # modified at 2023/05/18 22::25
 from __future__ import annotations
-import os
 import datetime
 import time
 import random
@@ -31,10 +30,8 @@ def fina_audit_vip(year: int):
     str_dt_period = dt_period.strftime("%Y%m%d")
     str_date_path = dt_period.strftime("%Y_%m_%d")
     audit_result_init = "NON"
-    filename_df_fina_audit = os.path.join(
-        path_data, f"df_fina_audit_{str_date_path}.ftr"
-    )
-    if os.path.exists(filename_df_fina_audit):
+    filename_df_fina_audit = path_data.joinpath(f"df_fina_audit_{str_date_path}.ftr")
+    if filename_df_fina_audit.exists():
         df_fina_audit = feather.read_dataframe(source=filename_df_fina_audit)
         df_fina_audit = df_fina_audit.sample(frac=1)
     else:
@@ -105,8 +102,8 @@ def fina_audit_vip(year: int):
             df=df_fina_audit,
             key=name,
         )
-        if os.path.exists(filename_df_fina_audit):
-            os.remove(path=filename_df_fina_audit)
+        if filename_df_fina_audit.exists(filename_df_fina_audit):
+            filename_df_fina_audit.unlink()
     return df_fina_audit
 
 
@@ -148,11 +145,11 @@ def st_income() -> bool:
     str_dt_period_previous = dt_period_previous.strftime("%Y%m%d")
     str_dt_period_next = dt_period_next.strftime("%Y%m%d")
     str_date_path = dt_trading_last_T0.strftime("%Y_%m_%d")
-    filename_df_st = os.path.join(path_data, f"df_st_temp_{str_date_path}.ftr")
+    filename_df_st = path_data.joinpath(f"df_st_temp_{str_date_path}.ftr")
     audit_result_init = "NON"
     st_init = "NON"
     audit_result_std = "标准无保留意见"
-    if os.path.exists(filename_df_st):
+    if filename_df_st.exists():
         df_st = feather.read_dataframe(source=filename_df_st)
         df_st = df_st.sample(frac=1)
     else:
@@ -382,8 +379,8 @@ def st_income() -> bool:
             key=name,
         )
         analysis.base.set_version(key=name, dt=dt_pm_end)
-        if os.path.exists(filename_df_st):
-            os.remove(path=filename_df_st)
+        if filename_df_st.exists(filename_df_st):
+            filename_df_st.unlink()
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000
     str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))

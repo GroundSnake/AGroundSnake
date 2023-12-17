@@ -1,5 +1,4 @@
 import datetime
-import os
 import random
 import numpy as np
 import pandas as pd
@@ -21,9 +20,7 @@ def cash_dividend(debug: bool = False):
     name: str = "df_cash_div"
     logger.trace(f"{name} Begin")
     str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    file_name_df_cash_div = os.path.join(
-        path_temp, f"df_cash_div_{str_dt_history_path}.ftr"
-    )
+    file_name_df_cash_div = path_temp.joinpath(f"df_cash_div_{str_dt_history_path}.ftr")
     if debug:
         print(f"debug {name}")
     else:
@@ -53,7 +50,7 @@ def cash_dividend(debug: bool = False):
     int_days_2y = (dt_now - dt_cash_div_start_2y).days
     int_days_1y = (dt_now - dt_cash_div_start_1y).days
     int_days_y0 = (dt_now - dt_cash_div_start_y0).days
-    if os.path.exists(file_name_df_cash_div):
+    if file_name_df_cash_div.exists():
         df_cash_div = feather.read_dataframe(source=file_name_df_cash_div)
     else:
         df_cash_div = analysis.base.stock_basic_v2()
@@ -153,7 +150,7 @@ def cash_dividend(debug: bool = False):
                 key=name,
             )
             analysis.base.set_version(key=name, dt=dt_pm_end)
-            if os.path.exists(file_name_df_cash_div):
-                os.remove(path=file_name_df_cash_div)
+            if file_name_df_cash_div.exists():
+                file_name_df_cash_div.unlink()
     logger.trace(f"Limit Count End")
     return True

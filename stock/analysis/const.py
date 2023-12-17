@@ -1,7 +1,7 @@
 # modified at 2023/06/29 22::25
-import os
 import datetime
 import random
+import pathlib
 import pandas as pd
 import analysis.tushare as ts
 from loguru import logger
@@ -80,34 +80,34 @@ def all_stock_etf(r: bool = True) -> list | None:
         return list_chs_code
 
 
-path_main = os.getcwd()
-path_data = os.path.join(path_main, "data")
-if not os.path.exists(path_data):
-    os.mkdir(path_data)
-path_history = os.path.join(path_main, "history")
-if not os.path.exists(path_history):
-    os.mkdir(path_history)
-path_check = os.path.join(path_main, "check")
-if not os.path.exists(path_check):
-    os.mkdir(path_check)
-path_index = os.path.join(path_data, f"index")
-if not os.path.exists(path_index):
-    os.mkdir(path_index)
-path_log = os.path.join(path_data, f"log")
-if not os.path.exists(path_log):
-    os.mkdir(path_log)
-path_mv = os.path.join(path_data, f"mv")
-if not os.path.exists(path_mv):
-    os.mkdir(path_mv)
-path_temp = os.path.join(path_data, f"temp")
-if not os.path.exists(path_temp):
-    os.mkdir(path_temp)
-path_chip = os.path.join(path_data, f"chip")
-if not os.path.exists(path_chip):
-    os.mkdir(path_chip)
-path_config = os.path.join(path_data, f"config")
-if not os.path.exists(path_config):
-    os.mkdir(path_config)
+path_main = pathlib.Path.cwd()
+path_check = path_main.joinpath("check")
+if not path_check.exists():
+    path_check.mkdir()
+path_history = path_main.joinpath("history")
+if not path_history.exists():
+    path_history.mkdir()
+path_data = path_main.joinpath("data")
+if not path_data.exists():
+    path_data.mkdir()
+path_chip = path_data.joinpath("chip")
+if not path_chip.exists():
+    path_chip.mkdir()
+path_config = path_data.joinpath("config")
+if not path_config.exists():
+    path_config.mkdir()
+path_index = path_data.joinpath("index")
+if not path_index.exists():
+    path_index.mkdir()
+path_log = path_data.joinpath("log")
+if not path_log.exists():
+    path_log.mkdir()
+path_mv = path_data.joinpath("mv")
+if not path_mv.exists():
+    path_mv.mkdir()
+path_temp = path_data.joinpath("temp")
+if not path_temp.exists():
+    path_temp.mkdir()
 dt_trading_last_1T = latest_trading_day(days=-1)
 dt_trading_last_T0 = latest_trading_day()
 dt_trading_last_T1 = latest_trading_day(days=1)
@@ -165,15 +165,14 @@ def str_trading_path() -> str:
         return dt_date_trading_last_T1.strftime("%Y_%m_%d")
 
 
-filename_log = os.path.join(path_log, "log{time}.log")
-filename_input = os.path.join(path_main, f"input.xlsx")
-filename_trader_template = os.path.join(path_main, f"trader.xlsx")
-filename_market_values_shelve = os.path.join(path_mv, f"mv")
-filename_index_charts = os.path.join(path_check, f"index_charts.html")
-filename_concentration_rate_charts = os.path.join(
-    path_check, f"concentration_rate_charts.html"
+filename_log = path_log.joinpath("log{time}.log")
+filename_input = path_main.joinpath("input.xlsx")
+filename_trader_template = path_main.joinpath("trader.xlsx")
+filename_index_charts = path_check.joinpath("index_charts.html")
+filename_concentration_rate_charts = path_check.joinpath(
+    "concentration_rate_charts.html"
 )
-filename_config = os.path.join(path_config, f"config.ftr")
+filename_config = path_config.joinpath("config.ftr")
 fall = -5
 rise = 10000 / (100 + fall) - 100  # rise = 5.26315789473683
 phi = 1 / golden  # extreme and mean ratio 黄金分割常数

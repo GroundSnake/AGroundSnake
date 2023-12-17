@@ -197,13 +197,13 @@ def main() -> None:
         df=df_trader,
         key="df_trader",
     )
-    filename_data_csv = os.path.join(path_check, f"trader_{str_trading_path()}.csv")
-    df_trader = df_trader.sort_values(by=["position", "pct_chg"], ascending=False)
+    filename_data_csv = path_check.joinpath(f"trader_{str_trading_path()}.csv")
+    df_trader = df_trader.sort_values(by=["position_unit", "pct_chg"], ascending=False)
     df_trader.to_csv(path_or_buf=filename_data_csv)
     # 保存df_trader----End
     # 创建df_signal----Begin
-    filename_signal = os.path.join(path_check, f"signal_{str_trading_path()}.xlsx")
-    if os.access(path=filename_signal, mode=os.F_OK):
+    filename_signal = path_check.joinpath(f"signal_{str_trading_path()}.xlsx")
+    if filename_signal.exists():
         df_signal_sell = pd.read_excel(
             io=filename_signal, sheet_name="sell", index_col=0
         )
@@ -253,7 +253,7 @@ def main() -> None:
             str_msg_modified = ""
             str_msg_add = ""
             str_msg_del = ""
-            if os.path.exists(filename_input):
+            if filename_input.exists():
                 df_in_modified = pd.read_excel(
                     io=filename_input, sheet_name="modified", index_col=0
                 )
@@ -269,7 +269,7 @@ def main() -> None:
                     df_in_add.index = df_in_add.index.str.lower()
                     df_in_del.index = df_in_del.index.str.lower()
                 except AttributeError:
-                    os.remove(path=filename_input)
+                    filename_input.unlink()
                 # 索引转为小写字母 End
                 df_in_modified = df_in_modified[
                     ~df_in_modified.index.duplicated(keep="first")
@@ -343,12 +343,12 @@ def main() -> None:
                                 list_in_del.remove(code)
                     str_msg_del = f"{list_in_del}"
                 str_now_input = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                file_name_input_rename = os.path.join(
-                    path_history, f"input_{str_now_input}.xlsx"
+                file_name_input_rename = path_history.joinpath(
+                    f"input_{str_now_input}.xlsx"
                 )
                 df_trader = analysis.init_trader(df_trader=df_trader, sort=False)
                 try:
-                    os.rename(src=filename_input, dst=file_name_input_rename)
+                    filename_input.rename(target=file_name_input_rename)
                 except Exception as e:
                     logger.error(f"[{filename_input}] rename file fail - {repr(e)}")
                     time.sleep(2)
@@ -502,9 +502,7 @@ def main() -> None:
                 if code not in list_signal_sell_before:
                     list_signal_chg.append(code)
             if list_signal_chg:
-                filename_signal = os.path.join(
-                    path_check, f"signal_{str_trading_path()}.xlsx"
-                )
+                filename_signal = path_check.join(f"signal_{str_trading_path()}.xlsx")
                 with pd.ExcelWriter(path=filename_signal, mode="w") as writer:
                     df_signal_sell.to_excel(excel_writer=writer, sheet_name="sell")
                     df_signal_buy.to_excel(excel_writer=writer, sheet_name="buy")
@@ -819,8 +817,8 @@ def main() -> None:
                 print(str_add_stocks)
                 print("=" * 108)
             if frq % 3 == 0:
-                filename_data_csv = os.path.join(
-                    path_check, f"trader_{str_trading_path()}.csv"
+                filename_data_csv = path_check.joinpath(
+                    f"trader_{str_trading_path()}.csv"
                 )
                 df_trader_csv = df_trader.sort_values(by=["pct_chg"], ascending=False)
                 df_trader_csv.to_csv(path_or_buf=filename_data_csv)
