@@ -86,6 +86,19 @@ def init_trader(
             else:
                 df_trader.at[code, "rise"] = rise
         if code in df_chip.index:
+            if df_realtime.empty:
+                df_trader.at[code, "name"] = df_chip.at[code, "name"]
+                now_price = df_chip.at[code, "now_price"]
+            else:
+                if code in df_realtime.index:
+                    df_trader.at[code, "name"] = df_realtime.at[code, "name"]
+                    now_price = df_realtime.at[code, "close"]
+                else:
+                    df_trader.at[code, "name"] = df_chip.at[code, "name"]
+                    now_price = df_chip.at[code, "now_price"]
+            if df_trader.at[code, "recent_price"] == 0:
+                df_trader.at[code, "recent_price"] = now_price
+            df_trader.at[code, "now_price"] = now_price
             df_trader.at[code, "T5_amplitude"] = df_chip.at[code, "T5_amplitude"]
             df_trader.at[code, "T5_pct"] = df_chip.at[code, "T5_pct"]
             df_trader.at[code, "7Pct_T"] = int(df_chip.at[code, "correct_7pct_times"])
@@ -106,16 +119,6 @@ def init_trader(
             df_trader.at[code, "gold_section_price"] = df_chip.at[
                 code, "gold_section_price"
             ]
-            if df_realtime.empty:
-                name = df_chip.at[code, "name"]
-                now_price = df_chip.at[code, "now_price"]
-            else:
-                name = df_realtime.at[code, "name"]
-                now_price = df_realtime.at[code, "close"]
-            df_trader.at[code, "name"] = name
-            df_trader.at[code, "now_price"] = now_price
-            if df_trader.at[code, "recent_price"] == 0:
-                df_trader.at[code, "recent_price"] = now_price
             if df_trader.at[code, "price_of_inclusion"] == 0:
                 df_trader.at[code, "price_of_inclusion"] = now_price
             df_trader.at[code, "total_mv_E"] = df_chip.at[code, "total_mv_E"]
@@ -185,48 +188,68 @@ def init_trader(
     df_drop_stock = pd.DataFrame(columns=df_trader.columns)
     if len_trader > drop_count:
         for code in df_trader.index:
+            if df_trader.at[code, "position"] > 0:
+                continue
+            if "ST" in df_trader.at[code, "ST"] or "ST" in df_trader.at[code, "name"]:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "ST"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif df_trader.at[code, "gold_section"] >= 100:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "gold_section"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif df_trader.at[code, "gold_section_volume"] >= 38.2:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "gold_section_volume"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif df_trader.at[code, "gold_section_price"] >= 38.2:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "gold_section_price"
+                df_trader.drop(index=code, inplace=True)
+                continue
             days_recent_trading = (dt_now - df_trader.at[code, "recent_trading"]).days
+            if days_recent_trading < 60:
+                continue
             days_of_inclusion_latest = (
                 dt_now - df_trader.at[code, "date_of_inclusion_latest"]
             ).days
-            if (
-                df_trader.at[code, "position"] == 0
-                and days_recent_trading > 60
-                and days_of_inclusion_latest > 30
+            if days_of_inclusion_latest < 30:
+                continue
+            if df_trader.at[code, "rate_of_inclusion"] < phi_a:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "rate_of_inclusion"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif df_trader.at[code, "G_price"] > G_PRICE_MAX:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "G_price"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif df_trader.at[code, "now_price"] > NOW_PRICE_MAX:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "now_price"
+                df_trader.drop(index=code, inplace=True)
+            elif df_trader.at[code, "profit_rate"] <= phi_b_neg:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "profit_rate"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif (
+                df_trader.at[code, "times_exceed_correct_industry"] < 35
+                or df_trader.at[code, "mean_exceed_correct_industry"] < 0.7
             ):
-                if (
-                    "ST" in df_trader.at[code, "ST"]
-                    or "ST" in df_trader.at[code, "name"]
-                ):
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_trader.drop(index=code, inplace=True)
-                elif df_trader.at[code, "rate_of_inclusion"] < phi_a:
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "rate_of_inclusion"
-                    df_trader.drop(index=code, inplace=True)
-                elif df_trader.at[code, "G_price"] > G_PRICE_MAX:
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "G_price"
-                    df_trader.drop(index=code, inplace=True)
-                elif df_trader.at[code, "now_price"] > NOW_PRICE_MAX:
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "now_price"
-                    df_trader.drop(index=code, inplace=True)
-                elif df_trader.at[code, "profit_rate"] <= phi_b_neg:
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "profit_rate"
-                    df_trader.drop(index=code, inplace=True)
-                elif (
-                    df_trader.at[code, "times_exceed_correct_industry"] < 35
-                    or df_trader.at[code, "mean_exceed_correct_industry"] < 0.7
-                ):
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "times_exceed_correct"
-                    df_trader.drop(index=code, inplace=True)
-                elif df_trader.at[code, "max_min"] < INDUSTRY_MAX_MIN:
-                    df_drop_stock.loc[code] = df_trader.loc[code]
-                    df_drop_stock.at[code, "drop"] = "max_min"
-                    df_trader.drop(index=code, inplace=True)
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "times_exceed_correct"
+                df_trader.drop(index=code, inplace=True)
+                continue
+            elif df_trader.at[code, "max_min"] < INDUSTRY_MAX_MIN:
+                df_drop_stock.loc[code] = df_trader.loc[code]
+                df_drop_stock.at[code, "drop"] = "max_min"
+                df_trader.drop(index=code, inplace=True)
+                continue
     if not df_drop_stock.empty:
         df_drop_stock.to_csv(path_or_buf=filename_drop_stock)
     # 删除df_trader过期的标的----End

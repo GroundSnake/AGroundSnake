@@ -33,7 +33,7 @@ from analysis import (
 )
 
 __version__ = "3.0.0"
-running_state = "DEBUG"  # NORMAL ,DEBUG
+running_state = "NORMAL"  # NORMAL ,DEBUG
 
 
 def main() -> None:
@@ -139,9 +139,18 @@ def main() -> None:
         key="df_stocks_pool",
     )
     str_add_stocks = ""
+    dt_now = datetime.datetime.now().replace(microsecond=0)
     if not df_stocks_pool.empty:
         line_len = 5
-        dt_inclusion = dt_pm_end
+        if dt_now < dt_pm_end:
+            dt_inclusion = dt_pm_end
+        else:
+            i_while = 0
+            while i_while <= 15:
+                i_while += 1
+                dt_inclusion = dt_pm_end + datetime.timedelta(days=i_while)
+                if analysis.is_trading_day(dt=dt_inclusion):
+                    break
         i = 0
         for code in df_stocks_pool.index:
             i += 1
@@ -159,14 +168,6 @@ def main() -> None:
                     code, "factor_count"
                 ]
             else:
-                if df_trader.at[code, "position"] > 0:
-                    str_add_stock = fg.purple(str_add_stock)
-                elif (
-                    df_trader.at[code, "date_of_inclusion_first"]
-                    == df_trader.at[code, "date_of_inclusion_latest"]
-                    == dt_inclusion
-                ):
-                    str_add_stock = fg.yellow(str_add_stock)
                 if (
                     df_trader.at[code, "date_of_inclusion_first"] == dt_init
                     or df_trader.at[code, "date_of_inclusion_latest"] == dt_init
@@ -177,6 +178,7 @@ def main() -> None:
                         code, "recent_price"
                     ] = df_stocks_pool.at[code, "now_price"]
                     df_trader.at[code, "times_of_inclusion"] = 1
+                    str_add_stock = fg.yellow(str_add_stock)
                 else:
                     if df_trader.at[code, "date_of_inclusion_latest"] != dt_inclusion:
                         df_trader.at[code, "date_of_inclusion_latest"] = dt_inclusion
@@ -185,6 +187,8 @@ def main() -> None:
                 df_trader.at[code, "factor_count"] = df_stocks_pool.at[
                     code, "factor_count"
                 ]
+                if df_trader.at[code, "position"] > 0:
+                    str_add_stock = fg.purple(str_add_stock)    
             if str_add_stocks == "":
                 str_add_stocks = f"{str_add_stock}"
             elif i % line_len == 1:
@@ -502,7 +506,7 @@ def main() -> None:
                 if code not in list_signal_sell_before:
                     list_signal_chg.append(code)
             if list_signal_chg:
-                filename_signal = path_check.join(f"signal_{str_trading_path()}.xlsx")
+                filename_signal = path_check.joinpath(f"signal_{str_trading_path()}.xlsx")
                 with pd.ExcelWriter(path=filename_signal, mode="w") as writer:
                     df_signal_sell.to_excel(excel_writer=writer, sheet_name="sell")
                     df_signal_buy.to_excel(excel_writer=writer, sheet_name="buy")
@@ -706,7 +710,13 @@ def main() -> None:
                         < df_item.at[code, "now_price"]
                         < df_item.at[code, "G_price"]
                     ):
-                        msg_signal_code_gold = fg.purple(msg_signal_code_gold)
+                        msg_signal_code_gold = fg.yellow(msg_signal_code_gold)
+                        if (
+                            df_item.at[code, "gold_section"] <= 28.65
+                            and df_item.at[code, "gold_section_price"] <= 28.65
+                            and df_item.at[code, "gold_section_volume"] <= 28.65
+                        ):
+                            msg_signal_code_gold = fg.purple(msg_signal_code_gold)
                     if df_item.at[code, "remark"] != "":
                         msg_signal_code_remark = fg.red(
                             f" - Remark:{df_item.at[code, 'remark']}"

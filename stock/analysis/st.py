@@ -8,7 +8,7 @@ import feather
 from loguru import logger
 import analysis.base
 from analysis.const import (
-    path_data,
+    path_temp,
     dt_init,
     dt_trading_last_T0,
     dt_pm_end,
@@ -30,7 +30,7 @@ def fina_audit_vip(year: int):
     str_dt_period = dt_period.strftime("%Y%m%d")
     str_date_path = dt_period.strftime("%Y_%m_%d")
     audit_result_init = "NON"
-    filename_df_fina_audit = path_data.joinpath(f"df_fina_audit_{str_date_path}.ftr")
+    filename_df_fina_audit = path_temp.joinpath(f"df_fina_audit_{str_date_path}.ftr")
     if filename_df_fina_audit.exists():
         df_fina_audit = feather.read_dataframe(source=filename_df_fina_audit)
         df_fina_audit = df_fina_audit.sample(frac=1)
@@ -102,7 +102,7 @@ def fina_audit_vip(year: int):
             df=df_fina_audit,
             key=name,
         )
-        if filename_df_fina_audit.exists(filename_df_fina_audit):
+        if filename_df_fina_audit.exists():
             filename_df_fina_audit.unlink()
     return df_fina_audit
 
@@ -145,7 +145,7 @@ def st_income() -> bool:
     str_dt_period_previous = dt_period_previous.strftime("%Y%m%d")
     str_dt_period_next = dt_period_next.strftime("%Y%m%d")
     str_date_path = dt_trading_last_T0.strftime("%Y_%m_%d")
-    filename_df_st = path_data.joinpath(f"df_st_temp_{str_date_path}.ftr")
+    filename_df_st = path_temp.joinpath(f"df_st_temp_{str_date_path}.ftr")
     audit_result_init = "NON"
     st_init = "NON"
     audit_result_std = "标准无保留意见"
@@ -379,7 +379,7 @@ def st_income() -> bool:
             key=name,
         )
         analysis.base.set_version(key=name, dt=dt_pm_end)
-        if filename_df_st.exists(filename_df_st):
+        if filename_df_st.exists():
             filename_df_st.unlink()
     end_loop_time = time.perf_counter_ns()
     interval_time = (end_loop_time - start_loop_time) / 1000000000

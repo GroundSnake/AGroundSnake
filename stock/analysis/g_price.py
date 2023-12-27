@@ -177,8 +177,9 @@ def golden_price(
             df_golden.at[symbol, "gold_section_volume"],
         )
         if alpha_gs_max > 0 and alpha_gs_min > 0:
-            df_golden.at[symbol, "gold_section"] = math.floor(
-                pow(alpha_gs_max, 2) / alpha_gs_min
+            df_golden.at[symbol, "gold_section"] = round(
+                pow(alpha_gs_max, 2) / alpha_gs_min,
+                2
             )
         if random.randint(a=0, b=9) == 5:
             feather.write_dataframe(df=df_golden, dest=filename_df_golden_temp)

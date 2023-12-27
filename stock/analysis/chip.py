@@ -177,11 +177,12 @@ def chip() -> object | DataFrame:
             df_chip.at[symbol, "dividend_rate"] = 0
     analysis.base.feather_to_file(df=df_chip, key=name)
     df_g_price_1 = df_chip[
-        (df_chip["gold_section_volume"].between(19.1, 38.2))
+        (df_chip["gold_section"] < 50)
+        & (df_chip["gold_section_volume"].between(19.1, 38.2))
+        & (df_chip["gold_section_price"].between(19.1, 38.2))
         & (df_chip[f"gold_price_min"] < df_chip[f"now_price"])
         & (df_chip[f"gold_pct_max_min"] >= 50)
         & (df_chip[f"gold_date_max"] > df_chip[f"gold_date_min"])
-        & (df_chip["gold_section_price"].between(19.1, 38.2))
         & (df_chip["G_price"] <= G_PRICE_MAX)
     ]
     df_limit_2 = df_chip[
@@ -224,6 +225,7 @@ def chip() -> object | DataFrame:
         & (df_stocks_pool["cash_div_end_dt"] >= dt_recent_fiscal_start)
         & (df_stocks_pool["G_price"] >= df_stocks_pool["now_price"])
         & (df_stocks_pool["now_price"] <= NOW_PRICE_MAX)
+        & (df_chip["gold_section"] < 100)
     ]
     df_stocks_pool["factor_count"] = 1
     df_stocks_pool["factor"] = None
@@ -261,9 +263,10 @@ def chip() -> object | DataFrame:
             "name",
             "list_days",
             "correct_7pct_times",
+            "gold_section",
+            "gold_section_price",
             "gold_section_volume",
             "G_price",
-            "gold_section_price",
             "gold_pct_max_min",
             "total_mv_E",
             "industry_code",
