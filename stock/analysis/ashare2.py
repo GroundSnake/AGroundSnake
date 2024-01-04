@@ -13,7 +13,6 @@ from fake_useragent import UserAgent
 import analysis
 from analysis.const import client_mootdx, path_temp
 from analysis.base import get_stock_code
-from analysis.log import log_josn
 
 
 ua = UserAgent()
@@ -201,22 +200,18 @@ def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
     """
     filename_raeltime = path_temp.joinpath("now_price_realtime_em.ftr")
     if filename_raeltime.exists():
-        df_feather_em = feather.read_dataframe(source=filename_raeltime)
-        if isinstance(df_feather_em.index.name, str):
-            dt_temp = datetime.datetime.strptime(
-                df_feather_em.index.name, "%Y%m%d_%H%M%S"
-            )
+        df_feather = feather.read_dataframe(source=filename_raeltime)
+        if isinstance(df_feather.index.name, str):
+            dt_temp = datetime.datetime.strptime(df_feather.index.name, "%Y%m%d_%H%M%S")
             dt_now = datetime.datetime.now().replace(microsecond=0)
             timedelta_now = dt_now - dt_temp
             if timedelta_now.seconds < 18:
                 if stock_codes is None:
-                    return df_feather_em
+                    return df_feather
                 if not isinstance(stock_codes, list):
                     stock_codes = [stock_codes]
-                df_feather_em = df_feather_em[
-                    df_feather_em.index.isin(values=stock_codes)
-                ]
-                return df_feather_em
+                df_feather = df_feather[df_feather.index.isin(values=stock_codes)]
+                return df_feather
     url = "http://82.push2.eastmoney.com/api/qt/clist/get"
     params = {
         "pn": "1",
@@ -232,7 +227,6 @@ def stock_zh_a_spot_em(stock_codes: str | list | None = None) -> pd.DataFrame:
         "_": "1623833739532",
     }
     r = requests.get(url, params=params, headers=headers)
-    log_josn(item="em")
     data_json = r.json()
     dt = datetime.datetime.now().replace(microsecond=0)
     if not data_json["data"]["diff"]:
@@ -341,34 +335,17 @@ def stock_zh_a_spot_qq(stock_codes: str | list) -> pd.DataFrame:
     http://qt.gtimg.cn/q=sh600519,sz002621
     :return:
     """
+    grep_stock_code = re.compile(r"(?<=_)\w+")
     if not isinstance(stock_codes, list):
         stock_codes = [stock_codes]
-    filename_raeltime = path_temp.joinpath("now_price_realtime_qq.ftr")
-    if filename_raeltime.exists():
-        df_feather_qq = feather.read_dataframe(source=filename_raeltime)
-        stock_codes_history = df_feather_qq.index.to_list()
-        if stock_codes <= stock_codes_history:
-            if isinstance(df_feather_qq.index.name, str):
-                dt_temp = datetime.datetime.strptime(
-                    df_feather_qq.index.name, "%Y%m%d_%H%M%S"
-                )
-                dt_now = datetime.datetime.now().replace(microsecond=0)
-                timedelta_now = dt_now - dt_temp
-                if timedelta_now.seconds < 18:
-                    df_feather_qq = df_feather_qq[
-                        df_feather_qq.index.isin(values=stock_codes)
-                    ]
-                    return df_feather_qq
     str_stocks = ",".join(stock_codes)
     url = "http://qt.gtimg.cn/q="
     url = url + str_stocks
     rs = requests.get(url=url, headers=headers)
-    log_josn(item="qq")
     rep_data = rs.text
     stocks_detail = "".join(rep_data)
     stock_details = stocks_detail.split(";")
     stock_dict = dict()
-    grep_stock_code = re.compile(r"(?<=_)\w+")
     for stock_detail in stock_details:
         stock = stock_detail.split("~")
         if len(stock) <= 49:
@@ -454,9 +431,6 @@ def stock_zh_a_spot_qq(stock_codes: str | list) -> pd.DataFrame:
         ]
     ]
     df_temp.set_index(keys="code", inplace=True)
-    dt_now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    df_temp.index.rename(name=dt_now, inplace=True)
-    feather.write_dataframe(df=df_temp, dest=filename_raeltime)
     return df_temp
 
 

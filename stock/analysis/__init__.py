@@ -10,6 +10,7 @@ from analysis.wcuse import volume_price_rise
 from analysis.news import update_news, get_news, get_stock_news
 from analysis.limit_up_today import limit_up_today
 from analysis.convertible_bonds import realtime_cb
+from analysis.log import log_josn
 from analysis.base import (
     is_trading_day,
     code_ths_to_ts,
@@ -25,3 +26,4 @@ from analysis.base import (
     sleep_to_time,
 )
 from analysis.const import all_chs_code
+from analysis.market import correct_gird

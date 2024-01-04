@@ -30,6 +30,7 @@ from analysis import (
     phi_a,
     all_chs_code,
     get_trader_columns,
+    log_josn,
 )
 
 __version__ = "3.0.0"
@@ -65,6 +66,7 @@ def main() -> None:
     int_news_id = 0
     int_news_id_latest = 0
     news_update_frq = 4  # 4 Hours
+    correct_gird = 0
     list_all_code = all_chs_code()
     dict_trader_dtype = get_trader_columns(data_type="dtype")
     dict_trader_default = get_trader_columns(data_type="dict")
@@ -188,7 +190,7 @@ def main() -> None:
                     code, "factor_count"
                 ]
                 if df_trader.at[code, "position"] > 0:
-                    str_add_stock = fg.purple(str_add_stock)    
+                    str_add_stock = fg.purple(str_add_stock)
             if str_add_stocks == "":
                 str_add_stocks = f"{str_add_stock}"
             elif i % line_len == 1:
@@ -238,6 +240,7 @@ def main() -> None:
     """init End"""
     """loop Begin"""
     while True:
+        log_josn(item="main_loop")
         dt_now = datetime.datetime.now().replace(microsecond=0)
         # 开盘前：9:10 至 9:30
         if dt_am_0910 < dt_now < dt_am_start:
@@ -420,6 +423,7 @@ def main() -> None:
                     start_id=int_news_id_latest, hours=news_update_frq
                 )
                 str_index_ssb_now = index_ssb.realtime_index()
+                correct_gird = analysis.correct_gird()
             df_news = analysis.base.feather_from_file(
                 key="df_news",
             )
@@ -463,12 +467,12 @@ def main() -> None:
                         stock=df_trader.at[code, "name"],
                     )
                 if (
-                    pct_chg >= df_trader.at[code, "rise"]
+                    pct_chg >= df_trader.at[code, "rise"] * (1 + correct_gird)
                     and df_trader.at[code, "position"] > 0
                 ):
                     df_signal_sell.loc[code] = df_trader.loc[code]
                     list_signal_on_sell.append(code)
-                elif pct_chg <= df_trader.at[code, "fall"]:
+                elif pct_chg <= df_trader.at[code, "fall"] * (1 - correct_gird):
                     df_signal_buy.loc[code] = df_trader.loc[code]
                     list_signal_on_buy.append(code)
                 elif (
@@ -496,6 +500,18 @@ def main() -> None:
                 df=df_trader,
                 key="df_trader",
             )
+            df_trader_csv = df_trader.sort_values(by=["pct_chg"], ascending=False)
+            filename_data_csv = path_check.joinpath(f"trader_{str_trading_path()}.csv")
+            i_while_csv = 0
+            while i_while_csv < 3:
+                i_while_csv += 1
+                try:
+                    df_trader_csv.to_csv(path_or_buf=filename_data_csv)
+                    break
+                except PermissionError:
+                    filename_data_csv = path_check.joinpath(
+                        f"trader_{str_trading_path()}_{i_while_csv}.csv"
+                    )
             list_signal_buy_after = df_signal_buy.index.tolist()
             list_signal_sell_after = df_signal_sell.index.tolist()
             list_signal_chg = list()
@@ -506,7 +522,9 @@ def main() -> None:
                 if code not in list_signal_sell_before:
                     list_signal_chg.append(code)
             if list_signal_chg:
-                filename_signal = path_check.joinpath(f"signal_{str_trading_path()}.xlsx")
+                filename_signal = path_check.joinpath(
+                    f"signal_{str_trading_path()}.xlsx"
+                )
                 with pd.ExcelWriter(path=filename_signal, mode="w") as writer:
                     df_signal_sell.to_excel(excel_writer=writer, sheet_name="sell")
                     df_signal_buy.to_excel(excel_writer=writer, sheet_name="buy")
@@ -827,11 +845,6 @@ def main() -> None:
                 print(str_add_stocks)
                 print("=" * 108)
             if frq % 3 == 0:
-                filename_data_csv = path_check.joinpath(
-                    f"trader_{str_trading_path()}.csv"
-                )
-                df_trader_csv = df_trader.sort_values(by=["pct_chg"], ascending=False)
-                df_trader_csv.to_csv(path_or_buf=filename_data_csv)
                 (
                     str_msg_concentration_rate,
                     str_msg_concentration_additional,

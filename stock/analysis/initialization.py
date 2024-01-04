@@ -41,9 +41,7 @@ def init_trader(
     """
     while i_realtime <= 2:
         i_realtime += 1
-        df_realtime = analysis.realtime_quotations(
-            stock_codes=df_trader.index.to_list()
-        )
+        df_realtime = analysis.stock_zh_a_spot_em(stock_codes=df_trader.index.to_list())
         if df_realtime.empty:
             logger.trace("df_realtime is empty")
         else:

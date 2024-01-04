@@ -75,7 +75,7 @@ def realtime_cb() -> str:
             "stk_short_name",
         ]
     )
-    df_stock_realtime = analysis.realtime_quotations(
+    df_stock_realtime = analysis.stock_zh_a_spot_em(
         stock_codes=df_cb["symbol"].to_list()
     )
     df_bonds_realtime = analysis.realtime_tdx(stock_codes=df_cb.index.to_list())
@@ -115,7 +115,7 @@ def realtime_cb() -> str:
     filename_cb_csv = os.path.join(
         path_check, f"convertible_bonds_{str_trading_path()}.csv"
     )
-    df_cb.index.name = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S %f")
+    df_cb.index.name = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     df_cb.sort_values(by=["pnl"], ascending=False, inplace=True)
     df_cb.to_csv(path_or_buf=filename_cb_csv)
     df_cb = df_cb[df_cb["pnl"] >= 0.5]

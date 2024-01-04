@@ -49,6 +49,10 @@ def chip() -> object | DataFrame:
     else:
         df_golden = pd.DataFrame()
         logger.error("load df_golden fail")
+    if analysis.limit.worth_etf():
+        pass
+    else:
+        logger.error("load df_worth_etf fail")
     if analysis.limit.limit_count():
         df_limit = analysis.base.feather_from_file(
             key="df_limit",
@@ -119,10 +123,6 @@ def chip() -> object | DataFrame:
     else:
         df_concentration = pd.DataFrame()
         logger.error("load df_concentration fail")
-    if analysis.limit.worth_etf():
-        pass
-    else:
-        logger.error("load df_worth_etf fail")
     if analysis.convertible_bonds.update_convertible_bonds_basic():
         pass
     else:
@@ -225,7 +225,7 @@ def chip() -> object | DataFrame:
         & (df_stocks_pool["cash_div_end_dt"] >= dt_recent_fiscal_start)
         & (df_stocks_pool["G_price"] >= df_stocks_pool["now_price"])
         & (df_stocks_pool["now_price"] <= NOW_PRICE_MAX)
-        & (df_chip["gold_section"] < 100)
+        & (df_stocks_pool["gold_section"] < 100)
     ]
     df_stocks_pool["factor_count"] = 1
     df_stocks_pool["factor"] = None

@@ -66,6 +66,7 @@ def update_stock_data(
         df_catalogue["end"].fillna(value=dt_init, inplace=True)
         df_catalogue["count"].fillna(value=0, inplace=True)
     df_catalogue = df_catalogue.sample(frac=1)
+    # df_catalogue.sort_index(ascending=True, inplace=True)
     count = len(df_catalogue)
     # quantity = 80000
     i = 0
