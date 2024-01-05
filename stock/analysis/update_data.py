@@ -109,13 +109,31 @@ def update_stock_data(
                 )
                 """
                 if symbol in list_all_stock:
-                    df_delta = client_mootdx.bars(
-                        symbol=stock_code, frequency=frequency, adjust="qfq"
-                    )
+                    i_while_stock = 0
+                    while i_while_stock < 3:
+                        i_while_stock += 1
+                        try:
+                            df_delta = client_mootdx.bars(
+                                symbol=stock_code, frequency=frequency, adjust="qfq"
+                                )
+                        except TimeoutError:
+                            time.sleep(2)
+                        else:
+                            if not df_delta.empty:
+                                break
                 elif symbol in list_all_etf:
-                    df_delta = client_mootdx.bars(
-                        symbol=stock_code, frequency=frequency
-                    )
+                    i_while_etf = 0
+                    while i_while_etf < 3:
+                        i_while_etf += 1
+                        try:
+                            df_delta = client_mootdx.bars(
+                                symbol=stock_code, frequency=frequency
+                                )
+                        except TimeoutError:
+                            time.sleep(2)
+                        else:
+                            if not df_delta.empty:
+                                break
             except httpx.ReadTimeout as e:
                 logger.error(f"\r{str_msg} - [{i_while_delta}] - {repr(e)}\033[K")
                 time.sleep(3)

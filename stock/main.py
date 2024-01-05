@@ -466,13 +466,19 @@ def main() -> None:
                         df_news=df_news,
                         stock=df_trader.at[code, "name"],
                     )
+                correct_rise = df_trader.at[code, "rise"] * (1 + correct_gird)
+                if correct_rise < 3:
+                    correct_rise = 3
+                correct_fall = df_trader.at[code, "fall"] * (1 - correct_gird)
+                if correct_fall < -7.5:
+                    correct_fall = -7.5
                 if (
-                    pct_chg >= df_trader.at[code, "rise"] * (1 + correct_gird)
+                    pct_chg >= correct_rise
                     and df_trader.at[code, "position"] > 0
                 ):
                     df_signal_sell.loc[code] = df_trader.loc[code]
                     list_signal_on_sell.append(code)
-                elif pct_chg <= df_trader.at[code, "fall"] * (1 - correct_gird):
+                elif pct_chg <= correct_fall:
                     df_signal_buy.loc[code] = df_trader.loc[code]
                     list_signal_on_buy.append(code)
                 elif (
