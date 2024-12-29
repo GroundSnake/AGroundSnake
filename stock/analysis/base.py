@@ -1,53 +1,22 @@
 # modified at 2023/05/18 22::25
-from __future__ import annotations
+
 import time
 import re
-import sys
 import math
 import datetime
-import feather
-import pandas as pd
+from pyarrow.feather import read_feather, write_feather
 from pathlib import Path
+import pandas as pd
+from pandas import DataFrame, Series
 from console import fg
-from pandas import DataFrame
-from loguru import logger
-from analysis.mootdx.consts import MARKET_SZ, MARKET_SH, MARKET_BJ
+from analysis.log import logger
 from analysis.const import (
-    dt_am_0910,
-    dt_pm_end,
-    dt_pm_end_last_1T,
-    path_chip,
-    client_ts_pro,
-    filename_config,
-    path_check,
-    dt_history,
+    MARKET_SZ,
+    MARKET_SH,
+    MARKET_BJ,
+    time_pm_end,
+    float_time_sleep,
 )
-
-
-def is_trading_day(dt: datetime.datetime = None) -> bool:
-    if dt is None:
-        dt = datetime.datetime.now().replace(microsecond=0)
-    dt_start = dt - datetime.timedelta(days=14)
-    str_date_start = dt_start.strftime("%Y%m%d")
-    str_date_now = dt.strftime("%Y%m%d")
-    try:
-        df_trade = client_ts_pro.trade_cal(
-            exchange="", start_date=str_date_start, end_date=str_date_now
-        )
-    except Exception as e:
-        print(
-            f"The token is invalid. Please apply for a token at tushare - Error-[{e}]"
-        )
-        sys.exit()
-    df_trade.set_index(keys=["cal_date"], inplace=True)
-    try:
-        if df_trade.at[str_date_now, "is_open"] == 1:
-            return True
-        else:
-            return False
-    except KeyError as e:
-        print(repr(e))
-        sys.exit()
 
 
 def code_ths_to_ts(symbol: str):
@@ -55,10 +24,7 @@ def code_ths_to_ts(symbol: str):
     :param symbol: "sh600519"
     :return: "600519.sh"
     """
-    if isinstance(symbol, str):
-        return symbol[2:] + "." + symbol[0:2].upper()
-    else:
-        return
+    return symbol[2:] + "." + symbol[0:2].upper()
 
 
 def code_ts_to_ths(ts_code: str):
@@ -66,28 +32,48 @@ def code_ts_to_ths(ts_code: str):
     :param ts_code: "600519.sh"
     :return: "sh600519"
     """
-    if isinstance(ts_code, str):
-        return ts_code[-2:].lower() + ts_code[:6]
-    else:
-        return
+    return ts_code[-2:].lower() + ts_code[:6]
 
 
-def get_stock_type(code: str):
+def get_stock_type(code: str) -> str:
     """
     :param code: e.g. "600519"
-    :return: ["sz", "sh", "bj"]
+    :return: ["sz", "sh", "bj", "no"]
     """
-    if re.match(r"30\d{4}|00\d{4}|12\d{4}", code):
+    if re.match(r"^30\d{4}$|^00\d{4}$|^12\d{4}$|^159\d{3}$", code):
         return "sz"
-    elif re.match(r"60\d{4}|68\d{4}|11\d{4}", code):
+    elif re.match(r"^60\d{4}$|^68\d{4}$|^11\d{4}$|^5\d{5}$", code):
         return "sh"
-    elif re.match(r"430\d{3}|83\d{4}|87\d{4}", code):
+    elif re.match(r"^430\d{3}$|^83\d{4}$|^87\d{4}$", code):
         return "bj"
+    else:
+        return "no"
 
 
-def code_to_ths(code: str):
+def code_code_to_ths(code: str):
+    """
+    :param code: e.g. "600519"
+    :return: "sh600519"
+    """
     return f"{get_stock_type(code=code)}{code}"
-    pass
+
+
+def code_ths_to_code(symbol: str):
+    """
+    :param symbol: e.g. "sh600519"
+    :return: "600519"
+    """
+    return symbol[2:]
+
+
+def check_chs_code(symbols: list) -> list:
+    list_return = list()
+    if not isinstance(symbols, list):
+        return list_return
+    for symbol in symbols:
+        if re.match(r"^sz\d{6}$|^sh\d{6}$|^bj\d{6}$", symbol):
+            list_return.append(symbol)
+    return list_return
 
 
 def get_market_code(symbol: str):
@@ -124,10 +110,162 @@ def get_stock_code(symbol: str):
         return None
 
 
-def transaction_unit(price: float, amount: float = 1000) -> int:
+def feather_to_file(df: DataFrame, filename_df: Path | str) -> bool:
+    if not isinstance(filename_df, Path):
+        filename_df = Path(filename_df)
+    if not isinstance(df, DataFrame):
+        return False
+    if df.empty:
+        return False
+    else:
+        write_feather(df=df, dest=str(filename_df))
+        return True
+
+
+def feather_from_file(filename_df: Path | str) -> DataFrame:
+    if not isinstance(filename_df, Path):
+        filename_df = Path(filename_df)
+    if not filename_df.exists():
+        return pd.DataFrame()
+    i_while = 0
+    df = pd.DataFrame()
+    while i_while < 5:
+        i_while += 1
+        try:
+            df = read_feather(source=str(filename_df))
+        except OSError as e:
+            logger.error(f"{filename_df} - Error -{e}")
+            time.sleep(float_time_sleep)
+            if i_while >= 3:
+                filename_df.unlink(missing_ok=True)
+        else:
+            break
+    return df
+
+
+def csv_to_file(df: DataFrame, filename_df: Path) -> bool:
+    filename_df_temp = filename_df
+    i_while = 1
+    while i_while < 3:
+        try:
+            df.to_csv(path_or_buf=filename_df_temp)
+        except PermissionError as e:
+            filename_name = filename_df.stem + f"_{i_while}" + filename_df.suffix
+            filename_df_temp = filename_df.parent.joinpath(filename_name)
+            logger.error(f"{repr(e)}")
+            time.sleep(float_time_sleep)
+        else:
+            break
+        i_while += 1
+    return True
+
+
+def pickle_from_file(filename_ser: Path) -> Series:
+    if filename_ser.exists():
+        try:
+            ser = pd.read_pickle(filepath_or_buffer=filename_ser)
+        except EOFError:
+            ser = pd.Series()
+        if not isinstance(ser, Series):
+            ser = pd.Series()
+    else:
+        ser = pd.Series()
+    return ser
+
+
+def pickle_to_file(ser: Series, filename_ser: Path) -> bool:
+    if isinstance(ser, Series):
+        ser.to_pickle(path=filename_ser)
+        return True
+    else:
+        logger.error(f"item is not Series")
+        return False
+
+
+def feather_delete(filename_df: Path) -> bool:
+    if filename_df.exists():
+        filename_df.unlink(missing_ok=True)
+        logger.trace(f"[{filename_df}] delete success.")
+        return True
+    else:
+        logger.error(f"[{filename_df}] is not exist.")
+        return False
+
+
+def sleep_to_time(dt_time: datetime.datetime, seconds: int | None = None) -> bool:
+    dt_now_sleep = datetime.datetime.now().replace(microsecond=0)
+    if seconds is None:
+        seconds = 2
+    str_sleep_msg_head = f"Waiting - {dt_time.strftime("<%H:%M:%S>")}: "
+    while dt_now_sleep <= dt_time:
+        int_delay = int((dt_time - dt_now_sleep).total_seconds())
+        str_sleep_msg = f"{str_sleep_msg_head} {int_delay} seconds"
+        str_sleep_msg = fg.cyan(str_sleep_msg)
+        str_dt_now_sleep = dt_now_sleep.strftime("<%H:%M:%S>")
+        str_sleep_msg = f"{str_dt_now_sleep}----" + str_sleep_msg
+        print(f"\r{str_sleep_msg}\033[K", end="")  # 进度条
+        if int_delay > seconds:
+            time.sleep(seconds)
+        else:
+            time.sleep(int_delay)
+        dt_now_sleep = datetime.datetime.now().replace(microsecond=0)
+    print()
+    return True
+
+
+def get_financial_period(dt: datetime.datetime, pub: bool = False) -> datetime.datetime:
+    dt_0 = datetime.datetime(year=dt.year, month=1, day=1, hour=5)
+    dt_1 = datetime.datetime(year=dt.year, month=4, day=1, hour=5)
+    dt_2 = datetime.datetime(year=dt.year, month=9, day=1, hour=5)
+    dt_3 = datetime.datetime(year=dt.year, month=10, day=1, hour=5)
+    dt_4y = datetime.datetime(year=dt.year + 1, month=1, day=1, hour=5)
+    dt_return_y1 = datetime.datetime(year=dt.year - 1, month=9, day=30, hour=5)
+    dt_return_y0 = datetime.datetime(year=dt.year - 1, month=12, day=31, hour=5)
+    dt_return_1 = datetime.datetime(year=dt.year, month=3, day=31, hour=5)
+    dt_return_2 = datetime.datetime(year=dt.year, month=6, day=30, hour=5)
+    dt_return_3 = datetime.datetime(year=dt.year, month=9, day=30, hour=5)
+    dt_return_4 = datetime.datetime(year=dt.year, month=12, day=31, hour=5)
+    if dt_0 < dt < dt_1:
+        dt_return = dt_return_y0
+    elif dt_1 < dt < dt_2:
+        dt_return = dt_return_1
+    elif dt_2 < dt < dt_3:
+        dt_return = dt_return_2
+    elif dt_3 < dt < dt_4y:
+        dt_return = dt_return_3
+    else:
+        dt_return = dt_return_4
+    if pub:
+        if dt_return == dt_return_y0:
+            dt_return = dt_return_y1
+        elif dt_return == dt_return_1:
+            dt_return = dt_return_1
+        elif dt_return == dt_return_2:
+            dt_return = dt_return_1
+        elif dt_return == dt_return_3:
+            dt_return = dt_return_2
+        else:
+            dt_return = dt_return_3
+    return dt_return
+
+
+def get_latest_friday():
+    date_now = datetime.date.today()
+    weekday_now = date_now.weekday()
+    offset = (weekday_now - 4) % 7
+    date_friday = date_now - datetime.timedelta(days=offset)
+    dt_friday = datetime.datetime.combine(date_friday, time_pm_end)
+    if weekday_now > 4:
+        dt_friday = dt_friday - datetime.timedelta(days=7)
+    return dt_friday
+
+
+def transaction_unit(price: float, amount: float = 2000) -> int:
+    if price <= 0:
+        return 100
     if price * 100 > amount:
         return 100
-    amount_max = amount * 1.5
+    amount_max = int(amount * 1.5)
     volume = math.ceil(amount / price / 100) * 100
     actual_amount = volume * price
     if actual_amount > amount_max:
@@ -136,157 +274,13 @@ def transaction_unit(price: float, amount: float = 1000) -> int:
         return volume
 
 
-def zeroing_sort(pd_series: pd.Series) -> pd.Series:  # 归零化排序
-    min_unit = pd_series.min()
-    pd_series_out = pd_series.apply(func=lambda x: (x / min_unit - 1).round(4))
-    return pd_series_out
-
-
-def feather_to_file(df: DataFrame, key: str):
-    filename_df = path_chip.joinpath(f"{key}.ftr")
-    feather.write_dataframe(df=df, dest=filename_df)
-    return True
-
-
-def feather_from_file(key: str) -> DataFrame:
-    filename_df = path_chip.joinpath(f"{key}.ftr")
-    if filename_df.exists():
-        df = feather.read_dataframe(source=filename_df)
-        if not isinstance(df, DataFrame):
-            df = pd.DataFrame()
+def get_ratio_value(data: list, frac: float = 0.1, reverse: bool = False) -> float:
+    if len(data) > 0:
+        data = [i for i in data if i > 0]
+        data = sorted(data, reverse=reverse)
     else:
-        df = pd.DataFrame()
-    return df
-
-
-def delete_feather(key: str, path_folder: str = path_chip) -> bool:
-    file_name = path_chip.joinpath(f"{key}.ftr")
-    if file_name.exists():
-        file_name.unlink()
-        logger.trace(f"[{file_name}] delete success.")
-        return True
-    else:
-        logger.error(f"[{file_name}] is not exist.")
-        return False
-
-
-def sleep_to_time(dt_time: datetime.datetime, seconds: int = 1):
-    dt_now_sleep = datetime.datetime.now().replace(microsecond=0)
-    while dt_now_sleep <= dt_time:
-        int_delay = int((dt_time - dt_now_sleep).total_seconds())
-        str_sleep_gm = time.strftime("%H:%M:%S", time.gmtime(int_delay))
-        str_sleep_msg = f"Waiting: {str_sleep_gm}"
-        str_sleep_msg = fg.cyan(str_sleep_msg)
-        str_dt_now_sleep = dt_now_sleep.strftime("<%H:%M:%S>")
-        str_sleep_msg = f"{str_dt_now_sleep}----" + str_sleep_msg
-        print(f"\r{str_sleep_msg}\033[K", end="")  # 进度条
-        time.sleep(seconds)
-        dt_now_sleep = datetime.datetime.now().replace(microsecond=0)
-    print("\n", end="")
-    return True
-
-
-def is_latest_version(key: str) -> bool:
-    dt_now = datetime.datetime.now().replace(microsecond=0)
-    # df_config = read_df_from_db(key="df_config", filename=filename)
-    if filename_config.exists():
-        df_config = feather.read_dataframe(source=filename_config)
-    else:
-        logger.error(f"[{filename_config}] is not exist.")
-        return False
-    if df_config.empty:
-        return False
-    if key not in df_config.index:
-        return False
-    dt_latest = df_config.at[key, "date"]
-    if not isinstance(dt_latest, datetime.date):
-        return False
-    if dt_latest == dt_pm_end:
-        return True
-    else:
-        if dt_am_0910 < dt_now < dt_pm_end:
-            return True
-        elif dt_pm_end_last_1T < dt_now < dt_am_0910:
-            if dt_latest == dt_pm_end_last_1T:
-                return True
-            else:
-                return False
-
-
-def set_version(key: str, dt: datetime.datetime) -> bool:
-    if filename_config.exists():
-        df_config = feather.read_dataframe(source=filename_config)
-    else:
-        df_config = pd.DataFrame(columns=["date"])
-    df_config.at[key, "date"] = dt
-    df_config.sort_values(by="date", ascending=False, inplace=True)
-    feather.write_dataframe(df=df_config, dest=filename_config)
-    return True
-
-
-def is_exist(date_index: datetime.date, columns: str) -> bool:
-    df_date_exist = feather_from_file(key="df_index_exist")
-    try:
-        if df_date_exist.at[date_index, columns] == 1:
-            return True
-        else:
-            return False
-    except KeyError:
-        return False
-
-
-def set_exist(date_index: datetime.date, columns: str) -> bool:
-    df_date_exist = feather_from_file(key="df_index_exist")
-    df_date_exist.at[date_index, columns] = 1
-    feather_to_file(df=df_date_exist, key="df_index_exist")
-    return True
-
-
-def feather_to_excel(path_folder: Path = path_chip):
-    str_dt_history_path = dt_history().strftime("%Y_%m_%d")
-    filename_excel = path_check.joinpath(f"chip_{str_dt_history_path}.xlsx")
-    files = [p.name for p in path_folder.iterdir() if p.is_file()]
-    filename_excel_old = filename_excel
-    i_file = 0
-    while i_file <= 5:
-        i_file += 1
-        try:
-            writer = pd.ExcelWriter(
-                path=filename_excel, mode="a", if_sheet_exists="replace"
-            )
-        except FileNotFoundError:
-            writer = pd.ExcelWriter(path=filename_excel, mode="w")
-            break
-        except PermissionError:
-            file = filename_excel_old.stem + f"_{i_file}" + filename_excel_old.suffix
-            parent = filename_excel_old.parent
-            filename_excel = parent.joinpath(file)
-        else:
-            break
-    for file in files:
-        file_name = path_folder.joinpath(file)
-        # suffix = file_name.suffix
-        key = file_name.stem
-        if file_name.match(path_pattern="*.ftr"):
-            df = feather.read_dataframe(source=file_name)
-            df.to_excel(excel_writer=writer, sheet_name=key)
-            print(f"\r[{key}]\033[K", end="")
-    writer.close()
-    return True
-
-
-def stock_basic_v2() -> pd.DataFrame:
-    df_stock_basic = client_ts_pro.stock_basic(
-        exchange="", list_status="L", fields="ts_code,name,list_date"
-    )
-    if df_stock_basic.empty:
-        return pd.DataFrame()
-    df_stock_basic["symbol"] = df_stock_basic["ts_code"].apply(
-        func=lambda x: x[7:].lower() + x[:6]
-    )
-    df_stock_basic["list_date"] = df_stock_basic["list_date"].apply(
-        func=lambda x: pd.to_datetime(x)
-    )
-    df_stock_basic.set_index(keys="symbol", inplace=True)
-    df_stock_basic = df_stock_basic[["name", "list_date"]]
-    return df_stock_basic
+        return 0.0
+    count = len(data)
+    index_phi = round(count * frac - 1)
+    golden_value = data[index_phi]
+    return golden_value

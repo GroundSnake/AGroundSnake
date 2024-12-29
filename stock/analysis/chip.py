@@ -1,302 +1,203 @@
-# modified at 2023/05/18 22::25
-from __future__ import annotations
 import datetime
-import sys
-import time
-import feather
+from analysis.log import logger
 import pandas as pd
-from pandas import DataFrame
-from loguru import logger
-import analysis.base
-import analysis.unit_net
-import analysis.g_price
-import analysis.limit
-import analysis.update_data
-import analysis.capital
-import analysis.st
-import analysis.industry
-import analysis.index
-import analysis.concentration
-import analysis.dividend
-import analysis.convertible_bonds
-from analysis.const import (
-    phi_b_neg,
-    dt_recent_fiscal_start,
-    INDUSTRY_MAX_MIN,
-    G_PRICE_MAX,
-    NOW_PRICE_MAX,
-    lIST_DAYS_MAX,
-    TOTAL_MV_E_MAX,
-    filename_config,
+from analysis.const_dynamic import (
+    dt_init,
+    dt_balance,
+    dt_pm_end,
+    dt_pm_end_1t,
+    path_chip,
+    path_temp,
+    path_chip_csv,
+    phi_s_net,
+    phi_s,
+    phi_b,
+    pct_c,
+    amplitude_c,
+    turnover_c,
+    stock_top_c,
+    format_dt,
 )
+from analysis.base import feather_from_file, feather_to_file, get_ratio_value
+from analysis.kline_analysis import (
+    get_kline_analysis_low_Frequency,
+    get_kline_analysis_high_Frequency,
+)
+from analysis.rate_gt_price import get_rate_gt_price
 
 
-def chip() -> object | DataFrame:
-    name: str = "df_chip"
-    logger.trace(f"{name} Begin")
-    start_loop_time = time.perf_counter_ns()
-    if analysis.base.is_latest_version(key=name):
-        df_chip = analysis.base.feather_from_file(key=name)
-        logger.trace(f"{name} Break End")
-        return df_chip
-    logger.trace(f"Update {name}")
-    analysis.unit_net.unit_net()
-    if analysis.g_price.golden_price():
-        df_golden = analysis.base.feather_from_file(
-            key="df_golden",
-        )
-        logger.trace("load df_golden success")
-    else:
-        df_golden = pd.DataFrame()
-        logger.error("load df_golden fail")
-    if analysis.limit.worth_etf():
-        pass
-    else:
-        logger.error("load df_worth_etf fail")
-    if analysis.limit.limit_count():
-        df_limit = analysis.base.feather_from_file(
-            key="df_limit",
-        )
-        logger.trace("load df_limit success")
-    else:
-        df_limit = pd.DataFrame()
-        logger.error("load df_limit fail")
-    if analysis.st.st_income():
-        df_st = analysis.base.feather_from_file(
-            key="df_st",
-        )
-        logger.trace("load df_st success")
-    else:
-        df_st = pd.DataFrame()
-        logger.error("load df_st fail")
-    if analysis.dividend.cash_dividend():
-        df_cash_div = analysis.base.feather_from_file(
-            key="df_cash_div",
-        )
-        logger.trace("load df_cash_div success")
-    else:
-        df_cash_div = pd.DataFrame()
-        logger.error("load df_cash_div fail")
-    while True:
-        if analysis.industry.industry_rank():
-            df_industry_rank = analysis.base.feather_from_file(
-                key="df_industry_rank",
-            )
-            df_industry_rank_deviation = df_industry_rank[
-                df_industry_rank["max_min"] >= INDUSTRY_MAX_MIN
-            ]
-            list_industry_code_deviation = df_industry_rank_deviation.index.tolist()
-            if analysis.industry.ths_industry():
-                df_industry = analysis.base.feather_from_file(
-                    key="df_industry",
-                )
-                logger.trace("load df_industry success")
-            else:
-                df_industry = pd.DataFrame()
-                logger.error("load df_industry fail")
-            break
+def get_chip() -> pd.DataFrame:
+    def std_golden_sort(data: list, reverse=False) -> tuple:
+        phi_s_half = phi_s / 2
+        return_value = (0, 0)
+        if len(data) > 0:
+            data = [x for x in data if 0 < x < 100]
+            data = sorted(data, reverse=reverse)
         else:
-            print("Sleep 1 hour")
-            dt_now_delta = datetime.datetime.now().replace(
-                microsecond=0
-            ) + datetime.timedelta(seconds=3600)
-            analysis.base.sleep_to_time(dt_time=dt_now_delta, seconds=10)
-    if analysis.capital.capital():
-        df_cap = analysis.base.feather_from_file(
-            key="df_cap",
+            return return_value
+        c = len(data)
+        phi_min = 0.1
+        phi_max = phi_s_net + phi_min
+        index_phi_max = round(c * phi_max - 1)
+        index_phi_min = round(c * phi_min - 1)
+        golden_max = data[index_phi_max]
+        golden_min = data[index_phi_min]
+        if golden_min > phi_s_half:
+            golden_min = round(phi_s_half, 2)
+        elif golden_min < 10:
+            golden_min = 10
+        if golden_max < phi_s:
+            golden_max = round(phi_s, 2)
+        elif golden_max > phi_b:
+            golden_max = round(phi_b, 2)
+        return_value = (golden_min, golden_max)
+        return return_value
+
+    name = "Chip"
+    filename_chip = path_chip.joinpath("df_chip.ftr")
+    df_chip = feather_from_file(filename_df=filename_chip)
+    dt_now = datetime.datetime.now()
+    if dt_now >= dt_pm_end:
+        dt_end = dt_pm_end
+    else:
+        dt_end = dt_pm_end_1t
+    if not df_chip.empty:
+        if dt_balance < dt_now < dt_pm_end:
+            logger.debug(f"feather from {filename_chip}.--trading time")
+            return df_chip
+        try:
+            dt_stale = datetime.datetime.strptime(
+                df_chip.index.name,
+                format_dt,
+            )
+        except TypeError:
+            dt_stale = dt_init
+        if dt_stale >= dt_end:
+            logger.debug(f"feather from {filename_chip}.")
+            return df_chip
+    filename_chip_temp = path_temp.joinpath("df_chip_temp.ftr")
+    df_chip = feather_from_file(filename_df=filename_chip_temp)
+    if df_chip.empty:
+        df_rate_gt_price = get_rate_gt_price()
+        df_kline_analysis_low = get_kline_analysis_low_Frequency()
+        df_kline_analysis_high = get_kline_analysis_high_Frequency()
+        df_chip = pd.concat(
+            objs=[df_rate_gt_price, df_kline_analysis_low, df_kline_analysis_high],
+            axis=1,
+            join="outer",
         )
-        logger.trace("load df_cap success")
-    else:
-        df_cap = pd.DataFrame()
-        logger.error("load df_cap fail")
-    if analysis.base.is_latest_version(key="df_stocks_in_ssb"):
-        index_ssb = analysis.index.IndexSSB(update=False)
-    else:
-        index_ssb = analysis.index.IndexSSB(update=True)
-        dt_stocks_in_ssb = index_ssb.version()
-        analysis.base.set_version(key="df_stocks_in_ssb", dt=dt_stocks_in_ssb)
-    df_stocks_in_ssb = index_ssb.stocks_in_ssb()
-    if analysis.concentration.concentration():
-        df_concentration = analysis.base.feather_from_file(
-            key="df_concentration",
+        df_chip["rate_gt_price_dt_start"] = df_chip["rate_gt_price_dt_start"].fillna(
+            value=dt_init
         )
-    else:
-        df_concentration = pd.DataFrame()
-        logger.error("load df_concentration fail")
-    if analysis.convertible_bonds.update_convertible_bonds_basic():
-        pass
-    else:
-        logger.error("load df_cb_basic fail")
-    analysis.update_data.update_index_data(symbol="000001")
-    analysis.update_data.update_index_data(symbol="000852")
-    str_pos_ctl_zh = analysis.position(index="sh000001")
-    print(str_pos_ctl_zh)
-    str_pos_ctl_csi1000 = analysis.position(index="sh000852")
-    print(str_pos_ctl_csi1000)
-    if (
-        df_cap.empty
-        or df_stocks_in_ssb.empty
-        or df_st.empty
-        or df_concentration.empty
-        or df_golden.empty
-        or df_limit.empty
-        or df_cash_div.empty
-    ):
-        logger.error("df_chip missing Table entry")
-        sys.exit()
-    df_chip = pd.concat(
-        objs=[
-            df_cap,
-            df_stocks_in_ssb,
-            df_st,
-            df_cash_div,
-            df_concentration,
-            df_industry,
-            df_golden,
-            df_limit,
-        ],
-        axis=1,
-        join="outer",
-    )
-    df_chip.dropna(subset=["name"], inplace=True)
-    df_chip["profit_rate"].fillna(value=0, inplace=True)
-    df_chip["cash_div_tax"].fillna(value=0, inplace=True)
-    df_chip["now_price"].fillna(value=0, inplace=True)
+        df_chip["rate_gt_price_dt_end"] = df_chip["rate_gt_price_dt_end"].fillna(
+            value=dt_init
+        )
+        df_chip["index_code"] = df_chip["index_code"].fillna(value="index_code")
+        df_chip["industry_name"] = df_chip["industry_name"].fillna(
+            value="industry_name"
+        )
+        df_chip.fillna(value=0.0, inplace=True)
+        df_chip["chip"] = "chip"
+        feather_to_file(df=df_chip, filename_df=filename_chip_temp)
+    i = 0
+    count = df_chip.shape[0]
+    dt_rate_end_max = df_chip["rate_gt_price_dt_end"].median()
+    days_mean = df_chip["rate_gt_price_days"].mean()
+    natr = get_ratio_value(df_chip["natr"].tolist(), frac=0.5)
+    rv_10000 = get_ratio_value(df_chip["rv_10000"].tolist(), frac=0.5)
+    if natr < 4.5:
+        natr = 4.5
+    tuple_std = std_golden_sort(data=df_chip["rate_gt_price"].tolist())
+    rate_gt_price_min = tuple_std[0]
+    rate_gt_price_max = tuple_std[1]
+    str_rate_gt_price = f"({rate_gt_price_max}-{rate_gt_price_min})"
+    df_chip = df_chip.sample(frac=1)
+    df_chip.sort_values(by=["chip"], ascending=True, inplace=True)
+    """
+    pearson_corr: 为0表示没有相关性,为1正相关,为-1负相关.
+    pearson_pvalue: 值表示对x和y不相关的零假设的检验(即真实总体相关系数为零)。
+    因此,样本相关系数接近零(即弱相关)将趋向于为您提供较大的p值,
+    而系数接近1或-1(即强正/负相关性)将为您提供较小的p值.
+
+    cosine_sim greater than 0.985, cosine_sim >= 0.985
+    """
     for symbol in df_chip.index:
+        i += 1
+        str_msg = f"[{name}] - [{i:4d}/{count}] - [{symbol}]"
+        if df_chip.at[symbol, "chip"] != "chip":
+            print(f"{str_msg} - Latest.")
+            continue
+        str_chip = ""
+        bool_g_price = False
+        bool_rv_10000 = False
         if (
-            df_chip.at[symbol, "cash_div_tax"] > 0
-            and df_chip.at[symbol, "now_price"] > 0
+            df_chip.at[symbol, "rate_gt_price_dt_end"] >= dt_rate_end_max
+            and df_chip.at[symbol, "rate_gt_price_days"] >= days_mean
+            and rate_gt_price_min
+            < df_chip.at[symbol, "rate_gt_price"]
+            < rate_gt_price_max
         ):
-            df_chip.at[symbol, "dividend_rate"] = round(
-                df_chip.at[symbol, "cash_div_tax"]
-                / df_chip.at[symbol, "now_price"]
-                * 100,
-                2,
+            bool_g_price = True
+        if df_chip.at[symbol, "rv_10000"] > rv_10000:
+            bool_rv_10000 = True
+        if df_chip.at[symbol, "natr"] > natr:
+            str_chip += f"_NATR_{natr}"
+        if (
+            (
+                df_chip.at[symbol, "pearson_corr"] > 0.9
+                or df_chip.at[symbol, "pearson_corr"] < -0.3
             )
+            and df_chip.at[symbol, "pearson_pvalue"] < 0.005
+            and df_chip.at[symbol, "cosine_sim"] > 0.985
+        ):
+            str_chip += "_Industry"
+        if (
+            df_chip.at[symbol, f"rate_daily_up_{pct_c}pct"] > 8
+            and df_chip.at[symbol, f"rate_daily_down_{pct_c}pct"] > 8
+            and df_chip.at[symbol, f"rate_daily_gt{amplitude_c}_amplitude"] > 15
+        ):
+            str_chip += "_Limit"
+        if df_chip.at[symbol, f"rate_concentration_top{stock_top_c}"] > 0:
+            str_chip += "_Concentration"
+        if str_chip != "":
+            if bool_g_price and bool_rv_10000:
+                str_chip = f"Hit__G_price_{str_rate_gt_price}_RV_{rv_10000}{str_chip}"
+            elif bool_g_price:
+                str_chip = f"Failed__G_price_{str_rate_gt_price}{str_chip}"
+            elif bool_rv_10000:
+                str_chip = f"Failed__RV_{rv_10000}{str_chip}"
+            else:
+                str_chip = f"Failed__{str_chip}"
         else:
-            df_chip.at[symbol, "dividend_rate"] = 0
-    analysis.base.feather_to_file(df=df_chip, key=name)
-    df_g_price_1 = df_chip[
-        (df_chip["gold_section"] < 50)
-        & (df_chip["gold_section_volume"].between(19.1, 38.2))
-        & (df_chip["gold_section_price"].between(19.1, 38.2))
-        & (df_chip[f"gold_price_min"] < df_chip[f"now_price"])
-        & (df_chip[f"gold_pct_max_min"] >= 50)
-        & (df_chip[f"gold_date_max"] > df_chip[f"gold_date_min"])
-        & (df_chip["G_price"] <= G_PRICE_MAX)
-    ]
-    df_limit_2 = df_chip[
-        (df_chip["correct_3pct_times"] >= 30)
-        & (df_chip["alpha_pct"] >= 3)
-        & (df_chip["alpha_amplitude"] >= 1)
-        & (df_chip["alpha_turnover"] >= 3)
-    ]
-    df_exceed_industry_3 = df_chip[
-        (df_chip["times_exceed_correct_industry"] >= 60)
-        & (df_chip["mean_exceed_correct_industry"] >= 1.3)
-        & (df_chip["industry_code"].isin(values=list_industry_code_deviation))
-    ]
-    df_concentration_4 = df_chip[
-        (df_chip["rate_concentration"] >= 60)
-        & (df_chip["days_latest_concentration"] <= 7)
-    ]
-    df_stocks_pool = pd.concat(
-        objs=[
-            df_g_price_1,
-            df_limit_2,
-            df_exceed_industry_3,
-            df_concentration_4,
-        ],
-        axis=0,
-        join="outer",
-    )
-    df_stocks_pool = df_stocks_pool[~df_stocks_pool.index.duplicated(keep="first")]
-    list_st = ["A+", "A-", "B+", "C+"]
-    df_stocks_pool = df_stocks_pool[
-        (df_stocks_pool["list_days"] >= lIST_DAYS_MAX)
-        & (df_stocks_pool["correct_7pct_times"] > 1)
-        & (df_stocks_pool["total_mv_E"] <= TOTAL_MV_E_MAX)
-        & (~df_stocks_pool["name"].str.contains("ST").fillna(False))
-        & (df_stocks_pool["ST"].isin(values=list_st))
-        & (~df_stocks_pool.index.str.contains("sh68"))
-        & (~df_stocks_pool.index.str.contains("bj"))
-        & (df_stocks_pool["profit_rate"] >= phi_b_neg)
-        & (df_stocks_pool["dividend_rate"] > 0)
-        & (df_stocks_pool["cash_div_end_dt"] >= dt_recent_fiscal_start)
-        & (df_stocks_pool["G_price"] >= df_stocks_pool["now_price"])
-        & (df_stocks_pool["now_price"] <= NOW_PRICE_MAX)
-        & (df_stocks_pool["gold_section"] < 100)
-    ]
-    df_stocks_pool["factor_count"] = 1
-    df_stocks_pool["factor"] = None
-    for symbol in df_stocks_pool.index:
-        if symbol in df_g_price_1.index:
-            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
-                df_stocks_pool.at[symbol, "factor"] += ",[G_price]"
-                df_stocks_pool.at[symbol, "factor_count"] += 1
-            else:
-                df_stocks_pool.at[symbol, "factor"] = "[G_price]"
-        if symbol in df_limit_2.index:
-            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
-                df_stocks_pool.at[symbol, "factor"] += ",[limit]"
-                df_stocks_pool.at[symbol, "factor_count"] += 1
-            else:
-                df_stocks_pool.at[symbol, "factor"] = "[limit]"
-        if symbol in df_exceed_industry_3.index:
-            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
-                df_stocks_pool.at[symbol, "factor"] += ",[exceed_industry]"
-                df_stocks_pool.at[symbol, "factor_count"] += 1
-            else:
-                df_stocks_pool.at[symbol, "factor"] = "[exceed_industry]"
-        if symbol in df_concentration_4.index:
-            if pd.notnull(df_stocks_pool.at[symbol, "factor"]):
-                df_stocks_pool.at[symbol, "factor"] += ",[concentration]"
-                df_stocks_pool.at[symbol, "factor_count"] += 1
-            else:
-                df_stocks_pool.at[symbol, "factor"] = "[concentration]"
-    # df_stocks_pool = df_stocks_pool[df_stocks_pool["factor_count"] > 2]
-    df_stocks_pool.sort_values(
-        by=["factor_count", "factor"], ascending=False, inplace=True
-    )
-    df_stocks_pool = df_stocks_pool[
-        [
-            "name",
-            "list_days",
-            "correct_7pct_times",
-            "gold_section",
-            "gold_section_price",
-            "gold_section_volume",
-            "G_price",
-            "gold_pct_max_min",
-            "total_mv_E",
-            "industry_code",
-            "industry_name",
-            "ST",
-            "times_exceed_correct_industry",
-            "mean_exceed_correct_industry",
-            "profit_rate",
-            "dividend_rate",
-            "cash_div_end_dt",
-            "factor_count",
-            "factor",
-            "now_price",
+            str_chip = "Failed"
+        df_chip.at[symbol, "chip"] = str_chip
+        feather_to_file(df=df_chip, filename_df=filename_chip_temp)
+        print(f"{str_msg} - Update - [{str_chip}].")
+    if i >= count:
+        dt_max = df_chip["rate_gt_price_dt_end"].max()
+        str_dt_max = dt_max.strftime(format_dt)
+        df_chip.index.rename(name=str_dt_max, inplace=True)
+        filename_chip_csv = path_chip_csv.joinpath("df_chip.csv")
+        df_chip.to_csv(path_or_buf=filename_chip_csv)
+        df_chip = df_chip[
+            [
+                "index_code",
+                "industry_name",
+                "close",
+                "rv_10000",
+                "rate_gt_price",
+                "natr",
+                "bbands_width",
+                f"rate_daily_up_{pct_c}pct",
+                f"rate_daily_down_{pct_c}pct",
+                f"rate_daily_gt{amplitude_c}_amplitude",
+                f"rate_daily_gt{turnover_c}_turnover",
+                f"rate_concentration_top{stock_top_c}",
+                "amplitude_N_days",
+                "chip",
+            ]
         ]
-    ]
-    analysis.base.feather_to_file(df=df_stocks_pool, key="df_stocks_pool")
-    df_config = feather.read_dataframe(source=filename_config)
-    try:
-        df_config_temp = df_config.drop(index=[name])
-    except KeyError as e:
-        print(f"[{name}] is not found in df_config - Error[{repr(e)}]")
-        logger.trace(f"[{name}] is not found in df_config - Error[{repr(e)}]")
-        df_config_temp = df_config.copy()
-    dt_chip = df_config_temp["date"].min()
-    analysis.base.set_version(key=name, dt=dt_chip)
-    if not analysis.base.feather_to_excel():
-        logger.error(f"{name} Save Error")
-    end_loop_time = time.perf_counter_ns()
-    interval_time = (end_loop_time - start_loop_time) / 1000000000
-    str_gm = time.strftime("%H:%M:%S", time.gmtime(interval_time))
-    print(f"Chip analysis takes [{str_gm}]")
-    logger.trace(f"{name} End")
+        feather_to_file(df=df_chip, filename_df=filename_chip)
+        logger.debug(f"feather to {filename_chip}.")
+        filename_chip_temp.unlink(missing_ok=True)
     return df_chip

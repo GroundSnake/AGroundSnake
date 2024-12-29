@@ -1,367 +1,352 @@
-# modified at 2023/05/18 22::25
 import datetime
-import pandas as pd
+from analysis.log import logger
+from console import fg
 from pyecharts.charts import Line, Page
 import pyecharts.options as opts
-from loguru import logger
-import analysis.ashare
-import analysis.base
-from analysis.const import (
+import pandas as pd
+from analysis.const_dynamic import (
     dt_init,
-    time_pm_end,
+    dt_am_start,
     dt_am_1015,
     dt_am_end,
     dt_pm_start,
     dt_pm_end,
-    dt_pm_end_last_1T,
-    all_chs_code,
-    filename_concentration_rate_charts,
-    path_check,
+    path_chip,
+    path_chip_csv,
+    filename_concentration_rate_charts_html,
+    filename_concentration_rate_ftr,
+    filename_concentration_rate_csv,
+    format_dt,
 )
+from analysis.base import feather_from_file, feather_to_file
+from analysis.realtime_quotation import realtime_quotation
+
+# from pyecharts.globals import CurrentConfig
+
+# CurrentConfig.ONLINE_HOST = ''
+dt_now = datetime.datetime.now()
 
 
-def concentration_rate() -> tuple:
-    name: str = f"df_concentration_rate"
-    df_all = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
-    df_amount_sort = df_all.sort_values(by=["amount"], ascending=False)
-    df_mv_sort = df_all.sort_values(by=["total_mv"], ascending=False)
-    top5_stocks = int(round(len(df_all) * 0.05, 0))
-    df_amount_sort_top5 = df_amount_sort.iloc[:top5_stocks]
-    df_amount_sort_tail95 = df_amount_sort.iloc[top5_stocks:]
-    df_mv_sort_top5 = df_mv_sort.iloc[:top5_stocks]
-    amount_all = df_all["amount"].sum() / 100000000
-    mv_all = df_all["total_mv"].sum()
-    mean_all = df_all["total_mv"].mean().round(2)
-    amount_amount_sort_top5 = df_amount_sort_top5["amount"].sum() / 100000000
-    mv_amount_sort_top5 = df_amount_sort_top5["total_mv"].sum()
-    mean_amount_sort_top5 = df_amount_sort_top5["total_mv"].mean().round(2)
-    amount_mv_sort_top5 = df_mv_sort_top5["amount"].sum() / 100000000
-    mv_mv_sort_top5 = df_mv_sort_top5["total_mv"].sum()
-    mean_mv_sort_top5 = df_mv_sort_top5["total_mv"].mean().round(2)
-    turnover_amount_sort_top5 = df_amount_sort_top5["turnover"].mean().round(2)
-    amplitude_amount_sort_top5 = df_amount_sort_top5["amplitude"].mean().round(2)
-    turnover_amount_sort_tail95 = df_amount_sort_tail95["turnover"].mean().round(2)
-    amplitude_amount_sort_tail95 = df_amount_sort_tail95["amplitude"].mean().round(2)
-    if amount_all != 0:
-        rate_amount_amount_sort_top5 = (
-            amount_amount_sort_top5 / amount_all * 100
-        ).round(2)
-        rate_amount_mv_sort_top5 = (amount_mv_sort_top5 / amount_all * 100).round(2)
+def get_concentration_stocks(top: int = 5) -> pd.DataFrame:
+    filename_concentration = path_chip.joinpath(
+        f"df_concentration_top{top}.ftr",
+    )
+    df_concentration_stocks = feather_from_file(filename_df=filename_concentration)
+    if not df_concentration_stocks.empty:
+        global dt_now
+        dt_now = datetime.datetime.now()
+        if dt_am_start <= dt_now <= dt_pm_end:
+            logger.debug(f"feather from {filename_concentration}.----trading time")
+            return df_concentration_stocks
+        try:
+            dt_temp = datetime.datetime.strptime(
+                df_concentration_stocks.index.name, format_dt
+            )
+        except TypeError:
+            dt_temp = dt_init
+        if dt_temp >= dt_pm_end:
+            logger.debug(f"feather from {filename_concentration}.")
+            return df_concentration_stocks
+    df_all = realtime_quotation.get_stocks_a()
+    if df_all.empty:
+        logger.error("df_all is empty")
+        if df_concentration_stocks.empty:
+            return pd.DataFrame()
+        else:
+            return df_concentration_stocks
+    df_all.sort_values(by=["amount"], ascending=False, inplace=True)
+    list_all_stocks = df_all.index.tolist()
+    top_pct = top * 0.01
+    top_n_stocks = int(round(df_all.shape[0] * top_pct, 0))
+    if df_concentration_stocks.empty:
+        df_concentration_stocks = pd.DataFrame(columns=list_all_stocks)
+    df_all["rank_amount"] = df_all["amount"].rank(
+        axis=0,
+        method="min",
+        ascending=False,
+    )
+    df_all["concentration_topN"] = df_all["rank_amount"].apply(
+        func=lambda x: 1 if x <= top_n_stocks else 0
+    )
+    df_concentration_stocks.loc[dt_pm_end] = df_all["concentration_topN"]
+    df_concentration_stocks.fillna(value=0, inplace=True)
+    str_dt_pm_end = dt_pm_end.strftime(format_dt)
+    df_concentration_stocks.index.rename(name=str_dt_pm_end, inplace=True)
+    df_concentration_stocks.sort_index(ascending=True, inplace=True)
+    filename_concentration_csv = path_chip_csv.joinpath(
+        f"df_concentration_top{top}.csv",
+    )
+    df_concentration_stocks.to_csv(path_or_buf=filename_concentration_csv)
+    feather_to_file(df=df_concentration_stocks, filename_df=filename_concentration)
+    logger.debug(f"feather to {filename_concentration}.")
+    return df_concentration_stocks
+
+
+def _grt_realtime_concentration_rate() -> pd.Series:
+    df_all_stocks = realtime_quotation.get_stocks_a()  # 调用实时数据接口
+    ser_realtime_concentration_rate = pd.Series()
+    amount_all = df_all_stocks["amount"].sum()
+    if amount_all <= 0:
+        return ser_realtime_concentration_rate
+    count_all_stocks = df_all_stocks.shape[0]
+    count_top5_stocks = int(round(count_all_stocks * 0.05, 0))
+    dt_temp = datetime.datetime.strptime(
+        df_all_stocks.index.name, "%Y%m%d_%H%M%S"
+    ).replace(second=0, microsecond=0)
+    ser_realtime_concentration_rate.rename(index=dt_temp, inplace=True)
+    df_amount_sort = df_all_stocks.sort_values(by=["amount"], ascending=False)
+    df_amount_sort_top5 = df_amount_sort.iloc[:count_top5_stocks]
+    ser_realtime_concentration_rate["count_all_stocks"] = count_all_stocks
+    ser_realtime_concentration_rate["count_top5_stocks"] = count_top5_stocks
+    ser_realtime_concentration_rate["mv_all"] = round(
+        df_all_stocks["total_mv"].sum(), 3
+    )
+    ser_realtime_concentration_rate["mv_top5_sort_by_amount"] = round(
+        df_amount_sort_top5["total_mv"].sum(),
+        3,
+    )
+    ser_realtime_concentration_rate["amount_all"] = round(amount_all / 100000000, 3)
+    ser_realtime_concentration_rate["amount_top5_sort_by_amount"] = round(
+        df_amount_sort_top5["amount"].sum() / 100000000, 3
+    )
+    ser_realtime_concentration_rate["mean_all"] = round(
+        df_all_stocks["total_mv"].mean(), 3
+    )
+    ser_realtime_concentration_rate["mean_top5_sort_by_amount"] = round(
+        df_amount_sort_top5["total_mv"].mean(), 3
+    )
+    ser_realtime_concentration_rate["rate_mv_top5_sort_by_amount"] = round(
+        ser_realtime_concentration_rate["mv_top5_sort_by_amount"]
+        / ser_realtime_concentration_rate["mv_all"]
+        * 100,
+        3,
+    )
+    ser_realtime_concentration_rate["rate_amount_top5_sort_by_amount"] = round(
+        ser_realtime_concentration_rate["amount_top5_sort_by_amount"]
+        / ser_realtime_concentration_rate["amount_all"]
+        * 100,
+        3,
+    )
+    ser_realtime_concentration_rate["rate_mean_top5_sort_by_amount"] = round(
+        ser_realtime_concentration_rate["mean_all"]
+        / ser_realtime_concentration_rate["mean_top5_sort_by_amount"]
+        * 100,
+        3,
+    )
+    return ser_realtime_concentration_rate
+
+
+def get_concentration_rate() -> None:
+    ser_realtime_concentration_rate = _grt_realtime_concentration_rate()
+    df_concentration_rate = feather_from_file(
+        filename_df=filename_concentration_rate_ftr,
+    )
+    if df_concentration_rate.empty:
+        df_concentration_rate = df_concentration_rate.reindex(
+            columns=ser_realtime_concentration_rate.index
+        )
+        dt_max = dt_am_1015
     else:
-        rate_amount_amount_sort_top5 = 0
-        rate_amount_mv_sort_top5 = 0
+        dt_max = df_concentration_rate.index.max()
+    dt_add = pd.to_datetime(ser_realtime_concentration_rate.name)
+    if dt_am_end < dt_add < dt_pm_start:
+        dt_add = dt_am_end
+    elif dt_add > dt_pm_end:
+        dt_add = dt_pm_end
+    df_concentration_rate.loc[dt_add] = ser_realtime_concentration_rate
+    dt_max = dt_max + datetime.timedelta(seconds=30)
+    if (
+        dt_am_1015 < dt_add < dt_am_end or dt_pm_start < dt_add < dt_pm_end
+    ) and dt_max < dt_add:
+        str_dt_add = dt_add.strftime(format_dt)
+        df_concentration_rate.index.rename(name=str_dt_add, inplace=True)
+        feather_to_file(
+            df=df_concentration_rate, filename_df=filename_concentration_rate_ftr
+        )
+        logger.debug(f"feather to {filename_concentration_rate_ftr}")
+    filename_concentration_rate_csv_temp = filename_concentration_rate_csv
+    i_while_csv = 0
+    while i_while_csv < 3:
+        i_while_csv += 1
+        try:
+            df_concentration_rate.to_csv(
+                path_or_buf=filename_concentration_rate_csv_temp
+            )
+            break
+        except PermissionError:
+            filename_scan_csv_name = (
+                filename_concentration_rate_csv.stem
+                + f"_{i_while_csv}"
+                + filename_concentration_rate_csv.suffix
+            )
+            filename_concentration_rate_csv_temp = (
+                filename_concentration_rate_csv.parent.joinpath(filename_scan_csv_name)
+            )
+    return
 
-    if mv_all != 0:
-        rate_mv_amount_sort_top5 = (mv_amount_sort_top5 / mv_all * 100).round(2)
-        rate_mv_mv_sort_top5 = (mv_mv_sort_top5 / mv_all * 100).round(2)
-    else:
-        rate_mv_amount_sort_top5 = 0
-        rate_mv_mv_sort_top5 = 0
+
+def grt_str_realtime_concentration_rate() -> str:
+    ser_realtime_c_r = _grt_realtime_concentration_rate()
+    if ser_realtime_c_r.empty:
+        logger.error(f"str_realtime_concentration_rate is empty")
+        return ""
+    dt_add = pd.to_datetime(ser_realtime_c_r.name)
     str_msg_concentration = (
-        f"[{round(amount_all, 2)}]"
-        f" - Top{top5_stocks} - A/S:[Amount-{rate_amount_amount_sort_top5:.2f}"
-        f" - MV-{rate_mv_amount_sort_top5:.2f}]"
-        f" - Mean_A/S:[{mean_amount_sort_top5}]"
-        f" - Mean_MV/S:[{mean_mv_sort_top5}]"
+        f"[{fg.red(f'CONC:{ser_realtime_c_r['rate_amount_top5_sort_by_amount']:.2f}%')} - "
+        f"{fg.blue(f"MV_R:{ser_realtime_c_r['rate_mv_top5_sort_by_amount']:.2f}%")} - "
+        f"{fg.green(f"Mean_R:{ser_realtime_c_r['rate_mean_top5_sort_by_amount']:.2f}%")}]"
     )
-    str_msg_additional = (
-        f"T/O:[{turnover_amount_sort_top5:.2f}/{turnover_amount_sort_tail95:.2f}]"
-        f" - AMP:[{amplitude_amount_sort_top5:.2f}/{amplitude_amount_sort_tail95:.2f}]"
-        f" - MV/S: [Amount-{rate_amount_mv_sort_top5} - MV-{rate_mv_mv_sort_top5}]"
-        f" - Mean:[{mean_all}]"
+    str_msg_all = (
+        f"Amount:[{round(ser_realtime_c_r['amount_top5_sort_by_amount'], 2)} / "
+        f"{round(ser_realtime_c_r['amount_all'], 2)}](E) - "
+        f"MV:[{round(ser_realtime_c_r['mv_top5_sort_by_amount']/10000, 2)} / "
+        f"{round(ser_realtime_c_r['mv_all']/10000, 2)}](T) - "
+        f"Mean:[{ser_realtime_c_r['mean_top5_sort_by_amount']} / "
+        f"{ser_realtime_c_r['mean_all']}](E)"
     )
-    tuple_str = (str_msg_concentration, str_msg_additional)
-    df_concentration_rate = analysis.base.feather_from_file(
-        key=name,
+    str_msg_head = f"{dt_add.strftime("<%H:%M:%S>")}"
+    str_msg_count = (
+        f"({ser_realtime_c_r['count_top5_stocks']:4.0f} / "
+        f"{ser_realtime_c_r['count_all_stocks']:4.0f})"
     )
-    dt_now = datetime.datetime.now().replace(microsecond=0)
-    if dt_am_1015 < dt_now < dt_am_end or dt_pm_start < dt_now < dt_pm_end:
-        df_concentration_rate.at[dt_now, "mv_all"] = mv_all
-        df_concentration_rate.at[dt_now, "amount_all"] = amount_all
-        df_concentration_rate.at[dt_now, "mean_all"] = mean_all
-        df_concentration_rate.at[dt_now, "top5_stocks"] = top5_stocks
-        df_concentration_rate.at[dt_now, "rate_mv_mv_sort_top5"] = rate_mv_mv_sort_top5
-        df_concentration_rate.at[dt_now, "mean_mv_sort_top5"] = mean_mv_sort_top5
-        df_concentration_rate.at[
-            dt_now, "rate_amount_amount_sort_top5"
-        ] = rate_amount_amount_sort_top5
-        df_concentration_rate.at[
-            dt_now, "rate_mv_amount_sort_top5"
-        ] = rate_mv_amount_sort_top5
-        df_concentration_rate.at[
-            dt_now, "mean_amount_sort_top5"
-        ] = mean_amount_sort_top5
-        df_concentration_rate.at[
-            dt_now, "turnover_amount_sort_top5"
-        ] = turnover_amount_sort_top5
-        df_concentration_rate.at[
-            dt_now, "turnover_amount_sort_tail95"
-        ] = turnover_amount_sort_tail95
-        df_concentration_rate.at[
-            dt_now, "amplitude_amount_sort_top5"
-        ] = amplitude_amount_sort_top5
-        df_concentration_rate.at[
-            dt_now, "amplitude_amount_sort_tail95"
-        ] = amplitude_amount_sort_tail95
-        df_concentration_rate.at[
-            dt_now, "rate_amount_mv_sort_top5"
-        ] = rate_amount_mv_sort_top5
-
-        analysis.base.feather_to_file(
-            df=df_concentration_rate,
-            key=name,
-        )
-        filename_concentration_rate = path_check.joinpath(f"concentration_rate.csv")
-        df_concentration_rate.to_csv(path_or_buf=filename_concentration_rate)
-    if not df_concentration_rate.empty:
-        x_dt = df_concentration_rate.index.tolist()
-        y_rate_amount_by_amount = df_concentration_rate[
-            "rate_amount_amount_sort_top5"
-        ].tolist()
-        y_rate_mv_by_amount = df_concentration_rate["rate_mv_amount_sort_top5"].tolist()
-        y_rate_amount_by_mv = df_concentration_rate["rate_amount_mv_sort_top5"].tolist()
-        y_rate_mv_by_mv = df_concentration_rate["rate_mv_mv_sort_top5"].tolist()
-        y_min = min(
-            y_rate_amount_by_amount
-            + y_rate_mv_by_amount
-            + y_rate_amount_by_mv
-            + y_rate_mv_by_mv
-        )
-        y_max = max(
-            y_rate_amount_by_amount
-            + y_rate_mv_by_amount
-            + y_rate_amount_by_mv
-            + y_rate_mv_by_mv
-        )
-        line_concentration_rate = Line(
-            init_opts=opts.InitOpts(
-                width="1800px",
-                height="860px",
-                page_title="Concentration Rate",
-            )
-        )
-        line_concentration_rate.add_xaxis(xaxis_data=x_dt)
-        line_concentration_rate.add_yaxis(
-            series_name="concentration_rate",
-            y_axis=y_rate_amount_by_amount,
-            is_symbol_show=False,
-            markpoint_opts=opts.MarkPointOpts(
-                data=[
-                    opts.MarkPointItem(name="最大值", type_="max"),
-                    opts.MarkPointItem(name="最小值", type_="min"),
-                ]
-            ),
-        )
-        line_concentration_rate.add_yaxis(
-            series_name="MV_A/S",
-            y_axis=y_rate_mv_by_amount,
-            is_symbol_show=False,
-            markpoint_opts=opts.MarkPointOpts(
-                data=[
-                    opts.MarkPointItem(name="最大值", type_="max"),
-                    opts.MarkPointItem(name="最小值", type_="min"),
-                ]
-            ),
-        )
-        line_concentration_rate.add_yaxis(
-            series_name="Amount_MV/S",
-            y_axis=y_rate_amount_by_mv,
-            is_symbol_show=False,
-            markpoint_opts=opts.MarkPointOpts(
-                data=[
-                    opts.MarkPointItem(name="最大值", type_="max"),
-                    opts.MarkPointItem(name="最小值", type_="min"),
-                ]
-            ),
-        )
-        line_concentration_rate.add_yaxis(
-            series_name="MV_MV/S",
-            y_axis=y_rate_mv_by_mv,
-            is_symbol_show=False,
-            markpoint_opts=opts.MarkPointOpts(
-                data=[
-                    opts.MarkPointItem(name="最大值", type_="max"),
-                    opts.MarkPointItem(name="最小值", type_="min"),
-                ]
-            ),
-        )
-        line_concentration_rate.set_colors(
-            colors=[
-                "red",
-                "black",
-                "orange",
-                "green",
-            ]
-        )
-        line_concentration_rate.set_global_opts(
-            title_opts=opts.TitleOpts(title="Concentration Rate", pos_left="center"),
-            tooltip_opts=opts.TooltipOpts(trigger="axis"),
-            toolbox_opts=opts.ToolboxOpts(),
-            legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top="48%"),
-            yaxis_opts=opts.AxisOpts(
-                min_=y_min,
-                max_=y_max,
-            ),
-            datazoom_opts=opts.DataZoomOpts(
-                range_start=0,
-                range_end=100,
-            ),
-        )
-        line_mean = Line(
-            init_opts=opts.InitOpts(
-                width="1800px",
-                height="860px",
-                page_title="Mean",
-            )
-        )
-        line_mean.add_xaxis(xaxis_data=x_dt)
-        y_mean_amount_sort_top5 = df_concentration_rate[
-            "mean_amount_sort_top5"
-        ].tolist()
-        y_mean_mv_sort_top5 = df_concentration_rate["mean_mv_sort_top5"].tolist()
-        y_min = min(y_mean_amount_sort_top5 + y_mean_mv_sort_top5)
-        y_max = max(y_mean_amount_sort_top5 + y_mean_mv_sort_top5)
-        line_mean.add_yaxis(
-            series_name="Mean_A/S",
-            y_axis=y_mean_amount_sort_top5,
-            is_symbol_show=False,
-            markpoint_opts=opts.MarkPointOpts(
-                data=[
-                    opts.MarkPointItem(name="最大值", type_="max"),
-                    opts.MarkPointItem(name="最小值", type_="min"),
-                ]
-            ),
-        )
-        line_mean.add_yaxis(
-            series_name="Mean_MV/S",
-            y_axis=y_mean_mv_sort_top5,
-            is_symbol_show=False,
-            markpoint_opts=opts.MarkPointOpts(
-                data=[
-                    opts.MarkPointItem(name="最大值", type_="max"),
-                    opts.MarkPointItem(name="最小值", type_="min"),
-                ]
-            ),
-        )
-        line_mean.set_colors(
-            colors=[
-                "red",
-                "green",
-            ]
-        )
-        line_mean.set_global_opts(
-            title_opts=opts.TitleOpts(title="Mean", pos_left="center"),
-            tooltip_opts=opts.TooltipOpts(trigger="axis"),
-            toolbox_opts=opts.ToolboxOpts(),
-            legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top="48%"),
-            yaxis_opts=opts.AxisOpts(
-                min_=y_min,
-                max_=y_max,
-            ),
-            datazoom_opts=opts.DataZoomOpts(
-                range_start=0,
-                range_end=100,
-            ),
-        )
-        page = Page(
-            page_title="concentration",
-        )
-        page.add(line_concentration_rate, line_mean)
-        page.render(path=filename_concentration_rate_charts)
-        logger.trace(f"{name} End")
-    return tuple_str
+    space_line1 = " " * 43
+    space_line2 = " " * 40
+    space_line3 = " " * 25
+    space_line4 = " " * 5
+    str_return = (
+        f"{space_line1}{str_msg_head}\n "
+        f"{space_line2}{str_msg_count}\n "
+        f"{space_line3}{str_msg_concentration}\n"
+        f"{space_line4}{str_msg_all}"
+    )
+    return str_return
 
 
-def concentration() -> bool:
-    name: str = "df_concentration"
-    if analysis.base.is_latest_version(key=name):
-        logger.trace(f"{name},Break and End")
-        return True
-    df_realtime = analysis.ashare.stock_zh_a_spot_em()  # 调用实时数据接口
-    df_realtime.sort_values(by=["amount"], ascending=False, inplace=True)
-    list_all_stocks = all_chs_code()
-    top5_stocks = int(round(len(list_all_stocks) * 0.05, 0))
-    df_realtime_top5 = df_realtime.iloc[:top5_stocks]
-    df_concentration_old = analysis.base.feather_from_file(
-        key="df_concentration",
+def concentration_rate_chart() -> bool:
+    if get_concentration_rate():
+        logger.error("get_concentration_rate Error!")
+    df_concentration_rate = feather_from_file(
+        filename_df=filename_concentration_rate_ftr,
     )
-    if df_concentration_old.empty:
-        df_concentration = pd.DataFrame(
-            index=list_all_stocks,
-            columns=[
-                "first_concentration",
-                "latest_concentration",
-                "days_first_concentration",
-                "days_latest_concentration",
-                "times_concentration",
-                "rate_concentration",
-            ],
-        )
+    if df_concentration_rate.empty:
+        return False
     else:
-        df_concentration_empty = pd.DataFrame(index=list_all_stocks)
-        df_concentration = pd.concat(
-            objs=[df_concentration_old, df_concentration_empty],
-            axis=1,
-            join="outer",
-        )
-    df_concentration = df_concentration[
-        df_concentration.index.isin(values=list_all_stocks)
-    ]
-    df_concentration["first_concentration"].fillna(value=dt_init, inplace=True)
-    df_concentration["latest_concentration"].fillna(value=dt_init, inplace=True)
-    df_concentration["days_first_concentration"].fillna(value=0, inplace=True)
-    df_concentration["days_latest_concentration"].fillna(value=0, inplace=True)
-    df_concentration["times_concentration"].fillna(value=0, inplace=True)
-    df_concentration["rate_concentration"].fillna(value=0, inplace=True)
-    dt_now = datetime.datetime.now().replace(microsecond=0)
-    if dt_pm_end_last_1T < dt_now <= dt_pm_end:
-        dt_latest = dt_pm_end_last_1T
-    else:
-        dt_latest = dt_pm_end
-    for symbol in df_concentration.index:
-        if symbol in df_realtime_top5.index:
-            if df_concentration.at[symbol, "first_concentration"] == dt_init:
-                df_concentration.at[
-                    symbol, "first_concentration"
-                ] = df_concentration.at[symbol, "latest_concentration"] = dt_latest
-                df_concentration.at[symbol, "times_concentration"] = 1
-            else:
-                if df_concentration.at[symbol, "latest_concentration"] != dt_latest:
-                    df_concentration.at[symbol, "latest_concentration"] = dt_latest
-                    df_concentration.at[symbol, "times_concentration"] += 1
-        if df_concentration.at[symbol, "first_concentration"] != dt_init:
-            df_concentration.at[
-                symbol, "days_first_concentration"
-            ] = days_first_concentration = (
-                dt_now - df_concentration.at[symbol, "first_concentration"]
-            ).days + 1
-            df_concentration.at[symbol, "days_latest_concentration"] = (
-                dt_now - df_concentration.at[symbol, "latest_concentration"]
-            ).days + 1
-            # 修正除数，尽可能趋近交易日
-            days_first_concentration = (
-                days_first_concentration // 7 * 5 + days_first_concentration % 7
+        try:
+            dt_stale = datetime.datetime.strptime(
+                df_concentration_rate.index.name, format_dt
             )
-            if days_first_concentration > 0:
-                df_concentration.at[symbol, "rate_concentration"] = round(
-                    df_concentration.at[symbol, "times_concentration"]
-                    / days_first_concentration
-                    * 100,
-                    2,
-                )
-    df_concentration.sort_values(
-        by=["times_concentration"], ascending=False, inplace=True
-    )
-    analysis.base.feather_to_file(
-        df=df_concentration,
-        key="df_concentration",
-    )
-    dt_concentration_date = df_concentration["latest_concentration"].max(skipna=True)
-    if dt_concentration_date > dt_latest:
-        logger.error(
-            f"Error - dt_concentration_date[{dt_concentration_date}] greater then date_latest"
+        except ValueError:
+            logger.error("df_concentration_rate.index.name is empty.")
+            dt_stale = datetime.datetime.now()
+    str_dt_stale = f"<{dt_stale.time()}>"
+    x_dt = df_concentration_rate.index.tolist()
+    y_rate_mv_top5_sort_by_amount = df_concentration_rate[
+        "rate_mv_top5_sort_by_amount"
+    ].tolist()
+    y_rate_amount_top5_sort_by_amount = df_concentration_rate[
+        "rate_amount_top5_sort_by_amount"
+    ].tolist()
+    y_rate_min = min(y_rate_mv_top5_sort_by_amount + y_rate_amount_top5_sort_by_amount)
+    y_rate_max = max(y_rate_mv_top5_sort_by_amount + y_rate_amount_top5_sort_by_amount)
+    line_rate = Line(
+        init_opts=opts.InitOpts(
+            width="1800px",
+            height="860px",
+            page_title="Concentration Rate",
         )
-        dt_concentration_date = dt_latest
-    dt_concentration = datetime.datetime.combine(dt_concentration_date, time_pm_end)
-    analysis.base.set_version(key=name, dt=dt_concentration)
+    )
+    line_rate.add_xaxis(xaxis_data=x_dt)
+    line_rate.add_yaxis(
+        series_name="CONC",
+        y_axis=y_rate_amount_top5_sort_by_amount,
+        is_symbol_show=False,
+        markpoint_opts=opts.MarkPointOpts(
+            data=[
+                opts.MarkPointItem(name="最大值", type_="max"),
+                opts.MarkPointItem(name="最小值", type_="min"),
+            ]
+        ),
+    )
+    line_rate.add_yaxis(
+        series_name="MV_R",
+        y_axis=y_rate_mv_top5_sort_by_amount,
+        is_symbol_show=False,
+        markpoint_opts=opts.MarkPointOpts(
+            data=[
+                opts.MarkPointItem(name="最大值", type_="max"),
+                opts.MarkPointItem(name="最小值", type_="min"),
+            ]
+        ),
+    )
+    line_rate.set_colors(
+        colors=[
+            "red",
+            "blue",
+            "green",
+        ]
+    )
+    line_rate.set_global_opts(
+        title_opts=opts.TitleOpts(title="Concentration Rate", pos_left="center"),
+        tooltip_opts=opts.TooltipOpts(trigger="axis"),
+        toolbox_opts=opts.ToolboxOpts(),
+        legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top="48%"),
+        yaxis_opts=opts.AxisOpts(
+            min_=y_rate_min,
+            max_=y_rate_max,
+        ),
+        datazoom_opts=opts.DataZoomOpts(
+            range_start=0,
+            range_end=100,
+        ),
+    )
+    y_rate_mean_top5_sort_by_amount = df_concentration_rate[
+        "rate_mean_top5_sort_by_amount"
+    ].tolist()
+    y_rate_mean_min = min(y_rate_mean_top5_sort_by_amount)
+    y_rate_mean_max = max(y_rate_mean_top5_sort_by_amount)
+    line_rate_mean = Line(
+        init_opts=opts.InitOpts(
+            width="1800px",
+            height="860px",
+            page_title="Mean Rate",
+        )
+    )
+    line_rate_mean.add_xaxis(xaxis_data=x_dt)
+    line_rate_mean.add_yaxis(
+        series_name="Mean_R",
+        y_axis=y_rate_mean_top5_sort_by_amount,
+        is_symbol_show=False,
+        markpoint_opts=opts.MarkPointOpts(
+            data=[
+                opts.MarkPointItem(name="最大值", type_="max"),
+                opts.MarkPointItem(name="最小值", type_="min"),
+            ]
+        ),
+    )
+    line_rate_mean.set_colors(
+        colors=[
+            "red",
+            "blue",
+            "green",
+        ]
+    )
+    line_rate_mean.set_global_opts(
+        title_opts=opts.TitleOpts(title="Mean Rate", pos_left="center"),
+        tooltip_opts=opts.TooltipOpts(trigger="axis"),
+        toolbox_opts=opts.ToolboxOpts(),
+        legend_opts=opts.LegendOpts(orient="vertical", pos_right=0, pos_top="48%"),
+        yaxis_opts=opts.AxisOpts(
+            min_=y_rate_mean_min,
+            max_=y_rate_mean_max,
+        ),
+        datazoom_opts=opts.DataZoomOpts(
+            range_start=0,
+            range_end=100,
+        ),
+    )
+    page = Page(
+        page_title=f"Concentration {str_dt_stale}",
+    )
+    page.add(line_rate, line_rate_mean)
+    page.render(path=filename_concentration_rate_charts_html)
     return True
